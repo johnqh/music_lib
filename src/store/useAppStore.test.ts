@@ -1,19 +1,11 @@
-import 'fake-indexeddb/auto';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { testStoreContext } from '../test/store-context.js';
 import { createAppStore } from './useAppStore.js';
-import { ScoreSmithDb } from '../services/persistence/db.js';
-import { resetProvider } from '../services/generation/registry.js';
 import { changeMetadataCommand } from '../domain/commands/structure-commands.js';
 import { twinkleScore } from '../test/fixtures.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
 
-let db: ScoreSmithDb;
-let dbCounter = 0;
 
-afterEach(async () => {
-  resetProvider();
-  await db?.delete();
-});
 
 const REQUEST: GenerateScoreRequest = {
   prompt: 'Create a gentle eight-measure piano piece in A minor',
@@ -23,9 +15,7 @@ const REQUEST: GenerateScoreRequest = {
 
 describe('useAppStore (integration)', () => {
   it('walks the spec §39 happy path across every slice: new project -> generate -> select+regenerate -> accept -> manual edit -> undo/redo -> save', async () => {
-    dbCounter += 1;
-    db = new ScoreSmithDb(`scoresmith-test-app-store-${dbCounter}`);
-    const store = createAppStore({ db });
+    const store = createAppStore({ context: testStoreContext() });
 
     // 1-2. Create a new project.
     await store.getState().newProject({ name: 'A Minor Piece' });
@@ -86,16 +76,14 @@ describe('useAppStore (integration)', () => {
     expect(store.getState().error).toBeNull();
   });
 
-  it('createAppStore() defaults to a real ScoreSmithDb without throwing at construction time', () => {
-    expect(() => createAppStore()).not.toThrow();
+  it('createAppStore constructs against an injected context without throwing', () => {
+    expect(() => createAppStore({ context: testStoreContext() })).not.toThrow();
   });
 
   it('gives every store its own HistoryManager (no cross-store undo bleed)', async () => {
-    const dbA = new ScoreSmithDb('scoresmith-test-history-isolation-a');
-    const dbB = new ScoreSmithDb('scoresmith-test-history-isolation-b');
-    try {
-      const storeA = createAppStore({ db: dbA });
-      const storeB = createAppStore({ db: dbB });
+    {
+      const storeA = createAppStore({ context: testStoreContext() });
+      const storeB = createAppStore({ context: testStoreContext() });
       storeA.getState().setScore(twinkleScore());
       storeB.getState().setScore(twinkleScore());
 
@@ -104,9 +92,6 @@ describe('useAppStore (integration)', () => {
       expect(storeA.getState().canUndo).toBe(true);
       expect(storeB.getState().canUndo).toBe(false);
       expect(storeB.getState().score?.metadata.title).toBe('Twinkle Twinkle Little Star');
-    } finally {
-      await dbA.delete();
-      await dbB.delete();
     }
   });
 });

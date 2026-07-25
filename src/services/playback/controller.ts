@@ -385,5 +385,25 @@ export function createPlaybackController(engine: PlaybackEngine, store: Playback
   return new PlaybackController(engine, store);
 }
 
-/** The app's single running controller, wired to the real Tone engine and the app-wide store. */
-export const playbackController: PlaybackController = createPlaybackController(new TonePlaybackEngine(), useAppStore);
+let singleton: PlaybackController | null = null;
+
+function realController(): PlaybackController {
+  if (!singleton) {
+    singleton = createPlaybackController(new TonePlaybackEngine(), useAppStore);
+  }
+  return singleton;
+}
+
+/**
+ * The app's single running controller, wired to the real Tone engine and
+ * the app-wide store — constructed lazily on first property access (a
+ * Proxy) so importing this module neither builds Tone nodes nor requires
+ * `initializeAppStore` to have run yet.
+ */
+export const playbackController: PlaybackController = new Proxy({} as PlaybackController, {
+  get(_target, prop) {
+    const controller = realController();
+    const value = Reflect.get(controller, prop, controller);
+    return typeof value === 'function' ? value.bind(controller) : value;
+  },
+});

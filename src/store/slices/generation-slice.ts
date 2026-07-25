@@ -13,12 +13,7 @@ import type {
   PrepareRegenerationOptions,
   PreparedRegenerationRequest,
 } from '../../services/regeneration/controller.js';
-import { getProvider } from '../../services/generation/registry.js';
-import {
-  sanitizeGeneratedScore,
-  validateRegenerateRegionResult,
-  GenerationValidationError,
-} from '../../services/generation/validate-response.js';
+import { ApiGenerationProvider, type StoreContext } from '../context.js';
 import type { GenerateScoreRequest, RegenerationCandidate } from '@sudobility/music_types';
 import type { ScoreFragment } from '../../domain/score/fragment.js';
 import { measuresInRange } from '../../domain/score/queries.js';
@@ -60,7 +55,7 @@ export type GenerationSlice = {
 
   /** Recomputes `mode` from `selection` via `deriveGenerationMode`. Called by `selection-slice`'s mutators after every selection change; not normally called directly by UI code. */
   syncModeFromSelection: (selection: ScoreSelection) => void;
-  /** Generates a brand-new score from `params` and adopts it (spec §39 items 3-5): validated/repaired via `sanitizeGeneratedScore`, then `setScore(..., { resetHistory: true })`. */
+  /** Generates a brand-new score from `params` and adopts it (spec §39 items 3-5): validated/repaired server-side by music_api, then `setScore(..., { resetHistory: true })`. */
   generate: (params: GenerateScoreRequest) => Promise<void>;
   /** Requests 1-3 regeneration candidates for the current selection (spec §12 items 1-6); does not touch the committed score. Throws no further than setting `error` if the selection isn't regenerable or the provider rejects the request. */
   regenerate: (instruction: string, options?: PrepareRegenerationOptions) => Promise<void>;
@@ -90,12 +85,11 @@ export type GenerationSlice = {
   cancel: () => void;
 };
 
-export const createGenerationSlice: StateCreator<
-  AppState,
-  [['zustand/immer', never]],
-  [],
-  GenerationSlice
-> = (set, get) => {
+export function createGenerationSlice(
+  context: StoreContext
+): StateCreator<AppState, [['zustand/immer', never]], [], GenerationSlice> {
+  const provider = context.provider ?? new ApiGenerationProvider(context);
+  return (set, get) => {
   // `requestToken`/`abortController` guard against out-of-order responses:
   // `generate`/`regenerate` are async and there's nothing stopping a
   // component from firing a second call (a new prompt, a revised
@@ -150,9 +144,10 @@ export const createGenerationSlice: StateCreator<
         state.error = null;
       });
       try {
-        const result = await getProvider().generateScore(params, signal);
+        const result = await provider.generateScore(params, signal);
         if (token !== requestToken) return; // superseded by a newer generate()/regenerate() call
-        const { score } = sanitizeGeneratedScore(result.score);
+        // Server-side sanitize already ran (music_api); the provider re-parsed the shape.
+        const score = result.score;
         get().setScore(score, { resetHistory: true });
         set((state) => {
           state.pending = false;
@@ -203,7 +198,7 @@ export const createGenerationSlice: StateCreator<
 
       try {
         const prepared = prepareRegenerationRequest(score, selection, instruction, options);
-        const rawResult = await getProvider().regenerateRegion(prepared, signal);
+        const rawResult = await provider.regenerateRegion(prepared, signal);
         if (token !== requestToken) return; // superseded by a newer generate()/regenerate() call
         // spec §12/§37.8: every regenerated result is validated before any
         // candidate is ever previewed/stored -- a malformed or structurally
@@ -211,7 +206,8 @@ export const createGenerationSlice: StateCreator<
         // doesn't exactly fill its own duration) must never reach
         // `candidates`/`previewFragment`, since accepting it would corrupt
         // the committed score once spliced in.
-        const result = validateRegenerateRegionResult(score, rawResult);
+        // Server-side per-candidate validation already ran (music_api); shape re-parsed by the provider.
+        const result = rawResult;
         const first = result.candidates[0] ?? null;
         set((state) => {
           state.pending = false;
@@ -324,6 +320,7 @@ export const createGenerationSlice: StateCreator<
     },
   };
 };
+}
 
 /** True for the `AbortError` a `MusicGenerationProvider` call rejects with when its `AbortSignal` fires (both the mock provider's `throwIfAborted` and the DOM `fetch`/`AbortController` convention use this name). Cancellations from `beginRequest()` superseding an in-flight call are intentionally silent — never surfaced via `error` — since they reflect the *user* moving on to a newer request, not a failure. */
 function isAbortError(error: unknown): boolean {
@@ -336,7 +333,6 @@ function isAbortError(error: unknown): boolean {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof GenerationValidationError) return error.message;
   if (error instanceof Error) return error.message;
   return String(error);
 }

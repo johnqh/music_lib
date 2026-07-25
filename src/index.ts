@@ -82,23 +82,19 @@ export * from './adapters/musicxml/duration-map.js';
 
 // services
 export * from './services/errors.js';
-export * from './services/generation/registry.js';
-export * from './services/generation/validate-response.js';
 export * from './services/import-export/download.js';
 export * from './services/import-export/midi-service.js';
 export * from './services/import-export/musicxml-service.js';
 export * from './services/perf/benchmark.js';
-export * from './services/persistence/db.js';
-export * from './services/persistence/projects.js';
-export * from './services/persistence/samples.js';
-export * from './services/persistence/settings.js';
 export * from './services/persistence/autosave.js';
-export * from './services/persistence/migrations.js';
 export * from './services/playback/types.js';
 export * from './services/playback/controller.js';
 export * from './services/quantization/quantize-service.js';
 export * from './services/regeneration/controller.js';
 
 // store
+export * from './store/context.js';
+export * from './services/prefs.js';
+export * from './templates/index.js';
 export * from './store/useAppStore.js';
 export * from './store/selectors.js';

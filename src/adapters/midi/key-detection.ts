@@ -10,7 +10,25 @@
  */
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { KeySignature, NoteEvent } from '@sudobility/music_types';
-import { keySignatureForTonicPitchClass } from '../../services/generation/music-theory.js';
+// Inlined from the deleted services/generation/music-theory.ts (mock stack
+// removed in Phase 2); pitch-class math only.
+function majorTonicPitchClass(fifths: number): number {
+  return (((7 * fifths) % 12) + 12) % 12;
+}
+
+/** The `KeySignature` (fifths -7..7) whose tonic is `pitchClass` in `mode`. */
+function keySignatureForTonicPitchClass(
+  pitchClass: number,
+  mode: 'major' | 'minor'
+): import('@sudobility/music_types').KeySignature {
+  const majorPitchClass = mode === 'major' ? pitchClass : (pitchClass + 3) % 12;
+  for (let fifths = -7; fifths <= 7; fifths += 1) {
+    if (majorTonicPitchClass(fifths) === majorPitchClass) {
+      return { fifths, mode };
+    }
+  }
+  throw new Error(`keySignatureForTonicPitchClass: no key signature found for pitch class ${pitchClass}`);
+}
 
 /** Krumhansl-Kessler major-key profile (tonic at index 0), a canonical perceptual "fit" weighting per scale degree. */
 const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];

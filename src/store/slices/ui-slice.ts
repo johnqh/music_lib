@@ -7,14 +7,12 @@
 import type { StateCreator } from 'zustand';
 import { createId } from '../../domain/score/ids.js';
 import type { DurationName } from '@sudobility/music_types';
-import { DEFAULT_MOCK_SEED, setMockSeed } from '../../services/generation/registry.js';
 import type { AppState } from '../useAppStore.js';
 
 export type ViewMode = 'notation' | 'piano-roll';
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 export type DevSettings = {
-  seed: string;
   showIds: boolean;
   showTicks: boolean;
   /** Spec §33: "show measure boundaries". */
@@ -34,10 +32,7 @@ export type Toast = { id: string; message: string; severity: ToastSeverity; acti
 
 const DEFAULT_DEV_SETTINGS: DevSettings = {
   // Shares registry.ts's DEFAULT_MOCK_SEED (rather than a locally hardcoded
-  // string) so the seed this panel *displays* as the default can never
-  // silently disagree with the seed the registry's provider actually boots
   // with (see registry.ts's DEFAULT_MOCK_SEED doc comment).
-  seed: DEFAULT_MOCK_SEED,
   showIds: false,
   showTicks: false,
   showMeasureBoundaries: false,
@@ -61,7 +56,7 @@ export type UiSlice = {
   setZoom: (zoom: number) => void;
   setSnapGrid: (grid: DurationName) => void;
   setDeveloperMode: (enabled: boolean) => void;
-  /** Merges `patch` into `devSettings`; changing `seed` also re-seeds the generation provider registry (`services/generation/registry.ts`) so the next generate/regenerate call picks it up. */
+  /** Merges `patch` into `devSettings`. */
   setDevSettings: (patch: Partial<DevSettings>) => void;
   openDialog: (id: string) => void;
   closeDialog: (id: string) => void;
@@ -109,7 +104,6 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
     });
   },
   setDevSettings: (patch) => {
-    if (patch.seed !== undefined) setMockSeed(patch.seed);
     set((state) => {
       Object.assign(state.devSettings, patch);
     });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 import { changeMetadataCommand } from '../../domain/commands/structure-commands.js';
 import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
@@ -8,7 +9,7 @@ import { twinkleScore } from '../../test/fixtures.js';
 describe('score-slice', () => {
   describe('setScore', () => {
     it('adopts the score, recomputes validationIssues, and resets history by default', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
 
       store.getState().setScore(score);
@@ -23,7 +24,7 @@ describe('score-slice', () => {
     });
 
     it('clears any prior undo/redo history when resetHistory is not false', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'Renamed' }));
       expect(store.getState().canUndo).toBe(true);
@@ -33,7 +34,7 @@ describe('score-slice', () => {
     });
 
     it('keeps existing history when resetHistory is false', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'Renamed' }));
       expect(store.getState().canUndo).toBe(true);
@@ -45,7 +46,7 @@ describe('score-slice', () => {
 
   describe('dispatchCommand', () => {
     it('runs the command, updates score/validationIssues, mirrors undo/redo state, and marks the project dirty', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
 
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
@@ -60,13 +61,13 @@ describe('score-slice', () => {
     });
 
     it('is a no-op when there is no score loaded', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
       expect(store.getState().score).toBeNull();
     });
 
     it('recomputes validationIssues after a mutation that changes the score', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
       store.getState().setScore(score);
       const firstNoteId = score.tracks[0].measures[0].voices[0].events[0].id;
@@ -81,7 +82,7 @@ describe('score-slice', () => {
 
   describe('undo/redo', () => {
     it('undo reverts the most recent command and updates the undo/redo mirrors', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
 
@@ -95,7 +96,7 @@ describe('score-slice', () => {
     });
 
     it('redo re-applies an undone command', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
       store.getState().undo();
@@ -109,7 +110,7 @@ describe('score-slice', () => {
     });
 
     it('undo/redo are no-ops when there is nothing to undo/redo', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       const before = store.getState().score;
 
@@ -120,7 +121,7 @@ describe('score-slice', () => {
     });
 
     it('marks the project dirty on undo and redo', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
       store.setState((state) => {

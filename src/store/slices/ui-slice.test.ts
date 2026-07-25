@@ -1,14 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
-import { getProvider, resetProvider } from '../../services/generation/registry.js';
-
-afterEach(() => {
-  resetProvider();
-});
 
 describe('ui-slice', () => {
   it('defaults to notation view, system theme, zoom 1, quarter-note snap, developer mode off', () => {
-    const store = createAppStore();
+    const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
     expect(state.view).toBe('notation');
     expect(state.themeMode).toBe('system');
@@ -20,7 +16,7 @@ describe('ui-slice', () => {
   });
 
   it('simple setters write their own field', () => {
-    const store = createAppStore();
+    const store = createAppStore({ context: testStoreContext() });
     store.getState().setView('piano-roll');
     expect(store.getState().view).toBe('piano-roll');
     store.getState().setThemeMode('dark');
@@ -35,23 +31,17 @@ describe('ui-slice', () => {
 
   describe('setDevSettings', () => {
     it('merges the patch into devSettings', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setDevSettings({ showIds: true });
       expect(store.getState().devSettings.showIds).toBe(true);
       expect(store.getState().devSettings.showTicks).toBe(false); // untouched
     });
 
-    it('changing the seed re-seeds the generation provider registry', () => {
-      const store = createAppStore();
-      store.getState().setDevSettings({ seed: 'ui-slice-test-seed' });
-      expect(store.getState().devSettings.seed).toBe('ui-slice-test-seed');
-      expect(getProvider().id).toBe('mock');
-    });
   });
 
   describe('dialogs', () => {
     it('openDialog/closeDialog/toggleDialog track per-id open state', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().openDialog('newProject');
       expect(store.getState().dialogs.newProject).toBe(true);
 
@@ -67,7 +57,7 @@ describe('ui-slice', () => {
 
   describe('toasts', () => {
     it('pushToast enqueues a toast and returns its id; dismissToast removes it', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const id = store.getState().pushToast({ message: 'Saved' });
       expect(store.getState().toasts).toHaveLength(1);
       expect(store.getState().toasts[0]).toEqual({ id, message: 'Saved', severity: 'info' });
@@ -77,7 +67,7 @@ describe('ui-slice', () => {
     });
 
     it('pushToast defaults severity to "info" but honors an explicit one', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().pushToast({ message: 'Uh oh', severity: 'error' });
       expect(store.getState().toasts[0].severity).toBe('error');
     });

@@ -1,25 +1,15 @@
-import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../../store/useAppStore.js';
-import { ScoreSmithDb } from '../persistence/db.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import { addMeasureCommand } from '../../domain/commands/structure-commands.js';
 import { createPlaybackController, PlaybackController } from './controller.js';
 import type { PlaybackStoreApi } from './controller.js';
 import type { PlaybackEngine, PlaybackObserver } from './types.js';
 
-let db: ScoreSmithDb;
-let dbCounter = 0;
-
 function makeStore(): PlaybackStoreApi {
-  dbCounter += 1;
-  db = new ScoreSmithDb(`scoresmith-test-controller-${dbCounter}`);
-  return createAppStore({ db });
+  return createAppStore({ context: testStoreContext() });
 }
-
-afterEach(async () => {
-  await db?.delete();
-});
 
 /**
  * A fully-spied `PlaybackEngine` fake — no Tone.js/real engine involved; the

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 
 describe('playback-slice', () => {
   it('starts stopped, at tick 0, with no active notes/loop, unit tempo, metronome off, full volume', () => {
-    const store = createAppStore();
+    const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
     expect(state.state).toBe('stopped');
     expect(state.positionTick).toBe(0);
@@ -15,7 +16,7 @@ describe('playback-slice', () => {
   });
 
   it('every setter writes exactly its own field', () => {
-    const store = createAppStore();
+    const store = createAppStore({ context: testStoreContext() });
 
     store.getState().setPlaybackState('playing');
     expect(store.getState().state).toBe('playing');

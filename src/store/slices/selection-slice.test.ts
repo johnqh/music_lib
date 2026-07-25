@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 import { emptySelection } from '../../domain/selection/types.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
@@ -6,7 +7,7 @@ import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 describe('selection-slice', () => {
   describe('setSelection / clearSelection', () => {
     it('replaces the selection outright and clears back to empty', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const selection = { eventIds: ['a'], measureIds: [], trackIds: [] };
 
       store.getState().setSelection(selection);
@@ -17,7 +18,7 @@ describe('selection-slice', () => {
     });
 
     it('derives generation mode "regenerate" from a non-empty selection, "generate" from empty', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       expect(store.getState().mode).toBe('generate');
 
       store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
@@ -28,7 +29,7 @@ describe('selection-slice', () => {
     });
 
     it('a bare track-only selection stays in "generate" mode (no tick content selected)', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setSelection({ eventIds: [], measureIds: [], trackIds: ['track-1'] });
       expect(store.getState().mode).toBe('generate');
     });
@@ -36,7 +37,7 @@ describe('selection-slice', () => {
 
   describe('toggleEvent', () => {
     it('adds an id not yet selected, and removes one already selected', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
 
       store.getState().toggleEvent('note-1');
       expect(store.getState().selection.eventIds).toEqual(['note-1']);
@@ -51,7 +52,7 @@ describe('selection-slice', () => {
 
   describe('selectMeasures / selectTrack', () => {
     it('selectMeasures replaces the selection with only those measure ids', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store
         .getState()
         .setSelection({ eventIds: ['stale'], measureIds: [], trackIds: ['stale-track'] });
@@ -66,7 +67,7 @@ describe('selection-slice', () => {
     });
 
     it('selectTrack replaces the selection with only that track id', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store
         .getState()
         .setSelection({ eventIds: ['stale'], measureIds: ['stale-measure'], trackIds: [] });
@@ -83,7 +84,7 @@ describe('selection-slice', () => {
 
   describe('copySelection / cutSelection / paste', () => {
     it('copySelection copies selected note events (skipping stale/unresolvable ids) to the clipboard', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
       store.getState().setScore(score);
       const notes = score.tracks[0].measures[0].voices[0].events;
@@ -102,7 +103,7 @@ describe('selection-slice', () => {
     });
 
     it('copySelection is a no-op when nothing selected resolves to a note', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().setSelection({ eventIds: ['nonexistent'], measureIds: [], trackIds: [] });
 
@@ -112,7 +113,7 @@ describe('selection-slice', () => {
     });
 
     it('cutSelection copies then deletes the selected notes as one undoable command, and clears the selection', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
       store.getState().setScore(score);
       const noteId = score.tracks[0].measures[0].voices[0].events[0].id;
@@ -132,14 +133,14 @@ describe('selection-slice', () => {
     });
 
     it('cutSelection is a no-op when nothing selected resolves to a note', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().cutSelection();
       expect(store.getState().canUndo).toBe(false);
     });
 
     it('paste inserts the clipboard notes onto the currently-selected track at the given anchor tick', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       const score = twoTrackScore();
       store.getState().setScore(score);
       const trebleId = score.tracks[0].id;
@@ -165,7 +166,7 @@ describe('selection-slice', () => {
     });
 
     it('paste is a no-op when the clipboard is empty', () => {
-      const store = createAppStore();
+      const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       store.getState().paste();
       expect(store.getState().canUndo).toBe(false);
