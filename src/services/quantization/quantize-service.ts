@@ -30,7 +30,7 @@ function createRequestId(): string {
 /** Constructs the worker (module-worker URL form, as Vite requires for static analysis); returns `null` if construction throws (e.g. a restrictive CSP). */
 function defaultCreateWorker(): Worker | null {
   try {
-    return new Worker(new URL('../../workers/quantize.worker.ts', import.meta.url), { type: 'module' });
+    return new Worker(new URL('../../workers/quantize.worker.js', import.meta.url), { type: 'module' });
   } catch {
     return null;
   }
