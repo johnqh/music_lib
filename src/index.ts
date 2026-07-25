@@ -53,3 +53,52 @@ export * from './domain/pitch/transpose';
 
 // test fixtures (deterministic score builders — used by downstream test suites)
 export * from './test/fixtures';
+
+// adapters/vexflow
+export * from './adapters/vexflow/types';
+export * from './adapters/vexflow/renderer';
+export * from './adapters/vexflow/convert';
+export * from './adapters/vexflow/layout';
+export * from './adapters/vexflow/id-map';
+
+// adapters/tone
+export * from './adapters/tone/instruments';
+export * from './adapters/tone/tone-engine';
+export * from './adapters/tone/schedule';
+export * from './adapters/tone/midi';
+
+// adapters/midi
+export * from './adapters/midi/analyze';
+export * from './adapters/midi/import';
+export * from './adapters/midi/import-options';
+export * from './adapters/midi/export';
+export * from './adapters/midi/measures';
+export * from './adapters/midi/key-detection';
+
+// adapters/musicxml
+export * from './adapters/musicxml/import';
+export { escapeXml, exportMusicXml } from './adapters/musicxml/export';
+export * from './adapters/musicxml/duration-map';
+
+// services
+export * from './services/errors';
+export * from './services/generation/registry';
+export * from './services/generation/validate-response';
+export * from './services/import-export/download';
+export * from './services/import-export/midi-service';
+export * from './services/import-export/musicxml-service';
+export * from './services/perf/benchmark';
+export * from './services/persistence/db';
+export * from './services/persistence/projects';
+export * from './services/persistence/samples';
+export * from './services/persistence/settings';
+export * from './services/persistence/autosave';
+export * from './services/persistence/migrations';
+export * from './services/playback/types';
+export * from './services/playback/controller';
+export * from './services/quantization/quantize-service';
+export * from './services/regeneration/controller';
+
+// store
+export * from './store/useAppStore';
+export * from './store/selectors';

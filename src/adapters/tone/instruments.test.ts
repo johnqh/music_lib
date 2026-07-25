@@ -1,0 +1,263 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { midiToHertz } from './midi';
+
+// A minimal mock of the `tone` module: every mocked class just records its
+// constructor call (type + options) and exposes triggerAttackRelease/
+// connect/dispose as spies, matching the tiny surface instruments.ts
+// actually calls. No AudioContext, no real audio graph — this is exactly
+// the small mocked-Tone surface the Task 13 brief asks for.
+// `vi.mock` factories are hoisted above the rest of the module, so any
+// state/helpers they close over must be created via `vi.hoisted` (plain
+// top-level `const`s would be accessed before initialization).
+const { MockNode, constructedInstances, record } = vi.hoisted(() => {
+  class MockNode {
+    triggerAttackRelease = vi.fn();
+    connect = vi.fn();
+    dispose = vi.fn();
+  }
+
+  type ConstructedInstance = { type: string; options: unknown; instance: InstanceType<typeof MockNode> };
+  const constructedInstances: ConstructedInstance[] = [];
+
+  function record(type: string, options: unknown, instance: InstanceType<typeof MockNode>): void {
+    constructedInstances.push({ type, options, instance });
+  }
+
+  return { MockNode, constructedInstances, record };
+});
+
+vi.mock('tone', () => {
+  class Synth extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('Synth', options, this);
+    }
+  }
+  class FMSynth extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('FMSynth', options, this);
+    }
+  }
+  class MonoSynth extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('MonoSynth', options, this);
+    }
+  }
+  class MembraneSynth extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('MembraneSynth', options, this);
+    }
+  }
+  class NoiseSynth extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('NoiseSynth', options, this);
+    }
+  }
+  class Sampler extends MockNode {
+    constructor(public options?: unknown) {
+      super();
+      record('Sampler', options, this);
+    }
+  }
+  class PolySynth extends MockNode {
+    constructor(
+      public voice?: unknown,
+      public options?: unknown,
+    ) {
+      super();
+      record('PolySynth', { voice, options }, this);
+    }
+  }
+  class Filter extends MockNode {
+    constructor(
+      public frequency?: unknown,
+      public filterType?: unknown,
+    ) {
+      super();
+      record('Filter', { frequency, filterType }, this);
+    }
+  }
+  class Gain extends MockNode {
+    constructor(public value?: unknown) {
+      super();
+      record('Gain', { value }, this);
+    }
+  }
+  return { Synth, FMSynth, MonoSynth, MembraneSynth, NoiseSynth, Sampler, PolySynth, Filter, Gain };
+});
+
+import * as Tone from 'tone';
+import { createInstrument, resolveInstrumentCategory } from './instruments';
+
+beforeEach(() => {
+  constructedInstances.length = 0;
+});
+
+function instancesOfType(type: string) {
+  return constructedInstances.filter((c) => c.type === type);
+}
+
+describe('resolveInstrumentCategory', () => {
+  it('is always drum-kit when isPercussion, regardless of name/program', () => {
+    expect(resolveInstrumentCategory('Anything', true)).toBe('drum-kit');
+    expect(resolveInstrumentCategory(0, true)).toBe('drum-kit');
+  });
+
+  it('resolves by name keyword', () => {
+    expect(resolveInstrumentCategory('Piano', false)).toBe('piano');
+    expect(resolveInstrumentCategory('Electric Piano', false)).toBe('electric-piano');
+    expect(resolveInstrumentCategory('Rhodes', false)).toBe('electric-piano');
+    expect(resolveInstrumentCategory('String Ensemble', false)).toBe('strings');
+    expect(resolveInstrumentCategory('Acoustic Bass', false)).toBe('bass');
+    expect(resolveInstrumentCategory('Synth Lead', false)).toBe('synth-lead');
+    expect(resolveInstrumentCategory('Drum Kit', false)).toBe('drum-kit');
+  });
+
+  it('defaults an unrecognized name to piano', () => {
+    expect(resolveInstrumentCategory('Kazoo', false)).toBe('piano');
+  });
+
+  it('resolves by GM program number range', () => {
+    expect(resolveInstrumentCategory(0, false)).toBe('piano'); // Acoustic Grand Piano
+    expect(resolveInstrumentCategory(4, false)).toBe('electric-piano'); // Electric Piano 1
+    expect(resolveInstrumentCategory(5, false)).toBe('electric-piano'); // Electric Piano 2
+    expect(resolveInstrumentCategory(33, false)).toBe('bass'); // Electric Bass
+    expect(resolveInstrumentCategory(48, false)).toBe('strings'); // String Ensemble
+    expect(resolveInstrumentCategory(81, false)).toBe('synth-lead'); // Lead 2 (sawtooth)
+  });
+
+  it('defaults an unmapped GM program (e.g. organ, guitar) to piano', () => {
+    expect(resolveInstrumentCategory(19, false)).toBe('piano'); // Church Organ
+    expect(resolveInstrumentCategory(25, false)).toBe('piano'); // Acoustic Guitar
+  });
+});
+
+describe('createInstrument: piano', () => {
+  it('uses the synth fallback (no bundled sample urls) rather than Sampler', () => {
+    createInstrument('Piano', false);
+    expect(instancesOfType('Sampler')).toHaveLength(0);
+    const polySynths = instancesOfType('PolySynth');
+    expect(polySynths).toHaveLength(1);
+    expect((polySynths[0].options as { voice: unknown }).voice).toBe(Tone.Synth);
+  });
+
+  it('triggerAttackRelease converts midi to hertz and forwards duration/time/velocity', () => {
+    const handle = createInstrument('Piano', false);
+    const [{ instance }] = instancesOfType('PolySynth');
+    handle.triggerAttackRelease(60, 0.5, 1.25, 0.8);
+    expect(instance.triggerAttackRelease).toHaveBeenCalledWith(midiToHertz(60), 0.5, 1.25, 0.8);
+  });
+
+  it('connect and dispose delegate to the underlying voice', () => {
+    const handle = createInstrument('Piano', false);
+    const [{ instance }] = instancesOfType('PolySynth');
+    const target = {} as Tone.ToneAudioNode;
+    handle.connect(target);
+    handle.dispose();
+    expect(instance.connect).toHaveBeenCalledWith(target);
+    expect(instance.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createInstrument: electric piano', () => {
+  it('builds a PolySynth wrapping FMSynth', () => {
+    createInstrument('Electric Piano', false);
+    const polySynths = instancesOfType('PolySynth');
+    expect(polySynths).toHaveLength(1);
+    expect((polySynths[0].options as { voice: unknown }).voice).toBe(Tone.FMSynth);
+  });
+});
+
+describe('createInstrument: strings', () => {
+  it('builds a slow-attack PolySynth wrapping Synth', () => {
+    createInstrument('Strings', false);
+    const [{ options }] = instancesOfType('PolySynth');
+    const { voice, options: voiceOptions } = options as { voice: unknown; options: { envelope: { attack: number } } };
+    expect(voice).toBe(Tone.Synth);
+    expect(voiceOptions.envelope.attack).toBeGreaterThan(0.3);
+  });
+});
+
+describe('createInstrument: bass', () => {
+  it('builds a MonoSynth for a bass GM program', () => {
+    createInstrument(33, false); // Electric Bass (finger)
+    expect(instancesOfType('MonoSynth')).toHaveLength(1);
+  });
+});
+
+describe('createInstrument: synth lead', () => {
+  it('builds a PolySynth wrapping Synth with a square oscillator', () => {
+    createInstrument('Synth Lead', false);
+    const [{ options }] = instancesOfType('PolySynth');
+    const { voice, options: voiceOptions } = options as {
+      voice: unknown;
+      options: { oscillator: { type: string } };
+    };
+    expect(voice).toBe(Tone.Synth);
+    expect(voiceOptions.oscillator.type).toBe('square');
+  });
+});
+
+describe('createInstrument: drum kit', () => {
+  it('builds one MembraneSynth (kick) and two NoiseSynths (snare, hat) behind a Gain output', () => {
+    createInstrument('Drums', false);
+    expect(instancesOfType('MembraneSynth')).toHaveLength(1);
+    expect(instancesOfType('NoiseSynth')).toHaveLength(2);
+    expect(instancesOfType('Filter')).toHaveLength(1);
+    expect(instancesOfType('Gain')).toHaveLength(1);
+  });
+
+  it('routes GM kick notes to the MembraneSynth', () => {
+    const handle = createInstrument('Drums', false);
+    const kick = instancesOfType('MembraneSynth')[0].instance;
+    const [snare, hat] = instancesOfType('NoiseSynth').map((c) => c.instance);
+
+    handle.triggerAttackRelease(36, 0.1, 0, 0.9); // Bass Drum 1
+
+    expect(kick.triggerAttackRelease).toHaveBeenCalledWith(midiToHertz(36), 0.1, 0, 0.9);
+    expect(snare.triggerAttackRelease).not.toHaveBeenCalled();
+    expect(hat.triggerAttackRelease).not.toHaveBeenCalled();
+  });
+
+  it('routes GM snare notes to the first NoiseSynth, with the noise-instrument (duration/time/velocity) signature', () => {
+    const handle = createInstrument('Drums', true);
+    const kick = instancesOfType('MembraneSynth')[0].instance;
+    const [snare, hat] = instancesOfType('NoiseSynth').map((c) => c.instance);
+
+    handle.triggerAttackRelease(38, 0.15, 2, 0.7); // Acoustic Snare
+
+    expect(snare.triggerAttackRelease).toHaveBeenCalledWith(0.15, 2, 0.7);
+    expect(kick.triggerAttackRelease).not.toHaveBeenCalled();
+    expect(hat.triggerAttackRelease).not.toHaveBeenCalled();
+  });
+
+  it('routes any other GM percussion note (e.g. hi-hat) to the second NoiseSynth', () => {
+    const handle = createInstrument('Drums', true);
+    const [snare, hat] = instancesOfType('NoiseSynth').map((c) => c.instance);
+
+    handle.triggerAttackRelease(42, 0.05, 1, 0.5); // Closed Hi-Hat
+
+    expect(hat.triggerAttackRelease).toHaveBeenCalledWith(0.05, 1, 0.5);
+    expect(snare.triggerAttackRelease).not.toHaveBeenCalled();
+  });
+
+  it('connect wires the shared Gain output; dispose tears down every internal node', () => {
+    const handle = createInstrument('Drums', true);
+    const gain = instancesOfType('Gain')[0].instance;
+    const target = {} as Tone.ToneAudioNode;
+
+    handle.connect(target);
+    expect(gain.connect).toHaveBeenCalledWith(target);
+
+    handle.dispose();
+    for (const type of ['MembraneSynth', 'NoiseSynth', 'Filter', 'Gain']) {
+      for (const { instance } of instancesOfType(type)) {
+        expect(instance.dispose).toHaveBeenCalledTimes(1);
+      }
+    }
+  });
+});
