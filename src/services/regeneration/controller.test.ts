@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../../domain/score/factory';
-import { emptySelection } from '../../domain/selection/types';
-import type { ScoreSelection } from '../../domain/selection/types';
-import { applyCandidate, prepareRegenerationRequest } from './controller';
+import { createEmptyScore } from '../../domain/score/factory.js';
+import { emptySelection } from '../../domain/selection/types.js';
+import type { ScoreSelection } from '../../domain/selection/types.js';
+import { applyCandidate, prepareRegenerationRequest } from './controller.js';
 import type { RegenerationCandidate } from '@sudobility/music_types';
 
 function scoreWithMeasures(measureCount = 6) {

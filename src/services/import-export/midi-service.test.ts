@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { MidiService } from './midi-service';
-import { analyzeMidi } from '../../adapters/midi/analyze';
-import { exportMidi } from '../../adapters/midi/export';
-import { importMidi } from '../../adapters/midi/import';
-import { defaultMidiImportOptions } from '../../adapters/midi/import-options';
+import { MidiService } from './midi-service.js';
+import { analyzeMidi } from '../../adapters/midi/analyze.js';
+import { exportMidi } from '../../adapters/midi/export.js';
+import { importMidi } from '../../adapters/midi/import.js';
+import { defaultMidiImportOptions } from '../../adapters/midi/import-options.js';
 import type { MidiWorkerRequest, MidiWorkerResponse } from '../../workers/midi-import.worker';
-import { twinkleScore } from '../../test/fixtures';
+import { twinkleScore } from '../../test/fixtures.js';
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;

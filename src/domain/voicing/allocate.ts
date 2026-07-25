@@ -7,7 +7,7 @@
  * must be readable; a caller may reassign manually afterward. Pure
  * function: never mutates `notes`.
  */
-import { pitchToMidi } from '../pitch/pitch';
+import { pitchToMidi } from '../pitch/pitch.js';
 import type { NoteEvent } from '@sudobility/music_types';
 
 const DEFAULT_SPLIT_POINT = 60; // middle C

@@ -1,10 +1,10 @@
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
-import { exportMidi, safeFilename } from './export';
-import { createEmptyScore } from '../../domain/score/factory';
-import { createId } from '../../domain/score/ids';
+import { exportMidi, safeFilename } from './export.js';
+import { createEmptyScore } from '../../domain/score/factory.js';
+import { createId } from '../../domain/score/ids.js';
 import type { NoteEvent, Score } from '@sudobility/music_types';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 describe('exportMidi', () => {
   it('exports PPQ, tempo, and title as the MIDI header', () => {

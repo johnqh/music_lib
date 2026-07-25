@@ -10,95 +10,95 @@
  */
 
 // domain/score
-export * from './domain/score/factory';
-export * from './domain/score/queries';
-export * from './domain/score/ties';
-export * from './domain/score/fragment';
-export * from './domain/score/ids';
+export * from './domain/score/factory.js';
+export * from './domain/score/queries.js';
+export * from './domain/score/ties.js';
+export * from './domain/score/fragment.js';
+export * from './domain/score/ids.js';
 
 // domain/selection
-export * from './domain/selection/types';
-export * from './domain/selection/selection';
+export * from './domain/selection/types.js';
+export * from './domain/selection/selection.js';
 
 // domain/commands
-export * from './domain/commands/types';
-export * from './domain/commands/history';
-export * from './domain/commands/snapshot';
-export * from './domain/commands/reflow';
-export * from './domain/commands/note-commands';
-export * from './domain/commands/structure-commands';
-export * from './domain/commands/edit-commands';
-export * from './domain/commands/region-commands';
+export * from './domain/commands/types.js';
+export * from './domain/commands/history.js';
+export * from './domain/commands/snapshot.js';
+export * from './domain/commands/reflow.js';
+export * from './domain/commands/note-commands.js';
+export * from './domain/commands/structure-commands.js';
+export * from './domain/commands/edit-commands.js';
+export * from './domain/commands/region-commands.js';
 
 // domain/validation
-export * from './domain/validation/issues';
-export * from './domain/validation/validator';
+export * from './domain/validation/issues.js';
+export * from './domain/validation/validator.js';
 
 // domain/quantization
-export * from './domain/quantization/options';
-export * from './domain/quantization/quantize';
+export * from './domain/quantization/options.js';
+export * from './domain/quantization/quantize.js';
 
 // domain/voicing
-export * from './domain/voicing/allocate';
+export * from './domain/voicing/allocate.js';
 
 // domain/time
-export * from './domain/time/fraction';
-export * from './domain/time/ticks';
-export * from './domain/time/tempo-map';
-export * from './domain/time/durations';
+export * from './domain/time/fraction.js';
+export * from './domain/time/ticks.js';
+export * from './domain/time/tempo-map.js';
+export * from './domain/time/durations.js';
 
 // domain/pitch
-export * from './domain/pitch/pitch';
-export * from './domain/pitch/transpose';
+export * from './domain/pitch/pitch.js';
+export * from './domain/pitch/transpose.js';
 
 // test fixtures (deterministic score builders — used by downstream test suites)
-export * from './test/fixtures';
+export * from './test/fixtures.js';
 
 // adapters/vexflow
-export * from './adapters/vexflow/types';
-export * from './adapters/vexflow/renderer';
-export * from './adapters/vexflow/convert';
-export * from './adapters/vexflow/layout';
-export * from './adapters/vexflow/id-map';
+export * from './adapters/vexflow/types.js';
+export * from './adapters/vexflow/renderer.js';
+export * from './adapters/vexflow/convert.js';
+export * from './adapters/vexflow/layout.js';
+export * from './adapters/vexflow/id-map.js';
 
 // adapters/tone
-export * from './adapters/tone/instruments';
-export * from './adapters/tone/tone-engine';
-export * from './adapters/tone/schedule';
-export * from './adapters/tone/midi';
+export * from './adapters/tone/instruments.js';
+export * from './adapters/tone/tone-engine.js';
+export * from './adapters/tone/schedule.js';
+export * from './adapters/tone/midi.js';
 
 // adapters/midi
-export * from './adapters/midi/analyze';
-export * from './adapters/midi/import';
-export * from './adapters/midi/import-options';
-export * from './adapters/midi/export';
-export * from './adapters/midi/measures';
-export * from './adapters/midi/key-detection';
+export * from './adapters/midi/analyze.js';
+export * from './adapters/midi/import.js';
+export * from './adapters/midi/import-options.js';
+export * from './adapters/midi/export.js';
+export * from './adapters/midi/measures.js';
+export * from './adapters/midi/key-detection.js';
 
 // adapters/musicxml
-export * from './adapters/musicxml/import';
-export { escapeXml, exportMusicXml } from './adapters/musicxml/export';
-export * from './adapters/musicxml/duration-map';
+export * from './adapters/musicxml/import.js';
+export { escapeXml, exportMusicXml } from './adapters/musicxml/export.js';
+export * from './adapters/musicxml/duration-map.js';
 
 // services
-export * from './services/errors';
-export * from './services/generation/registry';
-export * from './services/generation/validate-response';
-export * from './services/import-export/download';
-export * from './services/import-export/midi-service';
-export * from './services/import-export/musicxml-service';
-export * from './services/perf/benchmark';
-export * from './services/persistence/db';
-export * from './services/persistence/projects';
-export * from './services/persistence/samples';
-export * from './services/persistence/settings';
-export * from './services/persistence/autosave';
-export * from './services/persistence/migrations';
-export * from './services/playback/types';
-export * from './services/playback/controller';
-export * from './services/quantization/quantize-service';
-export * from './services/regeneration/controller';
+export * from './services/errors.js';
+export * from './services/generation/registry.js';
+export * from './services/generation/validate-response.js';
+export * from './services/import-export/download.js';
+export * from './services/import-export/midi-service.js';
+export * from './services/import-export/musicxml-service.js';
+export * from './services/perf/benchmark.js';
+export * from './services/persistence/db.js';
+export * from './services/persistence/projects.js';
+export * from './services/persistence/samples.js';
+export * from './services/persistence/settings.js';
+export * from './services/persistence/autosave.js';
+export * from './services/persistence/migrations.js';
+export * from './services/playback/types.js';
+export * from './services/playback/controller.js';
+export * from './services/quantization/quantize-service.js';
+export * from './services/regeneration/controller.js';
 
 // store
-export * from './store/useAppStore';
-export * from './store/selectors';
+export * from './store/useAppStore.js';
+export * from './store/selectors.js';

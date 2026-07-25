@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from './factory';
+import { createEmptyScore } from './factory.js';
 import {
   allNotes,
   eventsInRange,
@@ -9,7 +9,7 @@ import {
   measuresInRange,
   noteAt,
   scoreEndTick,
-} from './queries';
+} from './queries.js';
 import type { NoteEvent, Score } from '@sudobility/music_types';
 
 /** Builds a 2-measure, single-track score, then overwrites voice 0's events with `events`. */

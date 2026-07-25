@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SeededRng } from './prng';
+import { SeededRng } from './prng.js';
 
 describe('SeededRng', () => {
   it('produces the same sequence for the same numeric seed', () => {

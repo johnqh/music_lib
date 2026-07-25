@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { KeySignature, MusicalEvent, NoteEvent, Pitch, RestEvent } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks';
+import { ticksFor } from '../../domain/time/ticks.js';
 import {
   buildVoiceContent,
   groupSimultaneous,
   keySignatureToVexSpec,
   pitchToVexKey,
   ticksToVexDuration,
-} from './convert';
+} from './convert.js';
 
 const PPQ = 480;
 

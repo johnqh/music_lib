@@ -4,12 +4,12 @@
  * chord by step on the last beat.
  */
 import type { KeySignature, Pitch, TimeSignature } from '@sudobility/music_types';
-import { midiToPitch, pitchToMidi } from '../../../domain/pitch/pitch';
-import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks';
-import type { ProgressionName } from '../music-theory';
-import { expandProgressionToMeasures, lowestPitch } from '../music-theory';
-import type { SeededRng } from '../prng';
-import type { Step } from './shared';
+import { midiToPitch, pitchToMidi } from '../../../domain/pitch/pitch.js';
+import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks.js';
+import type { ProgressionName } from '../music-theory.js';
+import { expandProgressionToMeasures, lowestPitch } from '../music-theory.js';
+import type { SeededRng } from '../prng.js';
+import type { Step } from './shared.js';
 
 export type BassStyle = 'roots' | 'walking';
 

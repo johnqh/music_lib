@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { assembleTrackMeasures, buildMeasureSpans, DEFAULT_TIME_SIGNATURE } from './measures';
+import { assembleTrackMeasures, buildMeasureSpans, DEFAULT_TIME_SIGNATURE } from './measures.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent } from '@sudobility/music_types';
-import { validateScore } from '../../domain/validation/validator';
-import { createEmptyScore } from '../../domain/score/factory';
+import { validateScore } from '../../domain/validation/validator.js';
+import { createEmptyScore } from '../../domain/score/factory.js';
 
 const PPQ = 480;
 const C_MAJOR = { fifths: 0, mode: 'major' as const };

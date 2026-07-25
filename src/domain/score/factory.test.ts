@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { appendMeasure, createEmptyScore, createTrack, rebuildMeasureTicks } from './factory';
+import { appendMeasure, createEmptyScore, createTrack, rebuildMeasureTicks } from './factory.js';
 import { isRestEvent } from '@sudobility/music_types';
-import { measureDurationTicks } from '../time/ticks';
+import { measureDurationTicks } from '../time/ticks.js';
 
 describe('createTrack', () => {
   it('fills in defaults for an unspecified instrument track', () => {

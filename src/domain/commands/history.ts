@@ -5,7 +5,7 @@
  * lives with the caller, passed in and received back on every call.
  */
 import type { Score } from '@sudobility/music_types';
-import type { ScoreCommand } from './types';
+import type { ScoreCommand } from './types.js';
 
 const DEFAULT_LIMIT = 200;
 

@@ -8,7 +8,7 @@
  * (spec §33).
  */
 import type { KeySignature, Score, TimeSignature, Track } from '@sudobility/music_types';
-import { validateScore } from '../../domain/validation/validator';
+import { validateScore } from '../../domain/validation/validator.js';
 import { generateScoreRequestSchema, regenerateRegionRequestSchema } from '@sudobility/music_types';
 import type {
   GenerateScoreRequest,
@@ -19,20 +19,20 @@ import type {
   RegenerateRegionResult,
   RegenerationCandidate,
 } from '@sudobility/music_types';
-import type { ProgressionName } from './music-theory';
-import { clampPitchToMidiRange } from './music-theory';
-import { SeededRng } from './prng';
-import { parsePrompt } from './prompt-parse';
-import type { PromptHints } from './prompt-parse';
-import type { AccompanimentStyle } from './patterns/accompaniment';
-import { generateAccompaniment } from './patterns/accompaniment';
-import type { BassStyle } from './patterns/bass';
-import { generateBass } from './patterns/bass';
-import { generateDrums } from './patterns/drums';
-import { generateMelody } from './patterns/melody';
-import type { Step } from './patterns/shared';
-import { buildMeasuresFromSteps } from './patterns/shared';
-import { transformFragment } from './mock-transforms';
+import type { ProgressionName } from './music-theory.js';
+import { clampPitchToMidiRange } from './music-theory.js';
+import { SeededRng } from './prng.js';
+import { parsePrompt } from './prompt-parse.js';
+import type { PromptHints } from './prompt-parse.js';
+import type { AccompanimentStyle } from './patterns/accompaniment.js';
+import { generateAccompaniment } from './patterns/accompaniment.js';
+import type { BassStyle } from './patterns/bass.js';
+import { generateBass } from './patterns/bass.js';
+import { generateDrums } from './patterns/drums.js';
+import { generateMelody } from './patterns/melody.js';
+import type { Step } from './patterns/shared.js';
+import { buildMeasuresFromSteps } from './patterns/shared.js';
+import { transformFragment } from './mock-transforms.js';
 
 const DEFAULT_SEED = 'scoresmith-mock';
 const DEFAULT_PPQ = 480;

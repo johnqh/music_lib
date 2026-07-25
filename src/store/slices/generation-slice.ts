@@ -8,23 +8,23 @@
  * item 13 / §37.10).
  */
 import type { StateCreator } from 'zustand';
-import { applyCandidate, prepareRegenerationRequest } from '../../services/regeneration/controller';
+import { applyCandidate, prepareRegenerationRequest } from '../../services/regeneration/controller.js';
 import type {
   PrepareRegenerationOptions,
   PreparedRegenerationRequest,
-} from '../../services/regeneration/controller';
-import { getProvider } from '../../services/generation/registry';
+} from '../../services/regeneration/controller.js';
+import { getProvider } from '../../services/generation/registry.js';
 import {
   sanitizeGeneratedScore,
   validateRegenerateRegionResult,
   GenerationValidationError,
-} from '../../services/generation/validate-response';
+} from '../../services/generation/validate-response.js';
 import type { GenerateScoreRequest, RegenerationCandidate } from '@sudobility/music_types';
-import type { ScoreFragment } from '../../domain/score/fragment';
-import { measuresInRange } from '../../domain/score/queries';
-import { normalizeSelection, selectionIsRegenerable } from '../../domain/selection/selection';
-import type { ScoreSelection } from '../../domain/selection/types';
-import type { AppState } from '../useAppStore';
+import type { ScoreFragment } from '../../domain/score/fragment.js';
+import { measuresInRange } from '../../domain/score/queries.js';
+import { normalizeSelection, selectionIsRegenerable } from '../../domain/selection/selection.js';
+import type { ScoreSelection } from '../../domain/selection/types.js';
+import type { AppState } from '../useAppStore.js';
 
 export type GenerationMode = 'generate' | 'regenerate';
 

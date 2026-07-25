@@ -1,5 +1,5 @@
 import type { DurationName, Fraction, TimeSignature } from '@sudobility/music_types';
-import { fraction, fractionToTicks } from './fraction';
+import { fraction, fractionToTicks } from './fraction.js';
 
 /** Multiplies a fraction by a positive integer/rational scalar expressed as a fraction. */
 function scaleFraction(f: Fraction, scale: Fraction): Fraction {

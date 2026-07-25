@@ -9,8 +9,8 @@
  * `prng.ts`'s doc comment on why `createId()` is never used here).
  */
 import type { KeySignature, Measure, MusicalEvent, Pitch, TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../../domain/time/ticks';
-import type { SeededRng } from '../prng';
+import { measureDurationTicks } from '../../../domain/time/ticks.js';
+import type { SeededRng } from '../prng.js';
 
 /** One rhythmic slot within a pattern measure: zero pitches = a rest, one = a single note, 2+ = a simultaneous chord (shared start/duration). */
 export type Step = { pitches: Pitch[]; durationTicks: number; velocity?: number };

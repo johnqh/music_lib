@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeMidi } from './analyze';
-import { exportMidi } from './export';
-import { createEmptyScore } from '../../domain/score/factory';
-import { createId } from '../../domain/score/ids';
-import { chordScore, twoTrackScore } from '../../test/fixtures';
+import { analyzeMidi } from './analyze.js';
+import { exportMidi } from './export.js';
+import { createEmptyScore } from '../../domain/score/factory.js';
+import { createId } from '../../domain/score/ids.js';
+import { chordScore, twoTrackScore } from '../../test/fixtures.js';
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;

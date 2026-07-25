@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { validateScore } from './validator';
-import { ISSUE_CODES } from './issues';
-import { createEmptyScore } from '../score/factory';
-import { replaceFragment } from '../score/fragment';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { validateScore } from './validator.js';
+import { ISSUE_CODES } from './issues.js';
+import { createEmptyScore } from '../score/factory.js';
+import { replaceFragment } from '../score/fragment.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
 
 describe('validateScore', () => {

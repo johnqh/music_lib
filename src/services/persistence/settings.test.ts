@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ScoreSmithDb } from './db';
-import { getSetting, loadAllSettings, setSetting } from './settings';
+import { ScoreSmithDb } from './db.js';
+import { getSetting, loadAllSettings, setSetting } from './settings.js';
 
 let db: ScoreSmithDb;
 let counter = 0;

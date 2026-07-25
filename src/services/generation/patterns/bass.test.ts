@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { KeySignature, TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../../domain/time/ticks';
-import { SeededRng } from '../prng';
-import { generateBass } from './bass';
-import type { BassOptions, BassStyle } from './bass';
+import { measureDurationTicks } from '../../../domain/time/ticks.js';
+import { SeededRng } from '../prng.js';
+import { generateBass } from './bass.js';
+import type { BassOptions, BassStyle } from './bass.js';
 
 const PPQ = 480;
 const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };

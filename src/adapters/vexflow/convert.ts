@@ -22,8 +22,8 @@ import type {
   Pitch,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks';
-import { decomposeDuration } from '../../domain/time/durations';
+import { ticksFor } from '../../domain/time/ticks.js';
+import { decomposeDuration } from '../../domain/time/durations.js';
 
 /** `Pitch.accidental` (-2..2) -> VexFlow accidental suffix/code (`''` for natural, no glyph drawn). */
 const ACCIDENTAL_SUFFIX: Record<DomainAccidental, string> = {

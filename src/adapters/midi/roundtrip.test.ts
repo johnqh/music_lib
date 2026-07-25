@@ -5,15 +5,15 @@
  * tempo/time signatures must be preserved.
  */
 import { describe, expect, it } from 'vitest';
-import { exportMidi } from './export';
-import { importMidi } from './import';
-import { analyzeMidi } from './analyze';
-import { defaultMidiImportOptions } from './import-options';
-import { allNotes } from '../../domain/score/queries';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { validateScore } from '../../domain/validation/validator';
+import { exportMidi } from './export.js';
+import { importMidi } from './import.js';
+import { analyzeMidi } from './analyze.js';
+import { defaultMidiImportOptions } from './import-options.js';
+import { allNotes } from '../../domain/score/queries.js';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { validateScore } from '../../domain/validation/validator.js';
 import type { Score } from '@sudobility/music_types';
-import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;

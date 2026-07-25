@@ -5,10 +5,10 @@
  * `score-slice.dispatchCommand`).
  */
 import type { StateCreator } from 'zustand';
-import { createId } from '../../domain/score/ids';
+import { createId } from '../../domain/score/ids.js';
 import type { DurationName } from '@sudobility/music_types';
-import { DEFAULT_MOCK_SEED, setMockSeed } from '../../services/generation/registry';
-import type { AppState } from '../useAppStore';
+import { DEFAULT_MOCK_SEED, setMockSeed } from '../../services/generation/registry.js';
+import type { AppState } from '../useAppStore.js';
 
 export type ViewMode = 'notation' | 'piano-roll';
 export type ThemeMode = 'light' | 'dark' | 'system';

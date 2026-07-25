@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
-import { ScoreSmithDb } from '../../services/persistence/db';
-import { listProjects, loadProject } from '../../services/persistence/projects';
-import { changeMetadataCommand } from '../../domain/commands/structure-commands';
-import { twinkleScore } from '../../test/fixtures';
+import { createAppStore } from '../useAppStore.js';
+import { ScoreSmithDb } from '../../services/persistence/db.js';
+import { listProjects, loadProject } from '../../services/persistence/projects.js';
+import { changeMetadataCommand } from '../../domain/commands/structure-commands.js';
+import { twinkleScore } from '../../test/fixtures.js';
 
 // Deliberately no `vi.useFakeTimers()` anywhere in this file: `createAutosaver`'s
 // debounce timer shares the event loop with fake-indexeddb's own internal

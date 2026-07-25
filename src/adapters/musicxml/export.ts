@@ -24,8 +24,8 @@ import type {
   Voice,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { NotatedDuration } from './duration-map';
-import { notateDuration } from './duration-map';
+import type { NotatedDuration } from './duration-map.js';
+import { notateDuration } from './duration-map.js';
 
 /** Escapes the five characters not otherwise safe inside MusicXML element text/attribute values. */
 export function escapeXml(text: string): string {

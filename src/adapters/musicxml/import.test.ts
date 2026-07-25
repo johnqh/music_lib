@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { importMusicXml } from './import';
+import { importMusicXml } from './import.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { ticksFor } from '../../domain/time/ticks';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { ticksFor } from '../../domain/time/ticks.js';
 
 const MINIMAL_HEADER = (extraPartAttrs = '') => `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">

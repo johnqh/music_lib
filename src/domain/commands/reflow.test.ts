@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
+import { createEmptyScore } from '../score/factory.js';
 import {
   clearDanglingTies,
   ensureVoiceAtIndex,
@@ -7,7 +7,7 @@ import {
   reflowVoice,
   removeNotesFromTrack,
   touchMetadata,
-} from './reflow';
+} from './reflow.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Pitch, Track } from '@sudobility/music_types';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { transposeDiatonicOctave, transposePitch } from './transpose';
+import { transposeDiatonicOctave, transposePitch } from './transpose.js';
 
 describe('transposePitch', () => {
   it('transposes up by a whole step', () => {

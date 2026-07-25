@@ -6,9 +6,9 @@
  */
 import { isNoteEvent } from '@sudobility/music_types';
 import type { MusicalEvent, Score, Track } from '@sudobility/music_types';
-import { joinTiedNotes } from '../../domain/score/ties';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { beatBoundaries } from '../../domain/time/ticks';
+import { joinTiedNotes } from '../../domain/score/ties.js';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { beatBoundaries } from '../../domain/time/ticks.js';
 
 /** One playback-ready note: absolute score-tick position/duration, resolved MIDI pitch, and provenance (for mute/solo routing and active-note highlighting). */
 export type ScheduledNote = {

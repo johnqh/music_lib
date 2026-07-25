@@ -7,11 +7,11 @@
  * microtask on the calling thread) when it isn't — notably vitest/jsdom,
  * where `Worker` is undefined, per the Task 7 brief.
  */
-import { analyzeMidi } from '../../adapters/midi/analyze';
-import type { MidiSummary } from '../../adapters/midi/analyze';
-import { importMidi } from '../../adapters/midi/import';
-import type { MidiImportResult } from '../../adapters/midi/import';
-import type { MidiImportOptions } from '../../adapters/midi/import-options';
+import { analyzeMidi } from '../../adapters/midi/analyze.js';
+import type { MidiSummary } from '../../adapters/midi/analyze.js';
+import { importMidi } from '../../adapters/midi/import.js';
+import type { MidiImportResult } from '../../adapters/midi/import.js';
+import type { MidiImportOptions } from '../../adapters/midi/import-options.js';
 import type { MidiWorkerRequest, MidiWorkerResponse } from '../../workers/midi-import.worker';
 
 type PendingRequest = { resolve: (value: never) => void; reject: (reason: unknown) => void };

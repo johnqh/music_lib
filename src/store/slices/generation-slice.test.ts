@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
-import { resetProvider, setProvider } from '../../services/generation/registry';
-import { extractFragment } from '../../domain/score/fragment';
-import type { ScoreFragment } from '../../domain/score/fragment';
-import { findMeasure } from '../../domain/score/queries';
-import { selectionToRange } from '../../domain/selection/selection';
-import { twinkleScore } from '../../test/fixtures';
+import { createAppStore } from '../useAppStore.js';
+import { resetProvider, setProvider } from '../../services/generation/registry.js';
+import { extractFragment } from '../../domain/score/fragment.js';
+import type { ScoreFragment } from '../../domain/score/fragment.js';
+import { findMeasure } from '../../domain/score/queries.js';
+import { selectionToRange } from '../../domain/selection/selection.js';
+import { twinkleScore } from '../../test/fixtures.js';
 import type { Score } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type {

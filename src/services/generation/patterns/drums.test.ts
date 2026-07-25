@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../../domain/time/ticks';
-import { generateDrums } from './drums';
+import { measureDurationTicks } from '../../../domain/time/ticks.js';
+import { generateDrums } from './drums.js';
 
 const PPQ = 480;
 const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };

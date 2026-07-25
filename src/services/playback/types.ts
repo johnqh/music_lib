@@ -12,7 +12,7 @@
  * file instead, so it stays swappable and mockable.
  */
 import type { Score } from '@sudobility/music_types';
-import type { ScoreRange } from '../../domain/selection/types';
+import type { ScoreRange } from '../../domain/selection/types.js';
 
 export type TransportPlaybackState = 'stopped' | 'playing' | 'paused';
 

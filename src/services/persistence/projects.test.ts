@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ScoreSmithDb, type ProjectRecord } from './db';
+import { ScoreSmithDb, type ProjectRecord } from './db.js';
 import {
   ProjectDataError,
   ProjectNotFoundError,
@@ -13,8 +13,8 @@ import {
   loadProject,
   renameProject,
   saveProject,
-} from './projects';
-import { twinkleScore, twoTrackScore } from '../../test/fixtures';
+} from './projects.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 let db: ScoreSmithDb;
 let dbCounter = 0;

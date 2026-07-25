@@ -14,12 +14,12 @@
  * maximumPolyphony===1" without a caller supplying them out of band.
  */
 import { scoreSchema } from '@sudobility/music_types';
-import { createId } from '../../domain/score/ids';
-import { rebuildMeasureTicks } from '../../domain/score/factory';
+import { createId } from '../../domain/score/ids.js';
+import { rebuildMeasureTicks } from '../../domain/score/factory.js';
 import type { Measure, MusicalEvent, Score } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { measureDurationTicks } from '../../domain/time/ticks';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { measureDurationTicks } from '../../domain/time/ticks.js';
 import { regenerateRegionResultSchema } from '@sudobility/music_types';
 import type { RegenerateRegionResult } from '@sudobility/music_types';
 

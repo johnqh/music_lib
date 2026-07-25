@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createAppStore } from './useAppStore';
+import { createAppStore } from './useAppStore.js';
 import {
   selectCurrentMeasureBeat,
   selectSelectedMeasureRange,
   selectSelectedNoteCount,
   selectSelectedNotes,
-} from './selectors';
-import { twinkleScore } from '../test/fixtures';
+} from './selectors.js';
+import { twinkleScore } from '../test/fixtures.js';
 
 describe('selectors', () => {
   describe('selectSelectedNotes / selectSelectedNoteCount', () => {

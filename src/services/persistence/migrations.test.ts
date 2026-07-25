@@ -3,8 +3,8 @@ import {
   CURRENT_SCHEMA_VERSION,
   ProjectMigrationError,
   migrateProjectRecord,
-} from './migrations';
-import { twinkleScore } from '../../test/fixtures';
+} from './migrations.js';
+import { twinkleScore } from '../../test/fixtures.js';
 
 /** A v0 project record: no `schemaVersion`, no `uiPrefs` (both introduced in v1). */
 function v0Record(): Record<string, unknown> {

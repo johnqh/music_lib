@@ -14,14 +14,14 @@
  * as a store action — playback is real-time device control, not score
  * history.
  */
-import { TonePlaybackEngine } from '../../adapters/tone/tone-engine';
-import type { PlaybackEngine } from './types';
-import { scoreEndTick } from '../../domain/score/queries';
-import { selectionToRange } from '../../domain/selection/selection';
-import type { ScoreRange } from '../../domain/selection/types';
+import { TonePlaybackEngine } from '../../adapters/tone/tone-engine.js';
+import type { PlaybackEngine } from './types.js';
+import { scoreEndTick } from '../../domain/score/queries.js';
+import { selectionToRange } from '../../domain/selection/selection.js';
+import type { ScoreRange } from '../../domain/selection/types.js';
 import type { Score } from '@sudobility/music_types';
-import { useAppStore } from '../../store/useAppStore';
-import type { createAppStore } from '../../store/useAppStore';
+import { useAppStore } from '../../store/useAppStore.js';
+import type { createAppStore } from '../../store/useAppStore.js';
 
 /** The store shape this module operates on: same type `useAppStore`/`createAppStore()` produce (matches `features/score-editor/editing.ts`'s `EditorStoreApi`). */
 export type PlaybackStoreApi = ReturnType<typeof createAppStore>;

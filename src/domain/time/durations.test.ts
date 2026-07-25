@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decomposeDuration, splitAtBoundaries } from './durations';
-import { ticksFor } from './ticks';
+import { decomposeDuration, splitAtBoundaries } from './durations.js';
+import { ticksFor } from './ticks.js';
 
 const PPQ = 480;
 

@@ -10,14 +10,14 @@
  * note that crosses a measure boundary into tied segments via Task 3's
  * `splitNoteAcrossMeasures`, per the Task 5 brief.
  */
-import { createId } from '../score/ids';
-import { splitNoteAcrossMeasures } from '../score/ties';
+import { createId } from '../score/ids.js';
+import { splitNoteAcrossMeasures } from '../score/ties.js';
 import type { Accidental, Articulation, DurationName, NoteEvent, Pitch, Score, Track, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { ticksFor } from '../time/ticks';
-import { transposePitch } from '../pitch/transpose';
-import type { ScoreCommand } from './types';
-import { transformCommand } from './snapshot';
+import { ticksFor } from '../time/ticks.js';
+import { transposePitch } from '../pitch/transpose.js';
+import type { ScoreCommand } from './types.js';
+import { transformCommand } from './snapshot.js';
 import {
   clearDanglingTies,
   ensureVoiceAtIndex,
@@ -25,7 +25,7 @@ import {
   removeNotesFromTrack,
   reflowVoice,
   withTracks,
-} from './reflow';
+} from './reflow.js';
 
 // ---- shared traversal helpers ------------------------------------------------
 

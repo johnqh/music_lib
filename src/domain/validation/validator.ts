@@ -6,11 +6,11 @@
  */
 import type { Measure, Pitch, Score, Track, Voice } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../pitch/pitch';
-import { voiceChannel } from '../score/ties';
-import type { ChannelCandidate } from '../score/ties';
-import { ISSUE_CODES } from './issues';
-import type { ValidationIssue } from './issues';
+import { pitchToMidi } from '../pitch/pitch.js';
+import { voiceChannel } from '../score/ties.js';
+import type { ChannelCandidate } from '../score/ties.js';
+import { ISSUE_CODES } from './issues.js';
+import type { ValidationIssue } from './issues.js';
 
 const MIN_MIDI = 0;
 const MAX_MIDI = 127;

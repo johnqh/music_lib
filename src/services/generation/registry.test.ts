@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { MockGenerationProvider } from './mock-provider';
+import { MockGenerationProvider } from './mock-provider.js';
 import {
   DEFAULT_MOCK_SEED,
   getProvider,
   resetProvider,
   setMockSeed,
   setProvider,
-} from './registry';
+} from './registry.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
 
 afterEach(() => {

@@ -2,9 +2,9 @@
  * Selection helpers (spec §9). Pure, read-only functions over `Score` +
  * `ScoreSelection`/`ScoreRange` — no UI, store, or rendering concerns.
  */
-import { findEvent, findMeasure, findTrack, scoreEndTick } from '../score/queries';
+import { findEvent, findMeasure, findTrack, scoreEndTick } from '../score/queries.js';
 import type { Score, Track } from '@sudobility/music_types';
-import type { ScoreRange, ScoreSelection } from './types';
+import type { ScoreRange, ScoreSelection } from './types.js';
 
 /**
  * The smallest tick range, aligned to full-measure boundaries on every

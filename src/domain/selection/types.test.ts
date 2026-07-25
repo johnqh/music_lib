@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptySelection } from './types';
-import type { ScoreRange, ScoreSelection } from './types';
+import { emptySelection } from './types.js';
+import type { ScoreRange, ScoreSelection } from './types.js';
 
 describe('emptySelection', () => {
   it('returns empty arrays for eventIds, measureIds, and trackIds, and no range', () => {

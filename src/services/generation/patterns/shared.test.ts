@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
 import type { KeySignature, TimeSignature } from '@sudobility/music_types';
-import { ticksFor } from '../../../domain/time/ticks';
-import { SeededRng } from '../prng';
-import { buildMeasuresFromSteps, fillDurationsForMeasure } from './shared';
-import type { Step } from './shared';
+import { ticksFor } from '../../../domain/time/ticks.js';
+import { SeededRng } from '../prng.js';
+import { buildMeasuresFromSteps, fillDurationsForMeasure } from './shared.js';
+import type { Step } from './shared.js';
 
 const PPQ = 480;
 const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };

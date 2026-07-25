@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { midiToHertz, normalizeVelocity } from './midi';
+import { midiToHertz, normalizeVelocity } from './midi.js';
 
 describe('midiToHertz', () => {
   it('returns 440 for A4 (midi 69)', () => {

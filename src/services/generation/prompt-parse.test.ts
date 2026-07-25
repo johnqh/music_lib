@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { keyTonicPitchClass } from './music-theory';
-import { parsePrompt } from './prompt-parse';
+import { keyTonicPitchClass } from './music-theory.js';
+import { parsePrompt } from './prompt-parse.js';
 
 describe('parsePrompt', () => {
   it('recognizes a major key name', () => {

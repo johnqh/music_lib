@@ -9,9 +9,9 @@
  * `services/import-export/midi-service.ts` (Task 7) exactly; see that
  * file's doc comment for the pattern this follows.
  */
-import { quantizeEvents } from '../../domain/quantization/quantize';
+import { quantizeEvents } from '../../domain/quantization/quantize.js';
 import type { MusicalEvent } from '@sudobility/music_types';
-import type { QuantizeOptions } from '../../domain/quantization/options';
+import type { QuantizeOptions } from '../../domain/quantization/options.js';
 import type {
   QuantizeEventGroup,
   QuantizeWorkerRequest,

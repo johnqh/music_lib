@@ -11,7 +11,7 @@
  * caller decides which db (real, or an in-memory `fake-indexeddb` one in
  * tests) to operate on.
  */
-import { createId } from '../../domain/score/ids';
+import { createId } from '../../domain/score/ids.js';
 import type { Score } from '@sudobility/music_types';
 import {
   projectRecordSchema,
@@ -19,12 +19,12 @@ import {
   type ProjectThumbnail,
   type ScoreSmithDb,
   type UiPrefs,
-} from './db';
+} from './db.js';
 import {
   CURRENT_SCHEMA_VERSION,
   ProjectMigrationError,
   migrateProjectRecord,
-} from './migrations';
+} from './migrations.js';
 
 /** Thrown by `loadProject`/`importProjectJson` when the stored/imported data fails schema validation (post-migration). Carries the underlying Zod issues in `details`. Never thrown in place of silently discarding data. */
 export class ProjectDataError extends Error {

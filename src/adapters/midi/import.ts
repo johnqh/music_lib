@@ -12,18 +12,18 @@
  */
 import { Midi } from '@tonejs/midi';
 import type { Track as SourceMidiTrack } from '@tonejs/midi';
-import { detectKeySignature } from './key-detection';
-import { assembleTrackMeasures, buildMeasureSpans } from './measures';
-import type { TimeSignatureChange } from './measures';
-import type { MidiImportOptions } from './import-options';
-import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch';
-import { createId } from '../../domain/score/ids';
+import { detectKeySignature } from './key-detection.js';
+import { assembleTrackMeasures, buildMeasureSpans } from './measures.js';
+import type { TimeSignatureChange } from './measures.js';
+import type { MidiImportOptions } from './import-options.js';
+import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch.js';
+import { createId } from '../../domain/score/ids.js';
 import type { KeySignature, NoteEvent, Score, TempoEvent, Track } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { QuantizeOptions } from '../../domain/quantization/options';
-import { quantizeEvents } from '../../domain/quantization/quantize';
-import { ticksFor } from '../../domain/time/ticks';
-import { allocateVoices } from '../../domain/voicing/allocate';
+import type { QuantizeOptions } from '../../domain/quantization/options.js';
+import { quantizeEvents } from '../../domain/quantization/quantize.js';
+import { ticksFor } from '../../domain/time/ticks.js';
+import { allocateVoices } from '../../domain/voicing/allocate.js';
 
 /** The score model's fixed internal PPQ (spec §4/§15: every import is normalized to 480). */
 const SCORE_PPQ = 480;

@@ -17,16 +17,16 @@
  * `console.table` and folds the raw `BenchmarkReport` into the "Export
  * diagnostic JSON" download.
  */
-import { stressScore } from '../../test/fixtures';
+import { stressScore } from '../../test/fixtures.js';
 import type { Score } from '@sudobility/music_types';
-import type { ScoreRange } from '../../domain/selection/types';
-import { validateScore } from '../../domain/validation/validator';
-import { quantizeEvents } from '../../domain/quantization/quantize';
-import { allNotes } from '../../domain/score/queries';
-import { extractFragment, replaceFragment } from '../../domain/score/fragment';
-import { exportMidi } from '../../adapters/midi/export';
-import { VexFlowScoreRenderer } from '../../adapters/vexflow/renderer';
-import type { RenderTheme } from '../../adapters/vexflow/types';
+import type { ScoreRange } from '../../domain/selection/types.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import { quantizeEvents } from '../../domain/quantization/quantize.js';
+import { allNotes } from '../../domain/score/queries.js';
+import { extractFragment, replaceFragment } from '../../domain/score/fragment.js';
+import { exportMidi } from '../../adapters/midi/export.js';
+import { VexFlowScoreRenderer } from '../../adapters/vexflow/renderer.js';
+import type { RenderTheme } from '../../adapters/vexflow/types.js';
 
 export type BenchmarkSize = { trackCount: number; measureCount: number };
 

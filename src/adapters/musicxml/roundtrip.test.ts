@@ -8,16 +8,16 @@
  * the brief.
  */
 import { describe, expect, it } from 'vitest';
-import { exportMusicXml } from './export';
-import { importMusicXml } from './import';
-import { createId } from '../../domain/score/ids';
+import { exportMusicXml } from './export.js';
+import { importMusicXml } from './import.js';
+import { createId } from '../../domain/score/ids.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { allNotes } from '../../domain/score/queries';
-import { measureDurationTicks, ticksFor } from '../../domain/time/ticks';
-import { validateScore } from '../../domain/validation/validator';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { allNotes } from '../../domain/score/queries.js';
+import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
   const xml = exportMusicXml(source);

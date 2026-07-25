@@ -14,8 +14,8 @@
  * outside `generation-slice`'s own `error` field (e.g. a request that
  * throws before `generate()`/`regenerate()` even starts).
  */
-import { useAppStore } from '../store/useAppStore';
-import type { createAppStore } from '../store/useAppStore';
+import { useAppStore } from '../store/useAppStore.js';
+import type { createAppStore } from '../store/useAppStore.js';
 
 /** Stable, machine-readable failure categories (spec §28's list). */
 export type AppErrorCode =

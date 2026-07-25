@@ -5,8 +5,8 @@
  * adapters/services "no non-domain library" purity rule.
  */
 import { Midi } from '@tonejs/midi';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { joinTiedNotes } from '../../domain/score/ties';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { joinTiedNotes } from '../../domain/score/ties.js';
 import type { MusicalEvent, NoteEvent, Score, TimeSignature, Track } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 

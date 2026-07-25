@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Formatter, Renderer, Stave, StaveNote } from 'vexflow';
-import { buildEventMaps, buildMeasureMap } from './id-map';
-import type { NoteMeta } from './convert';
+import { buildEventMaps, buildMeasureMap } from './id-map.js';
+import type { NoteMeta } from './convert.js';
 
 let container: HTMLDivElement;
 

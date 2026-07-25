@@ -6,7 +6,7 @@ import {
   fractionToTicks,
   normalizeFraction,
   subtractFractions,
-} from './fraction';
+} from './fraction.js';
 
 describe('fraction', () => {
   it('constructs a fraction from numerator and denominator', () => {

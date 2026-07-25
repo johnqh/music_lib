@@ -1,8 +1,8 @@
-import { createId } from './ids';
-import { findEvent, findTrack } from './queries';
+import { createId } from './ids.js';
+import { findEvent, findTrack } from './queries.js';
 import type { MusicalEvent, NoteEvent, Pitch, Score, Track, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { splitAtBoundaries } from '../time/durations';
+import { splitAtBoundaries } from '../time/durations.js';
 
 /** Whether two pitches have identical spelling (step, accidental, and octave). */
 function samePitch(a: Pitch, b: Pitch): boolean {

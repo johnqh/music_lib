@@ -12,7 +12,7 @@
  * `schemaVersion` field itself (and therefore also predating `uiPrefs`,
  * introduced in the same release) is treated as v0.
  */
-import { projectRecordSchema, type ProjectRecord } from './db';
+import { projectRecordSchema, type ProjectRecord } from './db.js';
 
 export const CURRENT_SCHEMA_VERSION = 1;
 

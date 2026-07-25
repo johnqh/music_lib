@@ -12,9 +12,9 @@
  * service.ts` has a non-worker fallback that calls `quantizeEvents`
  * directly, which *is* exercised in tests.
  */
-import { quantizeEvents } from '../domain/quantization/quantize';
+import { quantizeEvents } from '../domain/quantization/quantize.js';
 import type { MusicalEvent } from '@sudobility/music_types';
-import type { QuantizeOptions } from '../domain/quantization/options';
+import type { QuantizeOptions } from '../domain/quantization/options.js';
 
 export type QuantizeEventGroup = { key: string; events: MusicalEvent[] };
 

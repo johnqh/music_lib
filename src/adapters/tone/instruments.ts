@@ -16,7 +16,7 @@
  * call-site impact anywhere else.
  */
 import * as Tone from 'tone';
-import { midiToHertz } from './midi';
+import { midiToHertz } from './midi.js';
 
 /**
  * The uniform shape `tone-engine.ts` schedules through, regardless of which

@@ -15,13 +15,13 @@
  * supply an in-memory `fake-indexeddb` database instead of the real one.
  */
 import type { StateCreator } from 'zustand';
-import { createEmptyScore } from '../../domain/score/factory';
+import { createEmptyScore } from '../../domain/score/factory.js';
 import type { Score } from '@sudobility/music_types';
-import type { ProjectRecord, ScoreSmithDb } from '../../services/persistence/db';
-import { createProject, loadProject, saveProject } from '../../services/persistence/projects';
-import { createAutosaver } from '../../services/persistence/autosave';
-import type { Autosaver } from '../../services/persistence/autosave';
-import type { AppState } from '../useAppStore';
+import type { ProjectRecord, ScoreSmithDb } from '../../services/persistence/db.js';
+import { createProject, loadProject, saveProject } from '../../services/persistence/projects.js';
+import { createAutosaver } from '../../services/persistence/autosave.js';
+import type { Autosaver } from '../../services/persistence/autosave.js';
+import type { AppState } from '../useAppStore.js';
 
 export type SaveState = 'saved' | 'saving' | 'unsaved';
 

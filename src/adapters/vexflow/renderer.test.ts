@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Accidental, StaveNote, Voice } from 'vexflow';
-import { applyHighlights, buildTies, VexFlowScoreRenderer } from './renderer';
-import type { Channel } from './renderer';
-import { buildVoiceContent, keySignatureToVexSpec } from './convert';
-import type { NoteMeta } from './convert';
-import type { RenderOptions, RenderTheme } from './types';
+import { applyHighlights, buildTies, VexFlowScoreRenderer } from './renderer.js';
+import type { Channel } from './renderer.js';
+import { buildVoiceContent, keySignatureToVexSpec } from './convert.js';
+import type { NoteMeta } from './convert.js';
+import type { RenderOptions, RenderTheme } from './types.js';
 import type { KeySignature, NoteEvent, Pitch } from '@sudobility/music_types';
-import { allNotes } from '../../domain/score/queries';
-import { ticksFor } from '../../domain/time/ticks';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { allNotes } from '../../domain/score/queries.js';
+import { ticksFor } from '../../domain/time/ticks.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 // rgb(...) form (not hex): jsdom's CSSOM normalizes any color assigned to
 // `.style.fill`/`.style.stroke` to this form when read back, so tests that

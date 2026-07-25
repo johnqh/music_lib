@@ -6,10 +6,10 @@
  * silent gaps with rests). Kept independent of `@tonejs/midi` so it's usable
  * (and unit-testable) purely in terms of the domain model.
  */
-import { createId } from '../../domain/score/ids';
-import { splitNoteAcrossMeasures } from '../../domain/score/ties';
+import { createId } from '../../domain/score/ids.js';
+import { splitNoteAcrossMeasures } from '../../domain/score/ties.js';
 import type { KeySignature, Measure, MusicalEvent, NoteEvent, TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../domain/time/ticks';
+import { measureDurationTicks } from '../../domain/time/ticks.js';
 
 export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 

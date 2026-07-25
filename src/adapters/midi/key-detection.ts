@@ -8,9 +8,9 @@
  * fine") — ambiguous or atonal input has no guaranteed "correct" answer
  * either way.
  */
-import { pitchToMidi } from '../../domain/pitch/pitch';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { KeySignature, NoteEvent } from '@sudobility/music_types';
-import { keySignatureForTonicPitchClass } from '../../services/generation/music-theory';
+import { keySignatureForTonicPitchClass } from '../../services/generation/music-theory.js';
 
 /** Krumhansl-Kessler major-key profile (tonic at index 0), a canonical perceptual "fit" weighting per scale degree. */
 const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];

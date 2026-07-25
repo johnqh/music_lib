@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { extractFragment, replaceFragment } from '../../domain/score/fragment';
-import { validateScore } from '../../domain/validation/validator';
-import { measureDurationTicks } from '../../domain/time/ticks';
+import { extractFragment, replaceFragment } from '../../domain/score/fragment.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import { measureDurationTicks } from '../../domain/time/ticks.js';
 import type { GenerateScoreRequest, RegenerateRegionRequest } from '@sudobility/music_types';
-import { MockGenerationProvider } from './mock-provider';
+import { MockGenerationProvider } from './mock-provider.js';
 
 function baseRequest(overrides: Partial<GenerateScoreRequest> = {}): GenerateScoreRequest {
   return {

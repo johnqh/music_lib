@@ -1,7 +1,7 @@
-import { rebuildMeasureTicks } from './factory';
-import { measuresInRange } from './queries';
+import { rebuildMeasureTicks } from './factory.js';
+import { measuresInRange } from './queries.js';
 import type { Measure, Score, ScoreFragment } from '@sudobility/music_types';
-import type { ScoreRange } from '../selection/types';
+import type { ScoreRange } from '../selection/types.js';
 
 /**
  * `ScoreFragment` is canonical in @sudobility/music_types and re-exported

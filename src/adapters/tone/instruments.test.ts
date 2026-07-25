@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { midiToHertz } from './midi';
+import { midiToHertz } from './midi.js';
 
 // A minimal mock of the `tone` module: every mocked class just records its
 // constructor call (type + options) and exposes triggerAttackRelease/
@@ -91,7 +91,7 @@ vi.mock('tone', () => {
 });
 
 import * as Tone from 'tone';
-import { createInstrument, resolveInstrumentCategory } from './instruments';
+import { createInstrument, resolveInstrumentCategory } from './instruments.js';
 
 beforeEach(() => {
   constructedInstances.length = 0;

@@ -5,7 +5,7 @@
  * caller-supplied default when the row doesn't exist yet (a fresh
  * database, or a key introduced after the user's first run).
  */
-import type { ScoreSmithDb, SettingsKey } from './db';
+import type { ScoreSmithDb, SettingsKey } from './db.js';
 
 /** Reads one setting, falling back to `fallback` if unset. */
 export async function getSetting<T>(db: ScoreSmithDb, key: SettingsKey, fallback: T): Promise<T> {

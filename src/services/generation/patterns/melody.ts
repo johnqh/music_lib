@@ -4,12 +4,12 @@
  * cadential (tonic-resolving) final measure.
  */
 import type { KeySignature, TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks';
-import type { ScaleType } from '../music-theory';
-import { scaleDegreeToPitch } from '../music-theory';
-import type { SeededRng } from '../prng';
-import type { Step } from './shared';
-import { fillDurationsForMeasure } from './shared';
+import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks.js';
+import type { ScaleType } from '../music-theory.js';
+import { scaleDegreeToPitch } from '../music-theory.js';
+import type { SeededRng } from '../prng.js';
+import type { Step } from './shared.js';
+import { fillDurationsForMeasure } from './shared.js';
 
 export type MelodyComplexity = 'simple' | 'moderate' | 'complex';
 

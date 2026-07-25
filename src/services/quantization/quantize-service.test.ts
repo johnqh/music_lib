@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { QuantizeService } from './quantize-service';
-import { quantizeEvents } from '../../domain/quantization/quantize';
+import { QuantizeService } from './quantize-service.js';
+import { quantizeEvents } from '../../domain/quantization/quantize.js';
 import type { MusicalEvent } from '@sudobility/music_types';
-import type { QuantizeOptions } from '../../domain/quantization/options';
+import type { QuantizeOptions } from '../../domain/quantization/options.js';
 import type { QuantizeEventGroup, QuantizeWorkerRequest, QuantizeWorkerResponse } from '../../workers/quantize.worker';
 
 function note(id: string, startTick: number, durationTicks: number, voiceId = 'v1', trackId = 't1'): MusicalEvent {

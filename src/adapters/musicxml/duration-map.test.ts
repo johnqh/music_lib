@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { notateDuration, ticksForNotatedType, isMusicXmlNoteType } from './duration-map';
-import { ticksFor } from '../../domain/time/ticks';
+import { notateDuration, ticksForNotatedType, isMusicXmlNoteType } from './duration-map.js';
+import { ticksFor } from '../../domain/time/ticks.js';
 
 const PPQ = 480;
 

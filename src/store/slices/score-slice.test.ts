@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
-import { changeMetadataCommand } from '../../domain/commands/structure-commands';
-import { deleteEventsCommand } from '../../domain/commands/note-commands';
-import { validateScore } from '../../domain/validation/validator';
-import { twinkleScore } from '../../test/fixtures';
+import { createAppStore } from '../useAppStore.js';
+import { changeMetadataCommand } from '../../domain/commands/structure-commands.js';
+import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import { twinkleScore } from '../../test/fixtures.js';
 
 describe('score-slice', () => {
   describe('setScore', () => {

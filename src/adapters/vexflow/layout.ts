@@ -20,7 +20,7 @@
  * must multiply this module's output by `zoom` themselves.
  */
 import type { Score, Track } from '@sudobility/music_types';
-import type { RenderOptions } from './types';
+import type { RenderOptions } from './types.js';
 
 export type StaveBox = { x: number; y: number; width: number; height: number };
 

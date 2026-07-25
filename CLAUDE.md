@@ -38,7 +38,7 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Gotchas
 
-- `dist/` uses extensionless relative imports (plain tsc): resolvable by bundlers and Bun, NOT by raw Node ESM
+- `dist/` emits proper ESM with explicit `.js` relative extensions (source imports use `.js` specifiers, mapped to `.ts` by bundler moduleResolution); raw Node still can't import it because some deps (@tonejs/midi) are CJS — consume via a bundler, vitest, or Bun
 - The playback controller is a module-level singleton that constructs Tone objects at import — component tests in consuming apps must mock it
 - Two `safeFilename` helpers existed (midi/musicxml); the package root re-exports the midi one only
 

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ScoreSmithDb, projectRecordSchema, type ProjectRecord } from './db';
-import { twinkleScore } from '../../test/fixtures';
+import { ScoreSmithDb, projectRecordSchema, type ProjectRecord } from './db.js';
+import { twinkleScore } from '../../test/fixtures.js';
 
 function makeRecord(overrides: Partial<ProjectRecord> = {}): ProjectRecord {
   return {

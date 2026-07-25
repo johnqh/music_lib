@@ -3,12 +3,12 @@
  * and arpeggios, driven by a chord progression expanded across measures.
  */
 import type { KeySignature, Pitch, TimeSignature } from '@sudobility/music_types';
-import { pitchToMidi } from '../../../domain/pitch/pitch';
-import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks';
-import type { ProgressionName } from '../music-theory';
-import { expandProgressionToMeasures } from '../music-theory';
-import type { SeededRng } from '../prng';
-import type { Step } from './shared';
+import { pitchToMidi } from '../../../domain/pitch/pitch.js';
+import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks.js';
+import type { ProgressionName } from '../music-theory.js';
+import { expandProgressionToMeasures } from '../music-theory.js';
+import type { SeededRng } from '../prng.js';
+import type { Step } from './shared.js';
 
 export type AccompanimentStyle = 'blockChords' | 'alberti' | 'arpeggio';
 

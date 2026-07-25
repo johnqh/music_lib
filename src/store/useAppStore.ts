@@ -13,20 +13,20 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { createDb } from '../services/persistence/db';
-import type { ScoreSmithDb } from '../services/persistence/db';
-import { createScoreSlice } from './slices/score-slice';
-import type { ScoreSlice } from './slices/score-slice';
-import { createSelectionSlice } from './slices/selection-slice';
-import type { SelectionSlice } from './slices/selection-slice';
-import { createPlaybackSlice } from './slices/playback-slice';
-import type { PlaybackSlice } from './slices/playback-slice';
-import { createGenerationSlice } from './slices/generation-slice';
-import type { GenerationSlice } from './slices/generation-slice';
-import { createProjectSlice } from './slices/project-slice';
-import type { ProjectSlice } from './slices/project-slice';
-import { createUiSlice } from './slices/ui-slice';
-import type { UiSlice } from './slices/ui-slice';
+import { createDb } from '../services/persistence/db.js';
+import type { ScoreSmithDb } from '../services/persistence/db.js';
+import { createScoreSlice } from './slices/score-slice.js';
+import type { ScoreSlice } from './slices/score-slice.js';
+import { createSelectionSlice } from './slices/selection-slice.js';
+import type { SelectionSlice } from './slices/selection-slice.js';
+import { createPlaybackSlice } from './slices/playback-slice.js';
+import type { PlaybackSlice } from './slices/playback-slice.js';
+import { createGenerationSlice } from './slices/generation-slice.js';
+import type { GenerationSlice } from './slices/generation-slice.js';
+import { createProjectSlice } from './slices/project-slice.js';
+import type { ProjectSlice } from './slices/project-slice.js';
+import { createUiSlice } from './slices/ui-slice.js';
+import type { UiSlice } from './slices/ui-slice.js';
 
 export type AppState = ScoreSlice &
   SelectionSlice &

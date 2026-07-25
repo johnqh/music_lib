@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { validateScore } from '../../domain/validation/validator';
-import { ScoreSmithDb } from './db';
-import { installSampleProjects } from './samples';
-import { listProjects } from './projects';
+import { validateScore } from '../../domain/validation/validator.js';
+import { ScoreSmithDb } from './db.js';
+import { installSampleProjects } from './samples.js';
+import { listProjects } from './projects.js';
 
 let db: ScoreSmithDb;
 let dbCounter = 0;

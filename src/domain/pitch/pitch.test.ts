@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPitchInRange, midiToPitch, pitchToMidi, pitchToString } from './pitch';
+import { isPitchInRange, midiToPitch, pitchToMidi, pitchToString } from './pitch.js';
 import type { Pitch } from '@sudobility/music_types';
 
 describe('pitchToMidi', () => {

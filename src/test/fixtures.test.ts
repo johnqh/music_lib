@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { chordScore, stressScore, twinkleScore, twoTrackScore } from './fixtures';
+import { chordScore, stressScore, twinkleScore, twoTrackScore } from './fixtures.js';
 import { parseScore } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { allNotes } from '../domain/score/queries';
+import { allNotes } from '../domain/score/queries.js';
 
 describe('twinkleScore', () => {
   it('is a valid Score with 8 measures on a single piano track', () => {

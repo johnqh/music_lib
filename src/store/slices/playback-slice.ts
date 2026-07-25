@@ -7,8 +7,8 @@
  * anywhere in this file.
  */
 import type { StateCreator } from 'zustand';
-import type { ScoreRange } from '../../domain/selection/types';
-import type { AppState } from '../useAppStore';
+import type { ScoreRange } from '../../domain/selection/types.js';
+import type { AppState } from '../useAppStore.js';
 
 export type TransportState = 'stopped' | 'playing' | 'paused';
 

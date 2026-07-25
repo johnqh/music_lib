@@ -14,10 +14,10 @@
  * interleave; the second one's read is guaranteed to see the first one's
  * writes once it commits).
  */
-import { MockGenerationProvider } from '../generation/mock-provider';
+import { MockGenerationProvider } from '../generation/mock-provider.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
-import type { ProjectRecord, ScoreSmithDb } from './db';
-import { createProject, listProjects } from './projects';
+import type { ProjectRecord, ScoreSmithDb } from './db.js';
+import { createProject, listProjects } from './projects.js';
 
 type SampleDefinition = {
   name: string;

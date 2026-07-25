@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { boxForMeasureIndex, computeLayout, sameMeasureIndices, visibleSystemMeasureIndices } from './layout';
-import type { RenderTheme } from './types';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { boxForMeasureIndex, computeLayout, sameMeasureIndices, visibleSystemMeasureIndices } from './layout.js';
+import type { RenderTheme } from './types.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 const theme: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
 

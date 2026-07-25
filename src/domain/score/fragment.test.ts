@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from './factory';
-import { extractFragment, replaceFragment } from './fragment';
+import { createEmptyScore } from './factory.js';
+import { extractFragment, replaceFragment } from './fragment.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Measure, NoteEvent } from '@sudobility/music_types';
 

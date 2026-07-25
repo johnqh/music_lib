@@ -5,11 +5,11 @@
  * whitespace/attribute-order choices.
  */
 import { describe, expect, it } from 'vitest';
-import { escapeXml, exportMusicXml, safeFilename } from './export';
-import { createId } from '../../domain/score/ids';
+import { escapeXml, exportMusicXml, safeFilename } from './export.js';
+import { createId } from '../../domain/score/ids.js';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { measureDurationTicks, ticksFor } from '../../domain/time/ticks';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 function parse(xml: string): Document {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');

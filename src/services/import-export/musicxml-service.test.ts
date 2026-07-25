@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MusicXmlService } from './musicxml-service';
-import { exportMusicXml } from '../../adapters/musicxml/export';
-import { importMusicXml } from '../../adapters/musicxml/import';
-import { twinkleScore } from '../../test/fixtures';
+import { MusicXmlService } from './musicxml-service.js';
+import { exportMusicXml } from '../../adapters/musicxml/export.js';
+import { importMusicXml } from '../../adapters/musicxml/import.js';
+import { twinkleScore } from '../../test/fixtures.js';
 
 describe('MusicXmlService', () => {
   it('export() matches the direct adapter call', async () => {

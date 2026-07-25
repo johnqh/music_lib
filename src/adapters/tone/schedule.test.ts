@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { twinkleScore, twoTrackScore } from '../../test/fixtures';
-import { flattenScoreForPlayback, metronomeClicks } from './schedule';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { flattenScoreForPlayback, metronomeClicks } from './schedule.js';
 
 const PPQ = 480;
 const C_MAJOR = { fifths: 0, mode: 'major' as const };

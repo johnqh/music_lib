@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { pitchToMidi } from '../../../domain/pitch/pitch';
+import { pitchToMidi } from '../../../domain/pitch/pitch.js';
 import type { KeySignature, TimeSignature } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../../domain/time/ticks';
-import { keyTonicPitchClass } from '../music-theory';
-import { SeededRng } from '../prng';
-import { generateMelody } from './melody';
-import type { MelodyOptions } from './melody';
+import { measureDurationTicks } from '../../../domain/time/ticks.js';
+import { keyTonicPitchClass } from '../music-theory.js';
+import { SeededRng } from '../prng.js';
+import { generateMelody } from './melody.js';
+import type { MelodyOptions } from './melody.js';
 
 const PPQ = 480;
 const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };

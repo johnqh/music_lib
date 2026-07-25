@@ -1,5 +1,5 @@
 import type { DurationName } from '@sudobility/music_types';
-import { DURATIONS, ticksFor } from './ticks';
+import { DURATIONS, ticksFor } from './ticks.js';
 
 const NON_TRIPLET_DURATION_NAMES = (Object.keys(DURATIONS) as DurationName[]).filter(
   (name) => !name.startsWith('triplet-'),

@@ -1,5 +1,5 @@
 import type { KeySignature, Pitch } from '@sudobility/music_types';
-import { midiToPitch, pitchToMidi } from './pitch';
+import { midiToPitch, pitchToMidi } from './pitch.js';
 
 /**
  * Transposes a pitch by a number of semitones (may be negative), re-spelling

@@ -10,12 +10,12 @@
 import { Accidental, Beam, Formatter, Renderer as VexRenderer, Stave, StaveConnector, StaveTie, Voice } from 'vexflow';
 import type { StaveNote } from 'vexflow';
 import type { KeySignature, Measure, Score, TimeSignature, Track } from '@sudobility/music_types';
-import { buildVoiceContent, keySignatureToVexSpec, pitchToVexKey } from './convert';
-import type { NoteMeta } from './convert';
-import { buildEventMaps, buildMeasureMap } from './id-map';
-import { computeLayout, resolveZoom } from './layout';
-import type { MeasureLayout } from './layout';
-import type { RenderOptions, RenderResult, ScoreChangeSet, ScoreRenderer } from './types';
+import { buildVoiceContent, keySignatureToVexSpec, pitchToVexKey } from './convert.js';
+import type { NoteMeta } from './convert.js';
+import { buildEventMaps, buildMeasureMap } from './id-map.js';
+import { computeLayout, resolveZoom } from './layout.js';
+import type { MeasureLayout } from './layout.js';
+import type { RenderOptions, RenderResult, ScoreChangeSet, ScoreRenderer } from './types.js';
 
 function sameTimeSignature(a: TimeSignature, b: TimeSignature): boolean {
   return a.numerator === b.numerator && a.denominator === b.denominator;

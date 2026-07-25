@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateVoices } from './allocate';
+import { allocateVoices } from './allocate.js';
 import type { NoteEvent, Pitch } from '@sudobility/music_types';
 
 const TRACK = 't1';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { quantizeEvents } from './quantize';
-import type { QuantizeOptions } from './options';
+import { quantizeEvents } from './quantize.js';
+import type { QuantizeOptions } from './options.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
 import type { MusicalEvent, NoteEvent, RestEvent } from '@sudobility/music_types';
 

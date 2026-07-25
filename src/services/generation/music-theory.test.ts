@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pitchToMidi } from '../../domain/pitch/pitch';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { KeySignature } from '@sudobility/music_types';
 import {
   PROGRESSIONS,
@@ -15,7 +15,7 @@ import {
   scaleNotes,
   scaleNotesOfType,
   snapPitchToScale,
-} from './music-theory';
+} from './music-theory.js';
 
 const C_MAJOR: KeySignature = { fifths: 0, mode: 'major' };
 const A_MINOR: KeySignature = { fifths: 0, mode: 'minor' };

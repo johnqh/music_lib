@@ -1,4 +1,4 @@
-import { createId } from './ids';
+import { createId } from './ids.js';
 import type {
   KeySignature,
   Measure,
@@ -7,7 +7,7 @@ import type {
   TimeSignature,
   Track,
 } from '@sudobility/music_types';
-import { measureDurationTicks } from '../time/ticks';
+import { measureDurationTicks } from '../time/ticks.js';
 
 const DEFAULT_PPQ = 480;
 const DEFAULT_TEMPO_BPM = 120;

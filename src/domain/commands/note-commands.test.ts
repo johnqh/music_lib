@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
-import { validateScore } from '../validation/validator';
+import { createEmptyScore } from '../score/factory.js';
+import { validateScore } from '../validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Pitch } from '@sudobility/music_types';
-import { ticksFor } from '../time/ticks';
+import { ticksFor } from '../time/ticks.js';
 import {
   addNoteCommand,
   changeAccidentalCommand,
@@ -16,7 +16,7 @@ import {
   moveNotesCommand,
   resizeNotesCommand,
   toggleTieCommand,
-} from './note-commands';
+} from './note-commands.js';
 
 const PITCH: Pitch = { step: 'C', accidental: 0, octave: 4 };
 

@@ -1,14 +1,14 @@
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
-import { exportMidi } from './export';
-import { importMidi } from './import';
-import { defaultMidiImportOptions } from './import-options';
-import { analyzeMidi } from './analyze';
-import { validateScore } from '../../domain/validation/validator';
+import { exportMidi } from './export.js';
+import { importMidi } from './import.js';
+import { defaultMidiImportOptions } from './import-options.js';
+import { analyzeMidi } from './analyze.js';
+import { validateScore } from '../../domain/validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import { allNotes } from '../../domain/score/queries';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { allNotes } from '../../domain/score/queries.js';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;

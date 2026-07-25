@@ -17,9 +17,9 @@
  */
 import type { Draft, Patch } from 'immer';
 import { applyPatches, current, enablePatches, produceWithPatches } from 'immer';
-import { createId } from '../score/ids';
+import { createId } from '../score/ids.js';
 import type { Score } from '@sudobility/music_types';
-import type { ScoreCommand } from './types';
+import type { ScoreCommand } from './types.js';
 
 enablePatches();
 

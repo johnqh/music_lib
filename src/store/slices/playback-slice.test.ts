@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
+import { createAppStore } from '../useAppStore.js';
 
 describe('playback-slice', () => {
   it('starts stopped, at tick 0, with no active notes/loop, unit tempo, metronome off, full volume', () => {

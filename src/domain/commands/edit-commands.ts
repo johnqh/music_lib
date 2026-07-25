@@ -3,16 +3,16 @@
  * §24). Each factory wraps a pure `(Score) => Score` transform via
  * `transformCommand`.
  */
-import { createId } from '../score/ids';
-import { splitNoteAcrossMeasures } from '../score/ties';
+import { createId } from '../score/ids.js';
+import { splitNoteAcrossMeasures } from '../score/ties.js';
 import type { MusicalEvent, NoteEvent, Score, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { transposePitch } from '../pitch/transpose';
-import { quantizeEvents } from '../quantization/quantize';
-import type { QuantizeOptions } from '../quantization/options';
-import type { ScoreCommand } from './types';
-import { transformCommand } from './snapshot';
-import { insertNoteIntoTrack, reflowVoice, withTracks } from './reflow';
+import { transposePitch } from '../pitch/transpose.js';
+import { quantizeEvents } from '../quantization/quantize.js';
+import type { QuantizeOptions } from '../quantization/options.js';
+import type { ScoreCommand } from './types.js';
+import { transformCommand } from './snapshot.js';
+import { insertNoteIntoTrack, reflowVoice, withTracks } from './reflow.js';
 
 // ---- pasteEventsCommand -----------------------------------------------------------
 

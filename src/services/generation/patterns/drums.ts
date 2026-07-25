@@ -6,9 +6,9 @@
  * "basic groove" simplification for meters that aren't in 4.
  */
 import type { Pitch, TimeSignature } from '@sudobility/music_types';
-import { midiToPitch } from '../../../domain/pitch/pitch';
-import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks';
-import type { Step } from './shared';
+import { midiToPitch } from '../../../domain/pitch/pitch.js';
+import { measureDurationTicks, ticksFor } from '../../../domain/time/ticks.js';
+import type { Step } from './shared.js';
 
 export type DrumGroove = 'rock' | 'basic';
 

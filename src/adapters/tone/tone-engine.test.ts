@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { TempoMap } from '../../domain/time/tempo-map';
-import { twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { TempoMap } from '../../domain/time/tempo-map.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 // A mocked `tone` module covering everything both tone-engine.ts and
 // instruments.ts touch: a singleton mock Transport whose schedule/
@@ -195,8 +195,8 @@ vi.mock('tone', () => {
 });
 
 import * as Tone from 'tone';
-import { TonePlaybackEngine } from './tone-engine';
-import type { PlaybackObserver } from '../../services/playback/types';
+import { TonePlaybackEngine } from './tone-engine.js';
+import type { PlaybackObserver } from '../../services/playback/types.js';
 
 const PPQ = 480;
 const C_MAJOR = { fifths: 0, mode: 'major' as const };

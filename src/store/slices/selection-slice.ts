@@ -7,15 +7,15 @@
  * to know where the current selection implies content should land).
  */
 import type { StateCreator } from 'zustand';
-import { findEvent } from '../../domain/score/queries';
-import { selectionToRange } from '../../domain/selection/selection';
-import { emptySelection } from '../../domain/selection/types';
-import type { ScoreSelection } from '../../domain/selection/types';
+import { findEvent } from '../../domain/score/queries.js';
+import { selectionToRange } from '../../domain/selection/selection.js';
+import { emptySelection } from '../../domain/selection/types.js';
+import type { ScoreSelection } from '../../domain/selection/types.js';
 import type { NoteEvent, Score, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pasteEventsCommand } from '../../domain/commands/edit-commands';
-import { deleteEventsCommand } from '../../domain/commands/note-commands';
-import type { AppState } from '../useAppStore';
+import { pasteEventsCommand } from '../../domain/commands/edit-commands.js';
+import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
+import type { AppState } from '../useAppStore.js';
 
 export type ClipboardData = { events: NoteEvent[]; anchorTick: number };
 

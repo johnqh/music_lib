@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
-import { HistoryManager } from './history';
-import type { ScoreCommand } from './types';
-import { changeMetadataCommand } from './structure-commands';
+import { createEmptyScore } from '../score/factory.js';
+import { HistoryManager } from './history.js';
+import type { ScoreCommand } from './types.js';
+import { changeMetadataCommand } from './structure-commands.js';
 
 /** A trivial command for bookkeeping-only tests (limit eviction, redo-clearing), independent of score content. */
 function noopCommand(label: string): ScoreCommand {

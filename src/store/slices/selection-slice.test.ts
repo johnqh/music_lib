@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
-import { emptySelection } from '../../domain/selection/types';
-import { twinkleScore, twoTrackScore } from '../../test/fixtures';
+import { createAppStore } from '../useAppStore.js';
+import { emptySelection } from '../../domain/selection/types.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 describe('selection-slice', () => {
   describe('setSelection / clearSelection', () => {

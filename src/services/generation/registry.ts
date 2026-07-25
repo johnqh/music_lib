@@ -21,7 +21,7 @@
  * that *looks* seeded/deterministic in the devSettings UI but isn't
  * actually seeded in the registry until something writes to it.
  */
-import { MockGenerationProvider } from './mock-provider';
+import { MockGenerationProvider } from './mock-provider.js';
 import type { MusicGenerationProvider } from '@sudobility/music_types';
 
 /** The seed every fresh app boot (and every `resetProvider()`) starts with, absent an explicit `setMockSeed`/`setDevSettings({ seed })` call. Shared with `ui-slice.ts`'s `DEFAULT_DEV_SETTINGS.seed` so the two can never drift apart. */

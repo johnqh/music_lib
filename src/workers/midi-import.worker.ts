@@ -8,11 +8,11 @@
  * fallback that calls the same two adapter functions directly, which *is*
  * exercised in tests.
  */
-import { analyzeMidi } from '../adapters/midi/analyze';
-import type { MidiSummary } from '../adapters/midi/analyze';
-import { importMidi } from '../adapters/midi/import';
-import type { MidiImportResult } from '../adapters/midi/import';
-import type { MidiImportOptions } from '../adapters/midi/import-options';
+import { analyzeMidi } from '../adapters/midi/analyze.js';
+import type { MidiSummary } from '../adapters/midi/analyze.js';
+import { importMidi } from '../adapters/midi/import.js';
+import type { MidiImportResult } from '../adapters/midi/import.js';
+import type { MidiImportOptions } from '../adapters/midi/import-options.js';
 
 export type MidiWorkerRequest =
   | { type: 'analyze'; requestId: string; data: ArrayBuffer }

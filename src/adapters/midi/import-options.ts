@@ -5,9 +5,9 @@
  * derives sensible starting values from an `analyzeMidi` summary so the
  * wizard can open pre-filled.
  */
-import type { MidiSummary, MidiTrackSummary } from './analyze';
+import type { MidiSummary, MidiTrackSummary } from './analyze.js';
 import type { Clef, DurationName } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks';
+import { ticksFor } from '../../domain/time/ticks.js';
 
 export type MidiTrackSelection = {
   sourceIndex: number;

@@ -3,12 +3,12 @@
  * and structure-editing command factories (Task 5 brief). Every function
  * here returns new objects; none mutate their inputs.
  */
-import { createId } from '../score/ids';
-import { findEvent } from '../score/queries';
-import { tieChainFor } from '../score/ties';
+import { createId } from '../score/ids.js';
+import { findEvent } from '../score/queries.js';
+import { tieChainFor } from '../score/ties.js';
 import type { Measure, MusicalEvent, NoteEvent, Score, ScoreMetadata, Track, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../pitch/pitch';
+import { pitchToMidi } from '../pitch/pitch.js';
 
 /** Returns `metadata` with `updatedAt` refreshed to now. */
 export function touchMetadata(metadata: ScoreMetadata): ScoreMetadata {

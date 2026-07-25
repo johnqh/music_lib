@@ -15,7 +15,7 @@
  * MusicXML has no standard per-note velocity (see `export.ts`'s header);
  * every imported note is given the domain default velocity, 80.
  */
-import { createId } from '../../domain/score/ids';
+import { createId } from '../../domain/score/ids.js';
 import type {
   Accidental,
   Clef,
@@ -31,8 +31,8 @@ import type {
   TimeSignature,
   Track,
 } from '@sudobility/music_types';
-import { measureDurationTicks } from '../../domain/time/ticks';
-import { ticksForNotatedType, isMusicXmlNoteType } from './duration-map';
+import { measureDurationTicks } from '../../domain/time/ticks.js';
+import { ticksForNotatedType, isMusicXmlNoteType } from './duration-map.js';
 
 /** The score model's fixed internal PPQ (spec §4/§17: every import is normalized to 480). */
 const SCORE_PPQ = 480;

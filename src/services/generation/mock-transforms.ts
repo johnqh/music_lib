@@ -18,16 +18,16 @@
  * actually governs (`PRESERVE_TARGET_PATTERN`) rather than checking for
  * "preserve" and "melody" anywhere in the string.
  */
-import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch';
-import { transposeDiatonicOctave } from '../../domain/pitch/transpose';
+import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch.js';
+import { transposeDiatonicOctave } from '../../domain/pitch/transpose.js';
 import type { KeySignature, Measure, MusicalEvent, Pitch } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { ScoreFragment } from '../../domain/score/fragment';
-import { clampPitchToMidiRange, keyTonicPitchClass, snapPitchToScale } from './music-theory';
-import type { ScaleType } from './music-theory';
-import type { SeededRng } from './prng';
-import type { Step } from './patterns/shared';
-import { buildMeasureFromSteps } from './patterns/shared';
+import type { ScoreFragment } from '../../domain/score/fragment.js';
+import { clampPitchToMidiRange, keyTonicPitchClass, snapPitchToScale } from './music-theory.js';
+import type { ScaleType } from './music-theory.js';
+import type { SeededRng } from './prng.js';
+import type { Step } from './patterns/shared.js';
+import { buildMeasureFromSteps } from './patterns/shared.js';
 import type { RegenerationConstraints } from '@sudobility/music_types';
 
 export type TransformKind =

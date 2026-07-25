@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createAppStore } from './useAppStore';
-import { ScoreSmithDb } from '../services/persistence/db';
-import { resetProvider } from '../services/generation/registry';
-import { changeMetadataCommand } from '../domain/commands/structure-commands';
-import { twinkleScore } from '../test/fixtures';
+import { createAppStore } from './useAppStore.js';
+import { ScoreSmithDb } from '../services/persistence/db.js';
+import { resetProvider } from '../services/generation/registry.js';
+import { changeMetadataCommand } from '../domain/commands/structure-commands.js';
+import { twinkleScore } from '../test/fixtures.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
 
 let db: ScoreSmithDb;
@@ -57,7 +57,7 @@ describe('useAppStore (integration)', () => {
       .getState()
       .score!.tracks[0].measures[1].voices[0].events.find((e) => 'pitch' in e)?.id;
     expect(noteId).toBeDefined();
-    const { changeVelocityCommand } = await import('../domain/commands/note-commands');
+    const { changeVelocityCommand } = await import('../domain/commands/note-commands.js');
     store.getState().dispatchCommand(changeVelocityCommand([noteId!], 100));
     const findNote = () =>
       store

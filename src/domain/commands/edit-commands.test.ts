@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
-import { validateScore } from '../validation/validator';
+import { createEmptyScore } from '../score/factory.js';
+import { validateScore } from '../validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent, Pitch } from '@sudobility/music_types';
-import { addNoteCommand } from './note-commands';
+import { addNoteCommand } from './note-commands.js';
 import {
   applyQuantizedCommand,
   collectQuantizeTargets,
   pasteEventsCommand,
   quantizeCommand,
   transposeCommand,
-} from './edit-commands';
-import { quantizeEvents } from '../quantization/quantize';
-import type { QuantizeOptions } from '../quantization/options';
+} from './edit-commands.js';
+import { quantizeEvents } from '../quantization/quantize.js';
+import type { QuantizeOptions } from '../quantization/options.js';
 
 const PITCH: Pitch = { step: 'C', accidental: 0, octave: 4 };
 

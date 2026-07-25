@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
-import { validateScore } from '../validation/validator';
+import { createEmptyScore } from '../score/factory.js';
+import { validateScore } from '../validation/validator.js';
 import {
   addMeasureCommand,
   addTrackCommand,
@@ -12,7 +12,7 @@ import {
   changeTrackPropsCommand,
   deleteMeasureCommand,
   deleteTrackCommand,
-} from './structure-commands';
+} from './structure-commands.js';
 
 function baseScore() {
   return createEmptyScore({ title: 'S', measures: 2, tracks: [{ name: 'Piano' }] });

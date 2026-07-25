@@ -9,8 +9,8 @@
  * VexFlow objects directly) so it works uniformly for notes, rests, and
  * staves without needing bespoke bounding-box math per VexFlow class.
  */
-import type { NoteMeta } from './convert';
-import type { BBox } from './types';
+import type { NoteMeta } from './convert.js';
+import type { BBox } from './types.js';
 
 const ZERO_BBOX: BBox = { x: 0, y: 0, width: 0, height: 0 };
 

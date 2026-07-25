@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../../domain/score/factory';
-import { validateScore } from '../../domain/validation/validator';
-import { GenerationValidationError, sanitizeGeneratedScore } from './validate-response';
+import { createEmptyScore } from '../../domain/score/factory.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import { GenerationValidationError, sanitizeGeneratedScore } from './validate-response.js';
 
 /** Round-trips through JSON to simulate an untrusted network response (strips `undefined`, deep-clones). */
 function asJson(value: unknown): unknown {

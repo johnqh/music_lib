@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../../domain/score/factory';
-import { extractFragment } from '../../domain/score/fragment';
+import { createEmptyScore } from '../../domain/score/factory.js';
+import { extractFragment } from '../../domain/score/fragment.js';
 import type { RegenerationConstraints } from '@sudobility/music_types';
-import { SeededRng } from './prng';
-import { pickTransformKind, transformFragment } from './mock-transforms';
+import { SeededRng } from './prng.js';
+import { pickTransformKind, transformFragment } from './mock-transforms.js';
 
 const BASE_CONSTRAINTS: RegenerationConstraints = {
   preserveMeasureCount: true,

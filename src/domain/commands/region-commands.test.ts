@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyScore } from '../score/factory';
-import { extractFragment } from '../score/fragment';
-import { validateScore } from '../validation/validator';
+import { createEmptyScore } from '../score/factory.js';
+import { extractFragment } from '../score/fragment.js';
+import { validateScore } from '../validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import { importScoreCommand, replaceRegionCommand } from './region-commands';
+import { importScoreCommand, replaceRegionCommand } from './region-commands.js';
 
 describe('replaceRegionCommand', () => {
   it('replaces only the measures overlapping range, labels by 1-based measure span, and round-trips through undo', () => {

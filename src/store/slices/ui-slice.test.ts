@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createAppStore } from '../useAppStore';
-import { getProvider, resetProvider } from '../../services/generation/registry';
+import { createAppStore } from '../useAppStore.js';
+import { getProvider, resetProvider } from '../../services/generation/registry.js';
 
 afterEach(() => {
   resetProvider();

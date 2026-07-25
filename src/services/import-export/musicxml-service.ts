@@ -8,9 +8,9 @@
  * that already depend on an injected import/export service can treat both
  * uniformly.
  */
-import { exportMusicXml, safeFilename } from '../../adapters/musicxml/export';
-import { importMusicXml } from '../../adapters/musicxml/import';
-import type { MusicXmlImportResult } from '../../adapters/musicxml/import';
+import { exportMusicXml, safeFilename } from '../../adapters/musicxml/export.js';
+import { importMusicXml } from '../../adapters/musicxml/import.js';
+import type { MusicXmlImportResult } from '../../adapters/musicxml/import.js';
 import type { Score } from '@sudobility/music_types';
 
 export class MusicXmlService {

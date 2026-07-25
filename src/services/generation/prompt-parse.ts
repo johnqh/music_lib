@@ -8,8 +8,8 @@
  * (see mock-provider.ts) — this module only ever *suggests* values.
  */
 import type { Accidental, KeySignature, PitchStep, TimeSignature } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch';
-import { keySignatureForTonicPitchClass } from './music-theory';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { keySignatureForTonicPitchClass } from './music-theory.js';
 
 export type PromptHints = {
   keySignature?: KeySignature;

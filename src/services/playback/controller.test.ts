@@ -1,12 +1,12 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAppStore } from '../../store/useAppStore';
-import { ScoreSmithDb } from '../persistence/db';
-import { twinkleScore, twoTrackScore } from '../../test/fixtures';
-import { addMeasureCommand } from '../../domain/commands/structure-commands';
-import { createPlaybackController, PlaybackController } from './controller';
-import type { PlaybackStoreApi } from './controller';
-import type { PlaybackEngine, PlaybackObserver } from './types';
+import { createAppStore } from '../../store/useAppStore.js';
+import { ScoreSmithDb } from '../persistence/db.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { addMeasureCommand } from '../../domain/commands/structure-commands.js';
+import { createPlaybackController, PlaybackController } from './controller.js';
+import type { PlaybackStoreApi } from './controller.js';
+import type { PlaybackEngine, PlaybackObserver } from './types.js';
 
 let db: ScoreSmithDb;
 let dbCounter = 0;

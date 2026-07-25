@@ -5,8 +5,8 @@
  * values — no randomness here (that lives in `prng.ts`/`patterns/*`).
  */
 import type { KeySignature, Pitch } from '@sudobility/music_types';
-import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch';
-import { transposeDiatonicOctave } from '../../domain/pitch/transpose';
+import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch.js';
+import { transposeDiatonicOctave } from '../../domain/pitch/transpose.js';
 
 export type ScaleType = 'major' | 'naturalMinor' | 'harmonicMinor' | 'majorPentatonic' | 'minorPentatonic';
 

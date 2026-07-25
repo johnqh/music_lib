@@ -3,10 +3,10 @@
  * §14). Each factory wraps a pure `(Score) => Score` transform via
  * `transformCommand`, matching the note-commands.ts pattern.
  */
-import { appendMeasure, createTrack, rebuildMeasureTicks } from '../score/factory';
-import type { CreateTrackOptions } from '../score/factory';
-import { createId } from '../score/ids';
-import { measureDurationTicks } from '../time/ticks';
+import { appendMeasure, createTrack, rebuildMeasureTicks } from '../score/factory.js';
+import type { CreateTrackOptions } from '../score/factory.js';
+import { createId } from '../score/ids.js';
+import { measureDurationTicks } from '../time/ticks.js';
 import type {
   Clef,
   KeySignature,
@@ -18,9 +18,9 @@ import type {
   Track,
   UUID,
 } from '@sudobility/music_types';
-import type { ScoreCommand } from './types';
-import { transformCommand } from './snapshot';
-import { reflowVoice, touchMetadata, withTracks } from './reflow';
+import type { ScoreCommand } from './types.js';
+import { transformCommand } from './snapshot.js';
+import { reflowVoice, touchMetadata, withTracks } from './reflow.js';
 
 // ---- addMeasureCommand / deleteMeasureCommand ----------------------------------
 
