@@ -29,7 +29,7 @@ function sameKeySignature(a: KeySignature, b: KeySignature): boolean {
 export type Channel = Array<{ note: StaveNote; meta: NoteMeta }>;
 
 /** Builds one measure's `Stave`, its VexFlow `Voice`s, and its beams; records notes into `channels` for tie building. */
-function buildMeasureContent(
+export function buildMeasureContent(
   measure: Measure,
   track: Track,
   placement: MeasureLayout,

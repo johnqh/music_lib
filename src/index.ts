@@ -62,6 +62,7 @@ export * from './adapters/vexflow/renderer.js';
 export * from './adapters/vexflow/convert.js';
 export * from './adapters/vexflow/layout.js';
 export * from './adapters/vexflow/playhead.js';
+export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/id-map.js';
 
 // adapters/tone
