@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { boxForMeasureIndex, computeLayout, sameMeasureIndices, visibleSystemMeasureIndices } from './layout.js';
+import { boxForMeasureIndex, computeLayout, measureAtXInSystem, sameMeasureIndices, systemAtY, visibleSystemMeasureIndices } from './layout.js';
 import type { RenderTheme } from './types.js';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 const theme: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
 
@@ -200,5 +200,34 @@ describe('sameMeasureIndices (Task 17 virtualization scroll-throttle guard)', ()
 
   it('is true for two empty sets', () => {
     expect(sameMeasureIndices(new Set(), new Set())).toBe(true);
+  });
+});
+
+describe('systemAtY / measureAtXInSystem', () => {
+  const stressPlanScore = stressScore(1, 80);
+  const stressPlan = computeLayout(stressPlanScore, options());
+
+  it('finds the system containing a y inside it, for every system', () => {
+    for (const system of stressPlan.systems) {
+      expect(systemAtY(stressPlan, (system.yTop + system.yBottom) / 2)).toBe(system);
+    }
+  });
+
+  it('returns null above the first system, below the last, and in inter-system gaps', () => {
+    expect(systemAtY(stressPlan, stressPlan.systems[0].yTop - 1)).toBeNull();
+    expect(systemAtY(stressPlan, stressPlan.systems.at(-1)!.yBottom + 1)).toBeNull();
+    const gapY = (stressPlan.systems[0].yBottom + stressPlan.systems[1].yTop) / 2;
+    expect(systemAtY(stressPlan, gapY)).toBeNull();
+  });
+
+  it('finds the measure containing an x, clamping outside the span', () => {
+    const system = stressPlan.systems[1];
+    const layouts = system.measureIndices.map(
+      (i) => stressPlan.trackLayouts[0].measures.find((m) => m.measureIndex === i)!,
+    );
+    const target = layouts[1];
+    expect(measureAtXInSystem(stressPlan, system, target.box.x + target.box.width / 2)).toBe(target);
+    expect(measureAtXInSystem(stressPlan, system, -9999)!.measureIndex).toBe(layouts[0].measureIndex);
+    expect(measureAtXInSystem(stressPlan, system, 99999)!.measureIndex).toBe(layouts.at(-1)!.measureIndex);
   });
 });

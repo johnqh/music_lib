@@ -241,3 +241,51 @@ export function boxForMeasureIndex(plan: LayoutPlan, trackIndex: number, measure
   if (!trackLayout) return null;
   return trackLayout.measures.find((m) => m.measureIndex === measureIndex)?.box ?? null;
 }
+
+/** Binary search over the y-sorted `plan.systems` for the system containing logical `y`; `null` in inter-system gaps or outside the score. O(log n). */
+export function systemAtY(plan: LayoutPlan, y: number): SystemLayout | null {
+  const systems = plan.systems;
+  let lo = 0;
+  let hi = systems.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const s = systems[mid];
+    if (y < s.yTop) hi = mid - 1;
+    else if (y > s.yBottom) lo = mid + 1;
+    else return s;
+  }
+  return null;
+}
+
+/**
+ * Binary search over `system`'s x-sorted measures (first track's layouts)
+ * for the measure containing logical `x`, clamping x into the system's
+ * measure span (clicks left of the clef resolve to the first measure,
+ * right of the last barline to the last). `null` only when the system
+ * resolves to no measure layouts. O(log n).
+ *
+ * Indexing note: `computeLayout` pushes one `MeasureLayout` per measure in
+ * ascending order for every track that has the measure, so for track 0
+ * `trackLayouts[0].measures[i].measureIndex === i` — direct indexing by
+ * `system.measureIndices` values is safe (and bounds-guarded here anyway).
+ */
+export function measureAtXInSystem(plan: LayoutPlan, system: SystemLayout, x: number): MeasureLayout | null {
+  const measures = plan.trackLayouts[0]?.measures;
+  if (!measures || system.measureIndices.length === 0) return null;
+  const first = measures[system.measureIndices[0]];
+  const last = measures[system.measureIndices[system.measureIndices.length - 1]];
+  if (!first || !last) return null;
+  const clamped = Math.min(Math.max(x, first.box.x), last.box.x + last.box.width - 1e-9);
+
+  let lo = 0;
+  let hi = system.measureIndices.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const m = measures[system.measureIndices[mid]];
+    if (!m) return null;
+    if (clamped < m.box.x) hi = mid - 1;
+    else if (clamped >= m.box.x + m.box.width) lo = mid + 1;
+    else return m;
+  }
+  return last;
+}
