@@ -22,10 +22,6 @@ function fakeResult(): CanvasRenderResult {
   };
 }
 
-function opsAfterClear(ctx: ReturnType<typeof createMock2DContext>) {
-  return ctx.ops.map((o) => o.method);
-}
-
 describe('paintHighlights', () => {
   it('clears the overlay first, under an identity transform', () => {
     const ctx = createMock2DContext();
@@ -60,15 +56,11 @@ describe('paintHighlights', () => {
     );
     const strokes = ctx.ops.filter((o) => o.method === 'strokeRect');
     expect(strokes).toHaveLength(3);
-    // Style writes interleave with strokes; the last strokeStyle set before
-    // the final stroke must be the playback color.
-    const styleWrites: string[] = [];
-    // strokeStyle is a property write — the Proxy records only method calls,
-    // so assert via dash order instead: preview ([2,3]) then selected ([])
-    // then playing ([6,3]) then the trailing reset ([]).
+    // strokeStyle is a property write — the Proxy records only method calls —
+    // so precedence is asserted via dash order: preview ([2,3]) then
+    // selected ([]) then playing ([6,3]) then the trailing reset ([]).
     const dashes = ctx.ops.filter((o) => o.method === 'setLineDash').map((o) => o.args[0]);
     expect(dashes).toEqual([[2, 3], [], [6, 3], []]);
-    expect(styleWrites).toHaveLength(0);
   });
 
   it('applies the dpr and scroll transform for the paint pass', () => {
