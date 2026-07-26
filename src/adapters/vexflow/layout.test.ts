@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
 import type { RenderTheme } from './types.js';
-import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { chordScore, denseVsSparseScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
 const theme: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
 
@@ -153,5 +153,26 @@ describe('systemAtY / measureAtXInSystem', () => {
     expect(measureAtXInSystem(stressPlan, system, target.box.x + target.box.width / 2)).toBe(target);
     expect(measureAtXInSystem(stressPlan, system, -9999)!.measureIndex).toBe(layouts[0].measureIndex);
     expect(measureAtXInSystem(stressPlan, system, 99999)!.measureIndex).toBe(layouts.at(-1)!.measureIndex);
+  });
+});
+
+describe('density-aware measure widths', () => {
+  it('widens a dense measure past the base width, identically across tracks (shared barlines)', () => {
+    const score = denseVsSparseScore(); // 16 sixteenths/measure vs 1 whole/measure
+    const plan = computeLayout(score, options());
+    for (let m = 0; m < score.tracks[0].measures.length; m += 1) {
+      const dense = plan.trackLayouts[0].measures.find((l) => l.measureIndex === m)!;
+      const sparse = plan.trackLayouts[1].measures.find((l) => l.measureIndex === m)!;
+      expect(dense.box.width).toBe(sparse.box.width);
+      expect(dense.box.x).toBe(sparse.box.x);
+      expect(dense.box.width).toBeGreaterThan(200);
+    }
+  });
+
+  it('keeps sparse scores at the base measure width (no shrink, no growth)', () => {
+    const plan = computeLayout(twinkleScore(), options()); // <=4 events per measure
+    const nonFirst = plan.trackLayouts[0].measures.filter((l) => !l.isFirstInSystem);
+    expect(nonFirst.length).toBeGreaterThan(0);
+    for (const layout of nonFirst) expect(layout.box.width).toBe(200);
   });
 });

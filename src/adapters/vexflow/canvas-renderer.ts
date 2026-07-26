@@ -14,8 +14,8 @@
  *
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
-import { CanvasContext, Formatter, StaveConnector } from 'vexflow';
-import type { Beam, Stave, Voice } from 'vexflow';
+import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
+import type { Beam, Voice } from 'vexflow';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
@@ -45,6 +45,9 @@ export type CanvasRenderResult = {
 };
 
 type BoundingBoxLike = { getX(): number; getY(): number; getW(): number; getH(): number };
+
+/** Width kept free at the end of each measure's note area so the final glyph never crosses the barline — see the joint-format comment in `drawSystem`. */
+const BARLINE_CLEARANCE = 12;
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
@@ -149,13 +152,23 @@ export class CanvasScoreRenderer {
     const firstStaveByTrack = new Map<number, Stave>();
     const allMetas: NoteMeta[] = []; // buildMeasureContent appends; unused here (channels carry the metas)
 
-    plan.trackLayouts.forEach(({ track }, trackIndex) => {
-      const channels = channelsByTrack.get(track.id)!;
-      for (const measureIndex of system.measureIndices) {
+    // Measure-first iteration: every track's content for one measure index
+    // is built and then formatted through ONE shared Formatter, so
+    // simultaneous events land at the same x on every stave (VexFlow's
+    // multi-stave contract: joinVoices per stave, one format() over all).
+    // Formatting each track's measure independently — the old structure —
+    // let a dense track distribute its notes on its own timeline, visually
+    // desynchronized from the other tracks' staves.
+    for (const measureIndex of system.measureIndices) {
+      const measureStaves: Stave[] = [];
+      const voiceGroups: Voice[][] = [];
+
+      plan.trackLayouts.forEach(({ track }, trackIndex) => {
         const placement = plan.trackLayouts[trackIndex].measures[measureIndex];
         const measure = track.measures[measureIndex];
-        if (!placement || !measure) continue;
+        if (!placement || !measure) return;
 
+        const channels = channelsByTrack.get(track.id)!;
         const prevMeasure = track.measures[measureIndex - 1];
         const { stave, voices, beams } = buildMeasureContent(
           measure,
@@ -169,16 +182,13 @@ export class CanvasScoreRenderer {
         stave.setContext(vexCtx);
         stave.format();
         staves.push(stave);
+        measureStaves.push(stave);
         beamsToDraw.push(...beams);
         if (measureIndex === system.measureIndices[0]) firstStaveByTrack.set(trackIndex, stave);
 
         if (voices.length > 0) {
           voices.forEach((v) => v.setStave(stave));
-          const formatter = new Formatter();
-          formatter.joinVoices(voices);
-          const justifyWidth = Math.max(20, stave.getNoteEndX() - stave.getNoteStartX());
-          formatter.format(voices, justifyWidth);
-          voicesToDraw.push(...voices);
+          voiceGroups.push(voices);
         }
 
         measureIdToBBox.set(measure.id, {
@@ -188,8 +198,27 @@ export class CanvasScoreRenderer {
           height: placement.box.height * z,
         });
         if (trackIndex === 0) drawnMeasureIndices.add(measureIndex);
+      });
+
+      // Align the clef/key/time blocks so every stave's note area starts at
+      // the same x, then joint-format to the narrowest note area. The
+      // clearance keeps the last event's glyph (notehead + stem/flag, drawn
+      // rightward of its tick x) short of the barline: format() justifies
+      // ticks across the FULL given width, so without it the final glyph
+      // always overhangs into the next measure regardless of measure width.
+      if (measureStaves.length > 1) Stave.formatBegModifiers(measureStaves);
+      if (voiceGroups.length > 0) {
+        const formatter = new Formatter();
+        for (const group of voiceGroups) formatter.joinVoices(group);
+        const justifyWidth = Math.max(
+          20,
+          Math.min(...measureStaves.map((s) => s.getNoteEndX() - s.getNoteStartX())) -
+            BARLINE_CLEARANCE,
+        );
+        formatter.format(voiceGroups.flat(), justifyWidth);
+        voicesToDraw.push(...voiceGroups.flat());
       }
-    });
+    }
 
     // Draw order: staves, then notes/voices, then beams on top (ties drawn later, cross-system).
     staves.forEach((s) => s.draw());

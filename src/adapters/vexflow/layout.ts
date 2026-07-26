@@ -56,6 +56,19 @@ export type LayoutPlan = {
 };
 
 const BASE_MEASURE_WIDTH = 200;
+/**
+ * Heuristic per-event width budget for a measure's densest voice. A measure
+ * whose densest voice packs more events than the base width comfortably
+ * holds grows proportionally (`max(BASE, events * SLOT + PADDING)`), so
+ * VexFlow never has to overflow the stave into the next measure's space —
+ * which would break the shared-barline timeline across tracks. Density is
+ * taken as the max over every track's voices at that measure index, so all
+ * tracks agree on the (shared) measure width. Heuristic by design, like the
+ * base width itself (spec §26).
+ */
+const NOTE_SLOT_WIDTH = 25;
+/** Breathing room added to a density-derived measure width (start padding + last note's stem/flag overhang + barline clearance). */
+const DENSE_MEASURE_PADDING = 35;
 /** Extra width reserved on a system's first measure for clef + key signature + time signature. */
 const SYSTEM_HEADER_WIDTH = 90;
 const STAVE_HEIGHT = 100;
@@ -111,7 +124,6 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const tracks = selectTracks(score, options);
   const measureCount = tracks.reduce((max, t) => Math.max(max, t.measures.length), 0);
 
-  const measureWidth = BASE_MEASURE_WIDTH;
   const headerWidth = SYSTEM_HEADER_WIDTH;
   const staveHeight = STAVE_HEIGHT;
   const trackGap = TRACK_GAP;
@@ -119,7 +131,22 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const leftMargin = LEFT_MARGIN;
   const topMargin = TOP_MARGIN;
 
-  const widthOf = (isFirstInSystem: boolean): number => measureWidth + (isFirstInSystem ? headerWidth : 0);
+  // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared
+  // width per measure index across every track, from the densest voice.
+  const contentWidths: number[] = Array.from({ length: measureCount }, (_, measureIndex) => {
+    let maxEvents = 0;
+    for (const track of tracks) {
+      const measure = track.measures[measureIndex];
+      if (!measure) continue;
+      for (const voice of measure.voices) {
+        maxEvents = Math.max(maxEvents, voice.events.length);
+      }
+    }
+    return Math.max(BASE_MEASURE_WIDTH, maxEvents * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING);
+  });
+
+  const widthOf = (measureIndex: number, isFirstInSystem: boolean): number =>
+    (contentWidths[measureIndex] ?? BASE_MEASURE_WIDTH) + (isFirstInSystem ? headerWidth : 0);
 
   // `options.width` is a screen-pixel budget; convert to the equivalent
   // logical-unit budget by dividing out zoom (a more zoomed-in view fits
@@ -131,8 +158,10 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   // under-packs a system slightly versus a hypothetical perfect packer, never
   // overflows the logical width budget.
   const logicalAvailableWidth =
-    options.layoutMode === 'continuous' ? Number.POSITIVE_INFINITY : Math.max(options.width / zoom, measureWidth + headerWidth);
-  const systemsOfIndices = groupIntoSystems(measureCount, () => widthOf(true), logicalAvailableWidth - leftMargin);
+    options.layoutMode === 'continuous'
+      ? Number.POSITIVE_INFINITY
+      : Math.max(options.width / zoom, BASE_MEASURE_WIDTH + headerWidth);
+  const systemsOfIndices = groupIntoSystems(measureCount, (i) => widthOf(i, true), logicalAvailableWidth - leftMargin);
 
   const rowHeight = (count: number): number => (count > 0 ? count * staveHeight + Math.max(0, count - 1) * trackGap : 0);
   const trackRowHeight = rowHeight(tracks.length);
@@ -149,7 +178,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
     let cursorX = leftMargin;
     measureIndices.forEach((measureIndex, positionInSystem) => {
       const isFirstInSystem = positionInSystem === 0;
-      const width = widthOf(isFirstInSystem);
+      const width = widthOf(measureIndex, isFirstInSystem);
 
       tracks.forEach((track, trackIndex) => {
         if (measureIndex >= track.measures.length) return;

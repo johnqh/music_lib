@@ -220,6 +220,66 @@ export function twoTrackScore(): Score {
   };
 }
 
+/**
+ * Two tracks with sharply different densities: a treble line of 16
+ * sixteenth notes per measure over a bass of one whole note per measure.
+ * Exercises cross-track timeline sync — the dense track needs a wider
+ * measure than `BASE_MEASURE_WIDTH` and must still share barlines and
+ * tick-aligned x positions with the sparse track.
+ */
+export function denseVsSparseScore(): Score {
+  const ids = makeIdFactory();
+  const ppq = 480;
+
+  const s = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'sixteenth' });
+  const w = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'whole' });
+
+  const runUp: NoteSpec[] = (['C', 'D', 'E', 'F', 'G', 'A', 'B'] as PitchStep[])
+    .flatMap((step) => [s(step, 4), s(step, 4)])
+    .concat([s('C', 5), s('C', 5)]);
+  const denseMeasures: NoteSpec[][] = [runUp, runUp, runUp, runUp];
+  const sparseMeasures: NoteSpec[][] = [[w('C', 2)], [w('G', 2)], [w('C', 2)], [w('G', 2)]];
+
+  const denseId = ids.next('track');
+  const sparseId = ids.next('track');
+
+  const dense: Track = {
+    id: denseId,
+    name: 'Dense',
+    instrumentName: 'Piano',
+    midiProgram: 0,
+    midiChannel: 0,
+    clef: 'treble',
+    volume: 1,
+    pan: 0,
+    muted: false,
+    solo: false,
+    measures: buildMelodyMeasures(denseMeasures, ppq, FOUR_FOUR, C_MAJOR, denseId, ids),
+  };
+  const sparse: Track = {
+    id: sparseId,
+    name: 'Sparse',
+    instrumentName: 'Acoustic Bass',
+    midiProgram: 32,
+    midiChannel: 1,
+    clef: 'bass',
+    volume: 1,
+    pan: 0,
+    muted: false,
+    solo: false,
+    measures: buildMelodyMeasures(sparseMeasures, ppq, FOUR_FOUR, C_MAJOR, sparseId, ids),
+  };
+
+  return {
+    id: ids.next('score'),
+    version: 1,
+    ppq,
+    metadata: { title: 'Dense vs Sparse', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
+    tracks: [dense, sparse],
+  };
+}
+
 /** A 4-measure I-IV-V-I block-chord progression on a single piano track. */
 export function chordScore(): Score {
   const ids = makeIdFactory();

@@ -3,7 +3,7 @@ import { CanvasScoreRenderer } from './canvas-renderer.js';
 import { computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
-import { stressScore, twinkleScore } from '../../test/fixtures.js';
+import { denseVsSparseScore, stressScore, twinkleScore } from '../../test/fixtures.js';
 import { allNotes } from '../../domain/score/queries.js';
 
 const THEME: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
@@ -103,4 +103,38 @@ describe('CanvasScoreRenderer: unbounded-scale regression', () => {
     // (which lands in the hundreds of ms), not micro-benchmarking.
     expect(perFrame).toBeLessThan(100);
   }, 60_000);
+});
+
+describe('CanvasScoreRenderer: cross-track timeline sync', () => {
+  it('keeps a dense track tick-aligned with, and inside the same barlines as, a sparse track', () => {
+    const score = denseVsSparseScore(); // 16 sixteenths/measure over 1 whole/measure
+    const result = new CanvasScoreRenderer().render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 1_000_000 },
+    });
+
+    for (let m = 0; m < score.tracks[0].measures.length; m += 1) {
+      const denseMeasure = score.tracks[0].measures[m];
+      const sparseMeasure = score.tracks[1].measures[m];
+
+      // Simultaneous events (same startTick) share a tick context under the
+      // joint per-measure formatter, so their x positions must agree (small
+      // tolerance: notehead glyph widths differ between whole and sixteenth).
+      const denseFirst = result.idToBBox.get(denseMeasure.voices[0].events[0].id)!;
+      const sparseWhole = result.idToBBox.get(sparseMeasure.voices[0].events[0].id)!;
+      expect(denseFirst).toBeDefined();
+      expect(sparseWhole).toBeDefined();
+      expect(Math.abs(denseFirst.x - sparseWhole.x)).toBeLessThanOrEqual(10);
+
+      // Every dense note stays inside its own measure's stave box — dense
+      // content must widen the measure (density-aware layout), never spill
+      // past the barline into the next measure's space.
+      const box = result.measureIdToBBox.get(denseMeasure.id)!;
+      for (const event of denseMeasure.voices[0].events) {
+        const b = result.idToBBox.get(event.id)!;
+        expect(b.x).toBeGreaterThanOrEqual(box.x - 1);
+        expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
+      }
+    }
+  });
 });
