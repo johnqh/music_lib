@@ -87,3 +87,20 @@ describe('CanvasScoreRenderer', () => {
     expect(transforms[1]?.args).toEqual([4, 0, 0, 4, 0, -200]); // z*dpr = 4; offset = -top*z*dpr
   });
 });
+
+describe('CanvasScoreRenderer: unbounded-scale regression', () => {
+  it('windowed render time does not scale with score size (10k-measure stress)', () => {
+    const renderer = new CanvasScoreRenderer();
+    const big = stressScore(2, 10_000);
+    const ctx = createMock2DContext();
+    renderer.render(big, ctx, OPTS); // warm the layout cache (the one allowed O(n) pass)
+    const t0 = performance.now();
+    for (let i = 0; i < 20; i += 1) {
+      renderer.render(big, ctx, { ...OPTS, viewport: { top: i * 100, bottom: i * 100 + 400 } });
+    }
+    const perFrame = (performance.now() - t0) / 20;
+    // Generous CI budget; the point is catching an O(score) regression
+    // (which lands in the hundreds of ms), not micro-benchmarking.
+    expect(perFrame).toBeLessThan(100);
+  }, 60_000);
+});

@@ -26,6 +26,8 @@ import { allNotes } from '../../domain/score/queries.js';
 import { extractFragment, replaceFragment } from '../../domain/score/fragment.js';
 import { exportMidi } from '../../adapters/midi/export.js';
 import { VexFlowScoreRenderer } from '../../adapters/vexflow/renderer.js';
+import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
+import { createMock2DContext } from '../../test/canvas-stub.js';
 import type { RenderTheme } from '../../adapters/vexflow/types.js';
 
 export type BenchmarkSize = { trackCount: number; measureCount: number };
@@ -140,6 +142,37 @@ function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
       timings.push({ name: 'VexFlowScoreRenderer.render', ms: renderTiming.ms });
     } finally {
       renderer.dispose();
+    }
+  }
+
+  // Canvas renderer (windowed): timed against the recording mock context, so
+  // this measures our orchestration + VexFlow layout/format math, not GPU
+  // raster time — exactly the part that must stay O(visible). "Cold"
+  // includes the one allowed O(n) layout pass; the warm number is the mean
+  // per-frame cost of scrolling through 20 different viewports.
+  {
+    const canvasRenderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(RENDER_WIDTH, 400);
+    const opts = {
+      zoom: 1,
+      layoutMode: 'page' as const,
+      width: RENDER_WIDTH,
+      theme: RENDER_THEME,
+      viewport: { top: 0, bottom: 400 },
+    };
+    try {
+      const coldTiming = time(() => canvasRenderer.render(score, ctx, opts));
+      timings.push({ name: 'CanvasScoreRenderer.render (cold: layout + first window)', ms: coldTiming.ms });
+
+      const frames = 20;
+      const warmTiming = time(() => {
+        for (let i = 0; i < frames; i += 1) {
+          canvasRenderer.render(score, ctx, { ...opts, viewport: { top: i * 100, bottom: i * 100 + 400 } });
+        }
+      });
+      timings.push({ name: 'CanvasScoreRenderer.render (mean windowed frame x20)', ms: warmTiming.ms / frames });
+    } finally {
+      canvasRenderer.dispose();
     }
   }
 

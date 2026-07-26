@@ -29,6 +29,8 @@ describe('runBenchmark', () => {
         'replaceFragment',
         'exportMidi',
         'VexFlowScoreRenderer.render', // jsdom provides `document`, so the render benchmark runs too
+        'CanvasScoreRenderer.render (cold: layout + first window)',
+        'CanvasScoreRenderer.render (mean windowed frame x20)',
       ]);
       for (const timing of sizeReport.timings) {
         expect(timing.ms).toBeGreaterThanOrEqual(0);
