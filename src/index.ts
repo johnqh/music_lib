@@ -54,6 +54,7 @@ export * from './domain/pitch/transpose.js';
 // test fixtures (deterministic score builders — used by downstream test suites)
 export * from './test/fixtures.js';
 export * from './test/store-context.js';
+export * from './test/canvas-stub.js';
 
 // adapters/vexflow
 export * from './adapters/vexflow/types.js';
