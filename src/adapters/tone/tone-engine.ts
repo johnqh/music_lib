@@ -53,11 +53,14 @@ import type { InstrumentHandle } from './instruments.js';
 import { flattenScoreForPlayback, metronomeClicks } from './schedule.js';
 import type { ScheduledNote } from './schedule.js';
 import { normalizeVelocity } from './midi.js';
+import { scoreEndTick } from '../../domain/score/queries.js';
 import type { PlaybackEngine, PlaybackObserver } from '../../services/playback/types.js';
 
 const BASE_BPM = 60;
 const POSITION_TICK_INTERVAL_SECONDS = 1 / 30;
 const MIN_NOTE_DURATION_SECONDS = 0.01;
+/** How far past the score's final tick the auto-stop fires — after the last note-offs scheduled at exactly the end, and far enough that float rounding in seconds conversion can't order it before them. */
+const END_OF_SCORE_STOP_EPSILON_SECONDS = 0.05;
 const METRONOME_ACCENT_HZ = 1500;
 const METRONOME_BEAT_HZ = 1000;
 const METRONOME_CLICK_SECONDS = 0.03;
@@ -365,6 +368,22 @@ export class TonePlaybackEngine implements PlaybackEngine {
         this.noteOff(note.noteId);
       }, endSeconds);
       this.noteEventIds.push(onId, offId);
+    }
+
+    // End-of-score auto-stop: the Transport has no notion of "the score is
+    // over", so without this it keeps running (position ticking past the
+    // last note forever) until the user presses Stop. Scheduled alongside
+    // the note events so every reschedule path rebuilds it. Inert while a
+    // loop is active — the Transport wraps at loopEnd and never reaches
+    // this — but a loop can also be cleared mid-playback, so the guard is
+    // re-checked at fire time rather than baked in at schedule time.
+    if (this.score) {
+      const endSeconds = this.scheduledSeconds(scoreEndTick(this.score));
+      const endId = transport.schedule(() => {
+        if (this.loopRange) return;
+        this.stop();
+      }, endSeconds + END_OF_SCORE_STOP_EPSILON_SECONDS);
+      this.noteEventIds.push(endId);
     }
 
     this.schedulePositionTicker();

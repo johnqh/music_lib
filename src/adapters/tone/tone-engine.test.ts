@@ -326,11 +326,11 @@ describe('TonePlaybackEngine.initialize', () => {
 });
 
 describe('TonePlaybackEngine.loadScore: scheduling', () => {
-  it('schedules one on/off pair per note, plus a position-ticker repeat', async () => {
+  it('schedules one on/off pair per note, plus the end-of-score stop and a position-ticker repeat', async () => {
     const engine = new TonePlaybackEngine();
     await engine.loadScore(twinkleScore());
-    // twinkleScore has 28 note events (see schedule.test.ts) => 56 on/off events + 1 ticker.
-    expect(mock.state.scheduledEvents).toHaveLength(57);
+    // twinkleScore has 28 note events (see schedule.test.ts) => 56 on/off events + 1 end-of-score stop + 1 ticker.
+    expect(mock.state.scheduledEvents).toHaveLength(58);
   });
 
   it('builds one Gain+Panner channel per track and wires the instrument through them', async () => {
@@ -388,8 +388,8 @@ describe('TonePlaybackEngine.loadScore: tie joining', () => {
   it('schedules exactly one on/off pair for a note tied across a measure boundary', async () => {
     const engine = new TonePlaybackEngine();
     await engine.loadScore(tiedAcrossBarlineScore());
-    // 1 joined note => 2 events (on+off) + 1 ticker.
-    expect(mock.state.scheduledEvents).toHaveLength(3);
+    // 1 joined note => 2 events (on+off) + 1 end-of-score stop + 1 ticker.
+    expect(mock.state.scheduledEvents).toHaveLength(4);
   });
 
   it('the joined note plays for the combined duration of both tied segments', async () => {
@@ -662,6 +662,51 @@ describe('TonePlaybackEngine: master volume', () => {
     engine.setMasterVolume(0.4);
     const masterGain = mock.state.constructedNodes.find((n) => n.type === 'Gain')!;
     expect(asGainInstance(masterGain).gain.value).toBe(0.4);
+  });
+});
+
+describe('TonePlaybackEngine: end-of-score auto-stop', () => {
+  /** The auto-stop event is scheduled after every note on/off pair and before the ticker: second-to-last overall. */
+  function endStopEventId(): number {
+    return mock.state.scheduledEvents.at(-2)!.id;
+  }
+
+  it('stops the transport and reports stopped when the end-of-score event fires', async () => {
+    const engine = new TonePlaybackEngine();
+    const observer = makeObserver();
+    engine.setObserver(observer);
+    await engine.loadScore(twinkleScore());
+    await engine.play();
+    expect(mock.getTransport().state).toBe('started');
+
+    mock.fire(endStopEventId());
+
+    expect(mock.getTransport().state).toBe('stopped');
+    expect(observer.states.at(-1)).toBe('stopped');
+    expect(observer.positions.at(-1)).toBe(0);
+  });
+
+  it('schedules the stop after the score end tick (past the final note-offs)', async () => {
+    const engine = new TonePlaybackEngine();
+    const score = twinkleScore();
+    await engine.loadScore(score);
+    const endStop = mock.state.scheduledEvents.at(-2)!;
+    const latestNoteOff = Math.max(...mock.state.scheduledEvents.slice(0, -2).map((e) => e.time));
+    expect(endStop.time).toBeGreaterThan(latestNoteOff);
+  });
+
+  it('does nothing while a loop is active (the loop owns the transport past its end)', async () => {
+    const engine = new TonePlaybackEngine();
+    const observer = makeObserver();
+    engine.setObserver(observer);
+    await engine.loadScore(twinkleScore());
+    engine.setLoop({ startTick: 0, endTick: 480, trackIds: [] });
+    await engine.play();
+
+    mock.fire(endStopEventId());
+
+    expect(mock.getTransport().state).toBe('started');
+    expect(observer.states.at(-1)).toBe('playing');
   });
 });
 

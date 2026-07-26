@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Business logic for ScoreSmith: score domain model, commands/undo, validation, quantization, rendering/audio/file adapters, and the app store",
   "type": "module",
   "main": "./dist/index.js",
@@ -37,8 +37,6 @@
   "author": "Sudobility",
   "license": "BUSL-1.1",
   "dependencies": {
-    "@sudobility/music_client": "^0.1.1",
-    "@sudobility/music_types": "^0.1.0",
     "@tonejs/midi": "^2.0.28",
     "dexie": "^4.0.0",
     "immer": "^10.0.0 || ^11.0.0",
@@ -49,7 +47,9 @@
   "peerDependencies": {
     "react": ">=18",
     "zustand": ">=5",
-    "@tanstack/react-query": ">=5"
+    "@tanstack/react-query": ">=5",
+    "@sudobility/music_client": "^0.1.1",
+    "@sudobility/music_types": "^0.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
@@ -64,7 +64,9 @@
     "rimraf": "^6.0.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15",
-    "zustand": "^5.0.0"
+    "zustand": "^5.0.0",
+    "@sudobility/music_client": "^0.1.1",
+    "@sudobility/music_types": "^0.1.0"
   },
   "publishConfig": {
     "access": "restricted"
