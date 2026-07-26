@@ -18,7 +18,7 @@
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
 import { CanvasContext, Formatter, StaveConnector } from 'vexflow';
-import type { Beam, Stave, StaveTie, Voice } from 'vexflow';
+import type { Beam, Stave, Voice } from 'vexflow';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './renderer.js';
 import type { Channel } from './renderer.js';
