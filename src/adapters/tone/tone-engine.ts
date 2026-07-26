@@ -7,8 +7,9 @@
  *
  * ---- Timing model ----------------------------------------------------
  *
- * `Tone.getTransport().bpm` is set once, in `initialize()`, to a fixed
- * `BASE_BPM` (60) and never touched again. Our own domain `TempoMap`
+ * `Tone.getTransport().bpm` is pinned to a fixed `BASE_BPM` (60) by
+ * `ensureBaseBpm()` before every batch of Transport scheduling (and in
+ * `initialize()`), and never set to anything else. Our own domain `TempoMap`
  * (built from the score's own tempo curve) is the sole authority for
  * "what second does score-tick T fall at" via `ticksToSeconds` — that
  * "logical second" is what gets divided by `tempoMultiplier` before being
@@ -113,7 +114,7 @@ export class TonePlaybackEngine implements PlaybackEngine {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     await Tone.start();
-    Tone.getTransport().bpm.value = BASE_BPM;
+    this.ensureBaseBpm();
     this.ensureMasterGain();
     this.attachVisibilityHandler();
     this.initialized = true;
@@ -247,6 +248,24 @@ export class TonePlaybackEngine implements PlaybackEngine {
 
   // ---- internals ------------------------------------------------------
 
+  /**
+   * Pins Transport bpm to `BASE_BPM` — and MUST run before ANY call that
+   * hands the Transport a time (`schedule`, `scheduleRepeat`, `seconds =`,
+   * `loopStart`/`loopEnd`): Tone converts those seconds to internal ticks
+   * at the bpm current at that moment, so anything scheduled under the
+   * default bpm (120) fires at the wrong real time once bpm becomes 60.
+   * That happened in practice: `loadScore()` runs on project load, before
+   * the first `play()` ever calls `initialize()` — every note landed at 2x
+   * its intended second while the position ticker (which reads live
+   * `transport.seconds`) stayed correct, so the caret ran exactly twice as
+   * fast as the audio. Setting `bpm.value` needs no `Tone.start()`, so
+   * this is safe pre-initialize.
+   */
+  private ensureBaseBpm(): void {
+    const bpm = Tone.getTransport().bpm;
+    if (bpm.value !== BASE_BPM) bpm.value = BASE_BPM;
+  }
+
   private ensureMasterGain(): Tone.Gain {
     if (!this.masterGain) {
       this.masterGain = new Tone.Gain(this.masterVolume).toDestination();
@@ -347,6 +366,7 @@ export class TonePlaybackEngine implements PlaybackEngine {
 
   /** (Re)schedules every note-on/off callback and the position ticker. Always starts by cancelling every previously-scheduled event (spec: "reschedule safely after edits"). */
   private scheduleAll(): void {
+    this.ensureBaseBpm(); // before ANY schedule call — see ensureBaseBpm's doc
     const transport = Tone.getTransport();
     transport.cancel(0);
     this.noteEventIds = [];
@@ -426,6 +446,7 @@ export class TonePlaybackEngine implements PlaybackEngine {
   }
 
   private applyLoop(): void {
+    this.ensureBaseBpm(); // loopStart/loopEnd are bpm-converted too, and setLoop() can run pre-initialize
     const transport = Tone.getTransport();
     if (!this.loopRange) {
       transport.loop = false;

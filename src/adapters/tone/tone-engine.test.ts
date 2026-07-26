@@ -326,6 +326,19 @@ describe('TonePlaybackEngine.initialize', () => {
 });
 
 describe('TonePlaybackEngine.loadScore: scheduling', () => {
+  it('pins Transport bpm to 60 BEFORE scheduling, even when initialize() has never run', async () => {
+    // Regression: Tone converts schedule(cb, seconds) to internal ticks at
+    // the bpm current AT SCHEDULING TIME. loadScore() runs on project load,
+    // before play() ever calls initialize() — under Tone's default bpm=120
+    // every note landed at 2x its intended seconds once initialize() later
+    // set bpm=60, while the position ticker (reading live transport.seconds)
+    // stayed correct: the caret ran exactly twice as fast as the audio.
+    const engine = new TonePlaybackEngine();
+    expect(mock.getTransport().bpm.value).toBe(120); // Tone's default, pre-anything
+    await engine.loadScore(twinkleScore());
+    expect(mock.getTransport().bpm.value).toBe(60);
+  });
+
   it('schedules one on/off pair per note, plus the end-of-score stop and a position-ticker repeat', async () => {
     const engine = new TonePlaybackEngine();
     await engine.loadScore(twinkleScore());
