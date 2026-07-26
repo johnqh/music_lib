@@ -1,19 +1,19 @@
 /**
  * Highlight overlay painter for the canvas notation renderer: paints
  * selection / playback / preview cues onto a separate viewport-sized
- * overlay canvas, so highlight changes never redraw the notation itself
- * (the same "highlights don't re-render" property `applyHighlights` gave
- * the SVG path via DOM style mutation).
+ * overlay canvas, so highlight changes never redraw the notation itself.
  *
  * Non-color cues (spec §27 "Do not rely on color alone"): each kind keeps
- * a distinct stroke pattern, mirroring the SVG outline styles —
- * selected = solid, playing = dashed, preview = dotted. Precedence when an
- * id is in multiple sets: preview < selected < playing (painted in that
- * order; the later stroke overdraws).
+ * a distinct stroke pattern — selected = solid, playing = dashed,
+ * preview = dotted. Precedence when an id is in multiple sets:
+ * preview < selected < playing (painted in that order; the later stroke
+ * overdraws).
  */
-import type { HighlightSets } from './renderer.js';
 import type { CanvasRenderResult } from './canvas-renderer.js';
 import type { BBox } from './types.js';
+
+/** The three highlight id sets the score editor paints each frame. */
+export type HighlightSets = { selectedIds: string[]; playingIds: string[]; previewIds: string[] };
 
 export type OverlayOptions = {
   /** Scroll offset in CSS px (zoom-scaled content coords — the same units as the result's bboxes). */

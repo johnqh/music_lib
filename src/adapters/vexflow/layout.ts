@@ -10,14 +10,15 @@
  * could replace this later without touching the renderer's shape.
  *
  * Units are LOGICAL (design-time) pixels, independent of `options.zoom`.
- * Zoom is applied once, uniformly, as an SVG viewBox scale in `renderer.ts`
- * (`context.scale(zoom, zoom)`) so glyphs/text scale along with spacing
- * instead of staying a fixed size while only the layout stretches. The one
- * place zoom enters this module is dividing the *available* screen width by
- * zoom to get the logical width budget for page-mode wrapping (a more
- * zoomed-in view fits fewer logical pixels in the same screen width).
- * Callers needing final on-screen coordinates (e.g. `RenderResult` bboxes)
- * must multiply this module's output by `zoom` themselves.
+ * Zoom is applied once, uniformly, as a canvas transform scale in
+ * `canvas-renderer.ts` (`ctx.setTransform(zoom·dpr, …)`) so glyphs/text
+ * scale along with spacing instead of staying a fixed size while only the
+ * layout stretches. The one place zoom enters this module is dividing the
+ * *available* screen width by zoom to get the logical width budget for
+ * page-mode wrapping (a more zoomed-in view fits fewer logical pixels in
+ * the same screen width). Callers needing final on-screen coordinates
+ * (e.g. `CanvasRenderResult` bboxes) must multiply this module's output by
+ * `zoom` themselves.
  */
 import type { Score, Track } from '@sudobility/music_types';
 import type { RenderOptions } from './types.js';
@@ -176,65 +177,13 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   return { tracks, trackLayouts, systems, totalWidth, totalHeight };
 }
 
-// ---- virtualization (Task 17, spec §26/§29) --------------------------------
-
-/** A vertical scroll range, in the same LOGICAL (unscaled) units as `LayoutPlan` — see the module doc. */
-export type Viewport = { top: number; bottom: number };
-
-/**
- * Every measure index belonging to a system whose vertical span
- * (`[yTop, yBottom]`) intersects `viewport` (expanded by `overscan` on both
- * sides, e.g. one extra system's worth of buffer so scrolling doesn't flash
- * blank staves before the next render pass catches up).
- *
- * Deliberately a pure function of an already-computed `LayoutPlan`, not
- * something `computeLayout` itself does: culling only decides which
- * *already-positioned* measures actually get drawn (spec §26: "Render only
- * visible systems where practical"; §29: virtualization for long scores) —
- * every system keeps the same box regardless of what a given render pass
- * chooses to draw, so scroll geometry (and a not-yet-rendered measure's
- * position — see `boxForMeasureIndex`) never shifts as the visible window
- * changes. The caller (`ScoreEditorView`) is responsible for converting its
- * screen-pixel scroll viewport to these logical units (divide by zoom)
- * before calling this.
- */
-export function visibleSystemMeasureIndices(plan: LayoutPlan, viewport: Viewport, overscan = 0): Set<number> {
-  const top = viewport.top - overscan;
-  const bottom = viewport.bottom + overscan;
-  const indices = new Set<number>();
-  for (const system of plan.systems) {
-    if (system.yBottom < top || system.yTop > bottom) continue;
-    for (const index of system.measureIndices) indices.add(index);
-  }
-  return indices;
-}
-
-/**
- * Whether `a` and `b` contain exactly the same measure indices (set
- * equality, order-independent). Used by `ScoreEditorView` to decide whether
- * a freshly-`visibleSystemMeasureIndices`-computed set actually differs
- * from the currently-applied one before committing a state update — a
- * scroll that stays within the same visible system(s) (plus overscan)
- * should never trigger a re-render, only a scroll that actually crosses
- * into/out of a system should (spec §29: virtualization shouldn't itself
- * become a per-scroll-frame performance cost).
- */
-export function sameMeasureIndices(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
-  if (a === b) return true;
-  if (a.size !== b.size) return false;
-  for (const index of a) {
-    if (!b.has(index)) return false;
-  }
-  return true;
-}
-
 /**
  * The stave box for `measureIndex` on `plan.trackLayouts[trackIndex]`
  * (logical units), or `null` if that track/measure index isn't present in
  * the plan. Lets a caller locate a measure's position (e.g. to scroll to
  * it during playback) directly from layout, independent of whether that
- * measure was actually drawn by a culled render pass — see
- * `visibleSystemMeasureIndices`'s doc comment.
+ * measure fell inside the drawn window of a windowed canvas render pass
+ * (system boxes never shift with what a given frame chooses to draw).
  */
 export function boxForMeasureIndex(plan: LayoutPlan, trackIndex: number, measureIndex: number): StaveBox | null {
   const trackLayout = plan.trackLayouts[trackIndex];

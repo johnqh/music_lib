@@ -5,8 +5,8 @@
  *
  * Times the perf-relevant domain/adapter operations named in the Task 17
  * brief — `validateScore`, `quantizeEvents`, `extractFragment`/
- * `replaceFragment`, `exportMidi`, and (when a DOM is available)
- * `VexFlowScoreRenderer.render` — against `stressScore`-generated scores
+ * `replaceFragment`, `exportMidi`, and `CanvasScoreRenderer.render` (cold
+ * layout + windowed frames) — against `stressScore`-generated scores
  * (Task 3's deterministic, allocation-light fixture generator) of
  * caller-chosen sizes.
  *
@@ -25,7 +25,6 @@ import { quantizeEvents } from '../../domain/quantization/quantize.js';
 import { allNotes } from '../../domain/score/queries.js';
 import { extractFragment, replaceFragment } from '../../domain/score/fragment.js';
 import { exportMidi } from '../../adapters/midi/export.js';
-import { VexFlowScoreRenderer } from '../../adapters/vexflow/renderer.js';
 import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import type { RenderTheme } from '../../adapters/vexflow/types.js';
@@ -98,11 +97,6 @@ function representativeRange(score: Score): ScoreRange {
   return { startTick: measures[startIndex].startTick, endTick: endMeasure.startTick + endMeasure.durationTicks, trackIds };
 }
 
-/** Whether a DOM (`document`) is available to render into — true in a real browser or jsdom, false under plain Node. The render benchmark is skipped (not faked) rather than run against a stub when this is false. */
-function domAvailable(): boolean {
-  return typeof document !== 'undefined' && typeof document.createElement === 'function';
-}
-
 /** Benchmarks every perf-relevant operation named in the Task 17 brief against one `stressScore(size.trackCount, size.measureCount)`. */
 function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
   const score = stressScore(size.trackCount, size.measureCount);
@@ -126,24 +120,6 @@ function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
 
   const exportTiming = time(() => exportMidi(score));
   timings.push({ name: 'exportMidi', ms: exportTiming.ms });
-
-  if (domAvailable()) {
-    const container = document.createElement('div');
-    const renderer = new VexFlowScoreRenderer();
-    try {
-      const renderTiming = time(() =>
-        renderer.render(score, container, {
-          zoom: 1,
-          layoutMode: 'continuous',
-          width: RENDER_WIDTH,
-          theme: RENDER_THEME,
-        }),
-      );
-      timings.push({ name: 'VexFlowScoreRenderer.render', ms: renderTiming.ms });
-    } finally {
-      renderer.dispose();
-    }
-  }
 
   // Canvas renderer (windowed): timed against the recording mock context, so
   // this measures our orchestration + VexFlow layout/format math, not GPU

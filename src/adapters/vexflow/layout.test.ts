@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxForMeasureIndex, computeLayout, measureAtXInSystem, sameMeasureIndices, systemAtY, visibleSystemMeasureIndices } from './layout.js';
+import { boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
@@ -106,59 +106,6 @@ describe('computeLayout', () => {
   });
 });
 
-describe('visibleSystemMeasureIndices (Task 17 virtualization)', () => {
-  it('returns every measure index of a system whose span intersects the viewport, and none of an out-of-range system', () => {
-    const score = twinkleScore(); // 8 measures
-    const plan = computeLayout(score, options({ width: 300 })); // wraps into multiple systems
-    expect(plan.systems.length).toBeGreaterThan(2);
-
-    const firstSystem = plan.systems[0];
-    const indices = visibleSystemMeasureIndices(plan, { top: firstSystem.yTop, bottom: firstSystem.yBottom });
-
-    expect([...indices].sort((a, b) => a - b)).toEqual(firstSystem.measureIndices);
-    // A system well past the viewport contributes nothing.
-    const lastSystem = plan.systems[plan.systems.length - 1];
-    for (const index of lastSystem.measureIndices) {
-      if (!firstSystem.measureIndices.includes(index)) expect(indices.has(index)).toBe(false);
-    }
-  });
-
-  it('expands the viewport by overscan on both sides', () => {
-    const score = twinkleScore();
-    const plan = computeLayout(score, options({ width: 300 }));
-    expect(plan.systems.length).toBeGreaterThan(1);
-
-    const secondSystem = plan.systems[1];
-    // A viewport that ends exactly where system 1 starts misses it without
-    // overscan...
-    const tight = visibleSystemMeasureIndices(plan, { top: 0, bottom: secondSystem.yTop - 1 });
-    for (const index of secondSystem.measureIndices) expect(tight.has(index)).toBe(false);
-
-    // ...but picks it up with enough overscan.
-    const overscanned = visibleSystemMeasureIndices(
-      plan,
-      { top: 0, bottom: secondSystem.yTop - 1 },
-      secondSystem.yBottom - secondSystem.yTop + 1,
-    );
-    for (const index of secondSystem.measureIndices) expect(overscanned.has(index)).toBe(true);
-  });
-
-  it('returns every measure index for a viewport spanning the whole plan', () => {
-    const score = twinkleScore();
-    const plan = computeLayout(score, options());
-    const indices = visibleSystemMeasureIndices(plan, { top: 0, bottom: plan.totalHeight });
-    expect([...indices].sort((a, b) => a - b)).toEqual(score.tracks[0].measures.map((_, i) => i));
-  });
-
-  it('returns an empty set for an out-of-range viewport', () => {
-    const score = twinkleScore();
-    const plan = computeLayout(score, options());
-    expect(visibleSystemMeasureIndices(plan, { top: plan.totalHeight + 1000, bottom: plan.totalHeight + 2000 }).size).toBe(
-      0,
-    );
-  });
-});
-
 describe('boxForMeasureIndex (Task 17 virtualization)', () => {
   it('matches the box computeLayout already assigned that track/measure', () => {
     const score = twoTrackScore();
@@ -177,29 +124,6 @@ describe('boxForMeasureIndex (Task 17 virtualization)', () => {
     const score = twinkleScore();
     const plan = computeLayout(score, options());
     expect(boxForMeasureIndex(plan, 0, 9999)).toBeNull();
-  });
-});
-
-describe('sameMeasureIndices (Task 17 virtualization scroll-throttle guard)', () => {
-  it('is true for two sets with the same members, regardless of insertion order', () => {
-    expect(sameMeasureIndices(new Set([1, 2, 3]), new Set([3, 2, 1]))).toBe(true);
-  });
-
-  it('is true for the identical reference', () => {
-    const s = new Set([1, 2]);
-    expect(sameMeasureIndices(s, s)).toBe(true);
-  });
-
-  it('is false for sets of different size', () => {
-    expect(sameMeasureIndices(new Set([1, 2]), new Set([1, 2, 3]))).toBe(false);
-  });
-
-  it('is false for same-size sets with different members', () => {
-    expect(sameMeasureIndices(new Set([1, 2, 3]), new Set([1, 2, 4]))).toBe(false);
-  });
-
-  it('is true for two empty sets', () => {
-    expect(sameMeasureIndices(new Set(), new Set())).toBe(true);
   });
 });
 

@@ -6,21 +6,21 @@ Business logic for ScoreSmith (the Sudobility music app family): the entire non-
 
 - TypeScript (strict), ESM, built with plain `tsc -p tsconfig.build.json` (relative imports only — no path aliases; dist is bundler-consumed)
 - Types/schemas from `@sudobility/music_types`
-- VexFlow 4 (notation SVG), Tone.js 15 (audio), @tonejs/midi, Zustand 5 + Immer, Zod 4, @sudobility/music_client (server persistence + AI via music_api; Dexie and the mock AI stack were removed in Phase 2)
-- Bun for scripts, vitest + jsdom for tests (`src/test/setup.ts` stubs `SVGElement.getBBox` for VexFlow)
+- VexFlow 4 (windowed **canvas** notation — the SVG renderer was deleted; see adapters below), Tone.js 15 (audio), @tonejs/midi, Zustand 5 + Immer, Zod 4, @sudobility/music_client (server persistence + AI via music_api; Dexie and the mock AI stack were removed in Phase 2)
+- Bun for scripts, vitest + jsdom for tests; canvas tests use `createMock2DContext` (`src/test/canvas-stub.ts`, exported from the package root for consuming apps' jsdom suites too)
 - Published to npm as `@sudobility/music_lib` (restricted) via CI on push to main
 
 ## Commands
 
 - `bun install` — install dependencies
-- `bun run verify` — typecheck + lint + test + build (run before any push; ~790 tests)
+- `bun run verify` — typecheck + lint + test + build (run before any push; ~775 tests)
 - `bun run test` / `bun run test:watch` — vitest
 - `bun run build` — emit `dist/`
 
 ## Structure
 
 - `src/domain/` — framework-free core: `score/` (factories, queries, ties, fragments, ids), `commands/` (ScoreCommand factories, HistoryManager, reflow), `validation/`, `quantization/`, `voicing/`, `selection/`, `time/` (fractions/ticks/tempo/durations), `pitch/`
-- `src/adapters/` — `vexflow/` (ScoreRenderer), `tone/` (playback engine + instruments), `midi/`, `musicxml/`
+- `src/adapters/` — `vexflow/` (`CanvasScoreRenderer` — windowed, viewport-only canvas drawing with O(visible) per-frame cost; `paintHighlights` overlay painter; `layout.ts` binary-search lookups; `playhead.ts` caret/seek helpers; `measure-content.ts` shared Stave/Voice/tie builders), `tone/` (playback engine + instruments), `midi/`, `musicxml/`
 - `src/services/` — playback controller singleton (lazy Proxy; safe to import before store init), autosave debouncer, device-prefs persistence (`prefs.ts` via injected PrefsStorage), import-export, quantize worker service, errors, benchmark
 - `src/store/` — Zustand slices (score/selection/playback/generation/project/ui) + memoized selectors; `context.ts` defines `StoreContext { client: MusicClient; getToken; storage?; provider? }` and `ApiGenerationProvider`; `createAppStore({ context })` is the factory, `initializeAppStore(context)` boots the app-wide `useAppStore` hook (lazy delegate)
 - `src/templates/` — deterministic "New from template" starter scores (replaced the Dexie sample installer)

@@ -6,22 +6,19 @@
  * and reused until score/zoom/layout-mode/width/trackIds change — a
  * viewport change alone never recomputes layout.
  *
- * Differences from the SVG `VexFlowScoreRenderer`:
- * - No DOM: bounding boxes come from the VexFlow objects themselves
- *   (`element.getBoundingBox()`), not a post-draw SVG walk. Same map
- *   shapes, same units (zoom-scaled CSS px, content coordinates).
- * - No post-draw recolor pass: the theme foreground is set as the
- *   context's fill/stroke before drawing.
- * - A draw failure in one system logs and skips that system, and the rest
- *   still draw — a corrupt measure must not blank the whole canvas.
+ * No DOM anywhere: bounding boxes come from the VexFlow objects themselves
+ * (`element.getBoundingBox()`), in zoom-scaled CSS px, content coordinates.
+ * The theme foreground is set as the context's fill/stroke before drawing.
+ * A draw failure in one system logs and skips that system, and the rest
+ * still draw — a corrupt measure must not blank the whole canvas.
  *
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
 import { CanvasContext, Formatter, StaveConnector } from 'vexflow';
 import type { Beam, Stave, Voice } from 'vexflow';
 import type { Score } from '@sudobility/music_types';
-import { buildMeasureContent, buildTies } from './renderer.js';
-import type { Channel } from './renderer.js';
+import { buildMeasureContent, buildTies } from './measure-content.js';
+import type { Channel } from './measure-content.js';
 import { computeLayout, resolveZoom } from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
@@ -30,7 +27,7 @@ import type { NoteMeta } from './convert.js';
 /** Logical (unscaled) content-coordinate window to draw: typically `scrollTop/zoom` .. `(scrollTop+clientHeight)/zoom`. */
 export type CanvasViewport = { top: number; bottom: number };
 
-export type CanvasRenderOptions = Omit<RenderOptions, 'visibleMeasureIndices'> & {
+export type CanvasRenderOptions = RenderOptions & {
   viewport: CanvasViewport;
   /** Backing-store scale (window.devicePixelRatio); default 1. The canvas element's width/height must already be sized to cssSize × this. */
   devicePixelRatio?: number;
@@ -55,7 +52,7 @@ export class CanvasScoreRenderer {
   private planFor(score: Score, options: CanvasRenderOptions): LayoutPlan {
     const key = JSON.stringify([options.zoom, options.layoutMode, options.width, options.trackIds ?? null]);
     if (this.cache && this.cache.score === score && this.cache.key === key) return this.cache.plan;
-    const plan = computeLayout(score, options as unknown as RenderOptions);
+    const plan = computeLayout(score, options);
     this.cache = { key, score, plan };
     return plan;
   }
@@ -105,7 +102,8 @@ export class CanvasScoreRenderer {
           console.error('CanvasScoreRenderer: skipping ties after draw failure', error);
         }
         // Event bboxes from the VexFlow objects (post-format): first
-        // decomposition segment wins per event id, mirroring id-map.ts.
+        // decomposition segment wins per event id, so a tied long note's
+        // click target is its first drawn glyph.
         for (const entry of channel) {
           this.recordEventBBox(entry.note as unknown as { getBoundingBox(): BoundingBoxLike | undefined }, entry.meta, z, idToBBox);
         }
