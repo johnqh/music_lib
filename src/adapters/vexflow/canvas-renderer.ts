@@ -24,8 +24,14 @@ import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
 
-/** Logical (unscaled) content-coordinate window to draw: typically `scrollTop/zoom` .. `(scrollTop+clientHeight)/zoom`. */
-export type CanvasViewport = { top: number; bottom: number };
+/**
+ * Logical (unscaled) content-coordinate window to draw: typically
+ * `scrollTop/zoom` .. `(scrollTop+clientHeight)/zoom`. `left`/`right`
+ * (defaults: 0/∞ — full width, page-mode behavior) window the draw
+ * horizontally too: continuous mode lays every measure in ONE system, so
+ * without them each frame would draw the entire score.
+ */
+export type CanvasViewport = { top: number; bottom: number; left?: number; right?: number };
 
 export type CanvasRenderOptions = RenderOptions & {
   viewport: CanvasViewport;
@@ -65,9 +71,13 @@ export class CanvasScoreRenderer {
     const dpr = options.devicePixelRatio ?? 1;
     const plan = this.planFor(score, options);
 
+    const viewportLeft = options.viewport.left ?? 0;
+    const viewportRight = options.viewport.right ?? Number.POSITIVE_INFINITY;
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.setTransform(z * dpr, 0, 0, z * dpr, 0, -options.viewport.top * z * dpr);
+    // `+ 0` normalizes -0 (from a zero scroll offset) to 0.
+    ctx.setTransform(z * dpr, 0, 0, z * dpr, -viewportLeft * z * dpr + 0, -options.viewport.top * z * dpr + 0);
 
     const vexCtx = new CanvasContext(ctx);
     vexCtx.setFillStyle(options.theme.foreground);
@@ -86,7 +96,7 @@ export class CanvasScoreRenderer {
 
     for (const system of visibleSystems) {
       try {
-        this.drawSystem(system, plan, score, vexCtx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices);
+        this.drawSystem(system, plan, score, vexCtx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight);
       } catch (error) {
         // One corrupt system must not blank the rest of the sheet.
         console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
@@ -135,6 +145,52 @@ export class CanvasScoreRenderer {
     }
   }
 
+  /**
+   * The contiguous slice of `system.measureIndices` whose stave boxes
+   * intersect `[left, right]`, found by binary search over the x-sorted
+   * measure layouts — O(log n), so a continuous-mode frame never scans the
+   * whole single-system score (the horizontal analogue of the y-based
+   * system filter).
+   */
+  private visibleMeasureIndices(
+    system: SystemLayout,
+    plan: LayoutPlan,
+    left: number,
+    right: number,
+  ): number[] {
+    const indices = system.measureIndices;
+    const measures = plan.trackLayouts[0]?.measures;
+    if (!measures || indices.length === 0) return indices;
+    if (left <= 0 && right === Number.POSITIVE_INFINITY) return indices;
+
+    // First index whose box right edge reaches `left`.
+    let lo = 0;
+    let hi = indices.length - 1;
+    let start = indices.length;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const box = measures[indices[mid]]?.box;
+      if (!box || box.x + box.width < left) lo = mid + 1;
+      else {
+        start = mid;
+        hi = mid - 1;
+      }
+    }
+    // Last index whose box left edge is within `right`.
+    lo = start;
+    hi = indices.length - 1;
+    let end = start - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const box = measures[indices[mid]]?.box;
+      if (!box || box.x <= right) {
+        end = mid;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    return indices.slice(start, end + 1);
+  }
+
   private drawSystem(
     system: SystemLayout,
     plan: LayoutPlan,
@@ -144,6 +200,8 @@ export class CanvasScoreRenderer {
     channelsByTrack: Map<string, Map<number, Channel>>,
     measureIdToBBox: Map<string, BBox>,
     drawnMeasureIndices: Set<number>,
+    viewportLeft: number,
+    viewportRight: number,
   ): void {
     const staves: Stave[] = [];
     const voicesToDraw: Voice[] = [];
@@ -159,7 +217,8 @@ export class CanvasScoreRenderer {
     // Formatting each track's measure independently — the old structure —
     // let a dense track distribute its notes on its own timeline, visually
     // desynchronized from the other tracks' staves.
-    for (const measureIndex of system.measureIndices) {
+    const windowIndices = this.visibleMeasureIndices(system, plan, viewportLeft, viewportRight);
+    for (const measureIndex of windowIndices) {
       const measureStaves: Stave[] = [];
       const voiceGroups: Voice[][] = [];
 

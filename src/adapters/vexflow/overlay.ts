@@ -18,6 +18,8 @@ export type HighlightSets = { selectedIds: string[]; playingIds: string[]; previ
 export type OverlayOptions = {
   /** Scroll offset in CSS px (zoom-scaled content coords — the same units as the result's bboxes). */
   viewportTop: number;
+  /** Horizontal scroll offset, same units; default 0 (continuous mode scrolls horizontally). */
+  viewportLeft?: number;
   /** Backing-store scale (window.devicePixelRatio); default 1. */
   devicePixelRatio?: number;
 };
@@ -62,7 +64,8 @@ export function paintHighlights(
   const dpr = options.devicePixelRatio ?? 1;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, -options.viewportTop * dpr);
+  // `+ 0` normalizes -0 (from a zero scroll offset) to 0.
+  ctx.setTransform(dpr, 0, 0, dpr, -(options.viewportLeft ?? 0) * dpr + 0, -options.viewportTop * dpr + 0);
 
   paintSet(ctx, result, highlights.previewIds, 'preview', result.theme.preview);
   paintSet(ctx, result, highlights.selectedIds, 'selected', result.theme.selection);

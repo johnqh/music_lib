@@ -138,3 +138,51 @@ describe('CanvasScoreRenderer: cross-track timeline sync', () => {
     }
   });
 });
+
+describe('CanvasScoreRenderer: continuous-mode horizontal windowing', () => {
+  const CONTINUOUS = { ...OPTS, layoutMode: 'continuous' as const };
+
+  it('draws only the measures intersecting the horizontal viewport', () => {
+    const score = stressScore(1, 200);
+    const result = new CanvasScoreRenderer().render(score, createMock2DContext(), {
+      ...CONTINUOUS,
+      viewport: { top: 0, bottom: 400, left: 1000, right: 1900 },
+    });
+    const expected = result.plan.trackLayouts[0].measures
+      .filter((m) => m.box.x + m.box.width >= 1000 && m.box.x <= 1900)
+      .map((m) => m.measureIndex);
+    expect(expected.length).toBeGreaterThan(0);
+    expect([...result.drawnMeasureIndices].sort((a, b) => a - b)).toEqual(expected);
+    expect(result.drawnMeasureIndices.size).toBeLessThan(200);
+  });
+
+  it('per-frame horizontal draw work is O(visible): equal op counts for 1k vs 8k measures', () => {
+    const viewport = { top: 0, bottom: 400, left: 5000, right: 5900 };
+    const renderer = new CanvasScoreRenderer();
+    const small = createMock2DContext();
+    renderer.render(stressScore(1, 1000), small, { ...CONTINUOUS, viewport });
+    const big = createMock2DContext();
+    renderer.render(stressScore(1, 8000), big, { ...CONTINUOUS, viewport });
+    expect(big.ops.length).toBe(small.ops.length);
+  }, 60_000);
+
+  it('applies the horizontal scroll offset in the draw transform', () => {
+    const ctx = createMock2DContext();
+    new CanvasScoreRenderer().render(twinkleScore(), ctx, {
+      ...CONTINUOUS,
+      viewport: { top: 0, bottom: 400, left: 300, right: 1200 },
+    });
+    const transforms = ctx.ops.filter((o) => o.method === 'setTransform');
+    expect(transforms[1]?.args).toEqual([1, 0, 0, 1, -300, 0]);
+  });
+
+  it('omitted left/right draw the full horizontal extent (page-mode behavior unchanged)', () => {
+    const score = twinkleScore();
+    const renderer = new CanvasScoreRenderer();
+    const result = renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
+    expect(result.drawnMeasureIndices.size).toBe(score.tracks[0].measures.length);
+  });
+});

@@ -76,3 +76,17 @@ describe('paintHighlights', () => {
     expect(ctx.ops.filter((o) => o.method === 'strokeRect')).toHaveLength(0);
   });
 });
+
+describe('paintHighlights: horizontal scroll offset', () => {
+  it('includes viewportLeft in the draw transform', () => {
+    const ctx = createMock2DContext();
+    paintHighlights(
+      ctx,
+      fakeResult(),
+      { selectedIds: ['note-a'], playingIds: [], previewIds: [] },
+      { viewportTop: 120, viewportLeft: 80, devicePixelRatio: 2 },
+    );
+    const transforms = ctx.ops.filter((o) => o.method === 'setTransform');
+    expect(transforms[1]?.args).toEqual([2, 0, 0, 2, -160, -240]);
+  });
+});
