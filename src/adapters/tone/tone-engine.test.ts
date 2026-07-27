@@ -770,3 +770,21 @@ describe('TonePlaybackEngine: visibility', () => {
     expect(mock.getTransport().state).toBe('stopped');
   });
 });
+
+describe('TonePlaybackEngine: instrument failure isolation', () => {
+  it('a throwing instrument trigger neither propagates nor suppresses the note-on highlight', async () => {
+    const engine = new TonePlaybackEngine();
+    const observer = makeObserver();
+    engine.setObserver(observer);
+    await engine.loadScore(twinkleScore());
+
+    const polySynth = asInstrumentInstance(mock.state.constructedNodes.find((n) => n.type === 'PolySynth')!);
+    polySynth.triggerAttackRelease.mockImplementationOnce(() => {
+      throw new Error('Start time must be strictly greater than previous start time');
+    });
+
+    const onEventId = noteEventIds()[0];
+    expect(() => mock.fire(onEventId, 0)).not.toThrow();
+    expect(observer.activeNoteSnapshots.length).toBeGreaterThan(0);
+  });
+});

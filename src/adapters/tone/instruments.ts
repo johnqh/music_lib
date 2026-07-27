@@ -173,6 +173,33 @@ const KICK_NOTES = new Set([35, 36, 41, 43, 45, 47, 48, 50]);
 const SNARE_NOTES = new Set([37, 38, 39, 40]);
 /** Everything else (hi-hats, cymbals, other unpitched percussion) routes to the brighter/shorter "hat" noise voice. */
 
+/**
+ * Half a millisecond: inaudible, but enough to satisfy Tone's
+ * strictly-increasing source-start assertion (see `monotonicTime`).
+ */
+const MONO_RETRIGGER_EPSILON_SECONDS = 0.0005;
+
+/**
+ * Per-voice start-time monotonizer. Tone's single-source instruments
+ * (`NoiseSynth`'s underlying `Noise`) assert that each `start(time)` is
+ * STRICTLY greater than the previous one — but a real percussion track
+ * routinely lands two hits on the same voice at the same tick (e.g. closed
+ * + open hi-hat from a MIDI drum pattern, both routed to the `hat` voice).
+ * Untreated, the second `triggerAttackRelease` threw inside the Transport
+ * callback, and that exception aborted the rest of the audio tick's event
+ * batch — starving the position ticker (frozen caret) mid-playback.
+ * Nudging a colliding (or out-of-order) hit forward by half a millisecond
+ * keeps the source legal and is inaudible.
+ */
+function monotonicTime(): (time: number) => number {
+  let last = Number.NEGATIVE_INFINITY;
+  return (time) => {
+    const t = time <= last ? last + MONO_RETRIGGER_EPSILON_SECONDS : time;
+    last = t;
+    return t;
+  };
+}
+
 function createDrumKitInstrument(): InstrumentHandle {
   const kick = new Tone.MembraneSynth({
     envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.4 },
@@ -193,14 +220,18 @@ function createDrumKitInstrument(): InstrumentHandle {
   snare.connect(output);
   hatFilter.connect(output);
 
+  const kickTime = monotonicTime();
+  const snareTime = monotonicTime();
+  const hatTime = monotonicTime();
+
   return {
     triggerAttackRelease(midi, durationSeconds, time, velocity) {
       if (KICK_NOTES.has(midi)) {
-        kick.triggerAttackRelease(midiToHertz(midi), durationSeconds, time, velocity);
+        kick.triggerAttackRelease(midiToHertz(midi), durationSeconds, kickTime(time), velocity);
       } else if (SNARE_NOTES.has(midi)) {
-        snare.triggerAttackRelease(durationSeconds, time, velocity);
+        snare.triggerAttackRelease(durationSeconds, snareTime(time), velocity);
       } else {
-        hat.triggerAttackRelease(durationSeconds, time, velocity);
+        hat.triggerAttackRelease(durationSeconds, hatTime(time), velocity);
       }
     },
     connect(node) {

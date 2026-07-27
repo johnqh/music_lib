@@ -261,3 +261,33 @@ describe('createInstrument: drum kit', () => {
     }
   });
 });
+
+describe('createInstrument: drum kit mono-voice retrigger guard', () => {
+  it('nudges same-time hits on one voice to strictly increasing times (Tone Noise.start requirement)', () => {
+    const handle = createInstrument('Drums', true);
+    const [, hat] = instancesOfType('NoiseSynth').map((c) => c.instance);
+
+    handle.triggerAttackRelease(42, 0.05, 1, 0.9); // Closed Hi-Hat
+    handle.triggerAttackRelease(46, 0.05, 1, 0.9); // Open Hi-Hat, same tick
+
+    const t1 = hat.triggerAttackRelease.mock.calls[0][1] as number;
+    const t2 = hat.triggerAttackRelease.mock.calls[1][1] as number;
+    expect(t1).toBe(1);
+    expect(t2).toBeGreaterThan(t1);
+
+    // An out-of-order retrigger (earlier time after a later one) also stays monotonic.
+    handle.triggerAttackRelease(42, 0.05, 0.5, 0.9);
+    const t3 = hat.triggerAttackRelease.mock.calls[2][1] as number;
+    expect(t3).toBeGreaterThan(t2);
+  });
+
+  it('keeps distinct voices independent: a kick at the same time as a hat is not nudged', () => {
+    const handle = createInstrument('Drums', true);
+    const kick = instancesOfType('MembraneSynth')[0].instance;
+
+    handle.triggerAttackRelease(42, 0.05, 3, 0.9); // hat at t=3
+    handle.triggerAttackRelease(36, 0.1, 3, 0.9); // kick at the same t=3
+
+    expect(kick.triggerAttackRelease.mock.calls[0][2]).toBe(3);
+  });
+});

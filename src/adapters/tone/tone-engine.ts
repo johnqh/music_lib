@@ -381,7 +381,18 @@ export class TonePlaybackEngine implements PlaybackEngine {
       const velocity = normalizeVelocity(note.velocity);
 
       const onId = transport.schedule((time) => {
-        channel.instrument.triggerAttackRelease(note.midi, durationSeconds, time, velocity);
+        // One bad note must never abort the Transport's event batch: an
+        // exception thrown from inside a Transport callback stops Tone from
+        // processing the REST of that audio tick's events — including the
+        // position ticker — which froze the caret mid-playback while
+        // already-processed notes kept sounding. (Seen in practice with the
+        // drum kit's mono NoiseSynth voices; see instruments.ts's
+        // monotonicTime for the trigger-level fix.)
+        try {
+          channel.instrument.triggerAttackRelease(note.midi, durationSeconds, time, velocity);
+        } catch (error) {
+          console.error('TonePlaybackEngine: note trigger failed', note.noteId, error);
+        }
         this.noteOn(note.noteId);
       }, startSeconds);
       const offId = transport.schedule(() => {
