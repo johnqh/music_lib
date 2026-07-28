@@ -369,3 +369,54 @@ describe('measure-number gutter drawing', () => {
     }
   });
 });
+
+describe('non-color state redundancy (spec §27)', () => {
+  /** Records every `setStyle` call on StaveNote for one render. */
+  function captureNoteStyles() {
+    const calls: Array<{ lineWidth?: number; shadowBlur?: number; fillStyle?: string }> = [];
+    const proto = StaveNote.prototype as { setStyle: (s: object) => unknown };
+    const original = proto.setStyle;
+    const spy = vi.spyOn(proto, 'setStyle').mockImplementation(function (this: unknown, style: object) {
+      calls.push(style);
+      return original.call(this, style);
+    });
+    return { calls, restore: () => spy.mockRestore() };
+  }
+
+  it('emphasises a selected note without relying on its color', () => {
+    const score = twinkleScore();
+    const noteId = allNotes(score)[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureNoteStyles();
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      noteColors: new Map([[noteId, 'selected' as const]]),
+    });
+    restore();
+
+    const selected = calls.find((s) => s.fillStyle === THEME.noteSelected)!;
+    const normal = calls.find((s) => s.fillStyle === THEME.noteNormal)!;
+    expect(selected.lineWidth).toBeGreaterThan(normal.lineWidth!);
+    // The halo is what a stemless whole note relies on.
+    expect(selected.shadowBlur).toBeGreaterThan(0);
+    expect(normal.shadowBlur).toBeUndefined();
+  });
+
+  it('emphasises playing notes too, so playback is followable in grayscale', () => {
+    const score = twinkleScore();
+    const noteId = allNotes(score)[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureNoteStyles();
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      noteColors: new Map([[noteId, 'playing' as const]]),
+    });
+    restore();
+
+    expect(calls.find((s) => s.fillStyle === THEME.notePlaying)!.shadowBlur).toBeGreaterThan(0);
+  });
+});

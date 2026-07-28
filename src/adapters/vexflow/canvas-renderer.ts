@@ -16,7 +16,7 @@
  */
 import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
-import { noteColorFor, resolveNoteColorRole } from './note-color.js';
+import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
@@ -136,17 +136,32 @@ export class CanvasScoreRenderer {
   }
 
   /**
-   * Colors one VexFlow note by the highest-precedence role among the domain
+   * Styles one VexFlow note by the highest-precedence role among the domain
    * events it represents (>1 for a chord, or for one segment of a
    * duration-decomposed long note).
    *
    * Both `fillStyle` and `strokeStyle` are set: noteheads fill, stems and
    * flags stroke, and a note whose stem stayed the default color would read
    * as half-highlighted.
+   *
+   * `lineWidth`/`shadowBlur` carry the same state redundantly *without*
+   * color (spec §27) — see `noteEmphasisFor`. The shadow is tinted with the
+   * note's own color so an emphasised note reads as heavier rather than
+   * outlined, which keeps it from looking like the highlight rectangles this
+   * design deliberately removed.
    */
   private styleNote(note: StaveNote, meta: NoteMeta, options: CanvasRenderOptions): void {
-    const color = noteColorFor(resolveNoteColorRole(meta.eventIds, options.noteColors), options.theme);
-    note.setStyle({ fillStyle: color, strokeStyle: color });
+    const role = resolveNoteColorRole(meta.eventIds, options.noteColors);
+    const color = noteColorFor(role, options.theme);
+    const { lineWidth, shadowBlur } = noteEmphasisFor(role);
+    note.setStyle({
+      fillStyle: color,
+      strokeStyle: color,
+      lineWidth,
+      // VexFlow only applies shadowColor/shadowBlur when truthy, so a normal
+      // note (blur 0) simply inherits whatever the context already has.
+      ...(shadowBlur > 0 ? { shadowColor: color, shadowBlur } : {}),
+    });
   }
 
   private recordEventBBox(
