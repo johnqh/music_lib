@@ -39,6 +39,12 @@ export type RenderOptions = {
   width: number;
   /** Track ids to render, in the order they should be stacked top-to-bottom; omit/empty = all tracks in score order. */
   trackIds?: string[];
+  /** eventId -> color role. Absent ids render as `normal`. */
+  noteColors?: ReadonlyMap<string, NoteColorRole>;
+  /** Track whose staves render in `theme.staveActive`; every other track uses `theme.staveInactive`. */
+  activeTrackId?: string | null;
+  /** Measure ids whose gutter cell is tinted as selected — measure selection's only visual feedback, now that notes carry their own color. */
+  selectedMeasureIds?: ReadonlySet<string>;
   theme: RenderTheme;
 };
 

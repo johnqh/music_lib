@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer } from './canvas-renderer.js';
 import { computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
@@ -184,5 +185,103 @@ describe('CanvasScoreRenderer: continuous-mode horizontal windowing', () => {
       viewport: { top: 0, bottom: 10_000 },
     });
     expect(result.drawnMeasureIndices.size).toBe(score.tracks[0].measures.length);
+  });
+});
+
+describe('note and stave coloring', () => {
+  /**
+   * Records every `setStyle` call on a VexFlow class for one render, while
+   * still delegating to the real implementation — the point is to observe
+   * the colors, not to stub out styling.
+   */
+  type StyleCall = { fillStyle?: string; strokeStyle?: string };
+  function captureStyles(cls: typeof Stave | typeof StaveNote) {
+    const calls: StyleCall[] = [];
+    const proto = cls.prototype as { setStyle: (style: StyleCall) => unknown };
+    const original = proto.setStyle;
+    const spy = vi.spyOn(proto, 'setStyle').mockImplementation(function (
+      this: unknown,
+      style: StyleCall,
+    ) {
+      calls.push(style);
+      return original.call(this, style);
+    });
+    return { calls, restore: () => spy.mockRestore() };
+  }
+
+  it('styles a selected note with the selected color and leaves the rest normal', () => {
+    const score = twinkleScore();
+    const noteId = allNotes(score)[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureStyles(StaveNote);
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      noteColors: new Map([[noteId, 'selected' as const]]),
+    });
+    restore();
+
+    expect(calls.some((s) => s.fillStyle === THEME.noteSelected)).toBe(true);
+    expect(calls.some((s) => s.fillStyle === THEME.noteNormal)).toBe(true);
+  });
+
+  it('colors every note normal when no map is supplied', () => {
+    const score = twinkleScore();
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureStyles(StaveNote);
+
+    renderer.render(score, createMock2DContext(), { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    restore();
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((s) => s.fillStyle === THEME.noteNormal)).toBe(true);
+  });
+
+  it('sets stroke as well as fill, so stems and flags take the color too', () => {
+    const score = twinkleScore();
+    const noteId = allNotes(score)[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureStyles(StaveNote);
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      noteColors: new Map([[noteId, 'playing' as const]]),
+    });
+    restore();
+
+    expect(calls.some((s) => s.fillStyle === THEME.notePlaying && s.strokeStyle === THEME.notePlaying)).toBe(true);
+  });
+
+  it('styles the active track stave differently from the others', () => {
+    const score = stressScore(2, 2);
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureStyles(Stave);
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[1].id,
+    });
+    restore();
+
+    const strokes = calls.map((s) => s.strokeStyle);
+    expect(strokes).toContain(THEME.staveActive);
+    expect(strokes).toContain(THEME.staveInactive);
+  });
+
+  it('marks every stave inactive when there is no active track', () => {
+    const score = stressScore(2, 2);
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureStyles(Stave);
+
+    renderer.render(score, createMock2DContext(), { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    restore();
+
+    const strokes = calls.map((s) => s.strokeStyle);
+    expect(strokes.length).toBeGreaterThan(0);
+    expect(strokes).not.toContain(THEME.staveActive);
+    expect(strokes.every((s) => s === THEME.staveInactive)).toBe(true);
   });
 });

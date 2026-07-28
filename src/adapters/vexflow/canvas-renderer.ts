@@ -15,7 +15,8 @@
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
 import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
-import type { Beam, Voice } from 'vexflow';
+import type { Beam, StaveNote, Voice } from 'vexflow';
+import { noteColorFor, resolveNoteColorRole } from './note-color.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
@@ -96,7 +97,7 @@ export class CanvasScoreRenderer {
 
     for (const system of visibleSystems) {
       try {
-        this.drawSystem(system, plan, score, vexCtx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight);
+        this.drawSystem(system, plan, score, vexCtx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight, options);
       } catch (error) {
         // One corrupt system must not blank the rest of the sheet.
         console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
@@ -124,6 +125,20 @@ export class CanvasScoreRenderer {
     }
 
     return { idToBBox, measureIdToBBox, drawnMeasureIndices, plan, theme: options.theme };
+  }
+
+  /**
+   * Colors one VexFlow note by the highest-precedence role among the domain
+   * events it represents (>1 for a chord, or for one segment of a
+   * duration-decomposed long note).
+   *
+   * Both `fillStyle` and `strokeStyle` are set: noteheads fill, stems and
+   * flags stroke, and a note whose stem stayed the default color would read
+   * as half-highlighted.
+   */
+  private styleNote(note: StaveNote, meta: NoteMeta, options: CanvasRenderOptions): void {
+    const color = noteColorFor(resolveNoteColorRole(meta.eventIds, options.noteColors), options.theme);
+    note.setStyle({ fillStyle: color, strokeStyle: color });
   }
 
   private recordEventBBox(
@@ -202,6 +217,7 @@ export class CanvasScoreRenderer {
     drawnMeasureIndices: Set<number>,
     viewportLeft: number,
     viewportRight: number,
+    options: CanvasRenderOptions,
   ): void {
     const staves: Stave[] = [];
     const voicesToDraw: Voice[] = [];
@@ -238,6 +254,17 @@ export class CanvasScoreRenderer {
           channels,
           allMetas,
         );
+        // Stave lines only. `Stave.draw` calls `restoreStyle()` *before*
+        // drawing its modifiers (clef / key signature / time signature), so
+        // this never bleeds into those glyphs — they keep drawing in
+        // `theme.foreground` from the context, which is what we want: an
+        // inactive track's clef must not wash out along with its lines.
+        stave.setStyle({
+          strokeStyle:
+            options.activeTrackId != null && track.id === options.activeTrackId
+              ? options.theme.staveActive
+              : options.theme.staveInactive,
+        });
         stave.setContext(vexCtx);
         stave.format();
         staves.push(stave);
@@ -276,6 +303,23 @@ export class CanvasScoreRenderer {
         );
         formatter.format(voiceGroups.flat(), justifyWidth);
         voicesToDraw.push(...voiceGroups.flat());
+      }
+    }
+
+    // Color every note in the window before anything draws. `StaveNote.draw`
+    // wraps its whole body (noteheads, stem, flag, and its modifiers) in
+    // applyStyle/restoreStyle, so one setStyle per note is enough — the
+    // accidentals and dots inherit it from the context.
+    //
+    // Walks the accumulated channels rather than just this measure's notes:
+    // entries carried over from earlier systems in the same frame get
+    // restyled too, which is idempotent and cheap (channels only ever hold
+    // the drawn window, so this stays O(visible)).
+    for (const channels of channelsByTrack.values()) {
+      for (const channel of channels.values()) {
+        for (const entry of channel) {
+          this.styleNote(entry.note, entry.meta, options);
+        }
       }
     }
 
