@@ -21,7 +21,7 @@ const delegatingProvider: MusicGenerationProvider = {
   regenerateRegion: (req, signal) => (injectedProvider ?? defaultFake).regenerateRegion(req, signal),
 };
 import { extractFragment } from '../../domain/score/fragment.js';
-import { findMeasure } from '../../domain/score/queries.js';
+import { findEvent, findMeasure } from '../../domain/score/queries.js';
 import { selectionToRange } from '../../domain/selection/selection.js';
 import { twinkleScore } from '../../test/fixtures.js';
 import type {
@@ -314,7 +314,13 @@ describe('generation-slice', () => {
       const newMeasure = findMeasure(state.score!, state.selection.measureIds[0]);
       expect(newMeasure).not.toBeNull();
       expect(newMeasure!.index).toBe(measureIndexBefore);
-      expect(state.selection.eventIds).toEqual([]);
+      // The candidate's OWN new event ids become the selection (they exist in
+      // the score now), which is what renders them brown.
+      expect(state.selection.eventIds.length).toBeGreaterThan(0);
+      for (const id of state.selection.eventIds) {
+        expect(findEvent(state.score!, id)).not.toBeNull();
+      }
+      expect(state.selectionRegenerated).toBe(true);
 
       const range = selectionToRange(state.score!, state.selection);
       expect(range).not.toBeNull();
@@ -432,5 +438,20 @@ describe('generation-slice', () => {
       expect(store.getState().score).not.toBeNull();
       expect(store.getState().error).toBeNull();
     });
+  });
+});
+
+describe('regenerated selection reverts on the next selection change', () => {
+  it('clears selectionRegenerated as soon as the selection changes', async () => {
+    const store = createAppStore({ context: testStoreContext({ provider: delegatingProvider }) });
+    const score = twinkleScore();
+    store.getState().setScore(score);
+    store.getState().selectMeasures([score.tracks[0].measures[0].id]);
+    await store.getState().regenerate('Simplify this passage');
+    store.getState().acceptCandidate();
+    expect(store.getState().selectionRegenerated).toBe(true);
+
+    store.getState().setSelection({ eventIds: [], measureIds: [], trackIds: [] });
+    expect(store.getState().selectionRegenerated).toBe(false);
   });
 });

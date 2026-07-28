@@ -125,10 +125,16 @@ export function selectionIsRegenerable(score: Score, sel: ScoreSelection): boole
  * between `AppLayout`'s status bar and the score-editor/piano-roll
  * containers' own SR-only summaries (`ScoreEditorView`/`PianoRollView`) so
  * all three always agree on the same wording.
+ *
+ * `regenerated` appends ", regenerated". Note state is carried by color
+ * alone on the canvas now (the highlight overlay's solid/dashed/dotted
+ * stroke patterns went away with it), so this label is the non-color
+ * channel keeping that state perceivable — not a cosmetic extra.
  */
-export function selectionSummaryLabel(sel: ScoreSelection): string {
-  if (sel.eventIds.length > 0) return `${sel.eventIds.length} note(s) selected`;
-  if (sel.measureIds.length > 0) return `${sel.measureIds.length} measure(s) selected`;
-  if (sel.trackIds.length > 0) return `${sel.trackIds.length} track(s) selected`;
+export function selectionSummaryLabel(sel: ScoreSelection, regenerated = false): string {
+  const suffix = regenerated ? ', regenerated' : '';
+  if (sel.eventIds.length > 0) return `${sel.eventIds.length} note(s) selected${suffix}`;
+  if (sel.measureIds.length > 0) return `${sel.measureIds.length} measure(s) selected${suffix}`;
+  if (sel.trackIds.length > 0) return `${sel.trackIds.length} track(s) selected${suffix}`;
   return 'No selection';
 }

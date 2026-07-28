@@ -173,3 +173,35 @@ describe('selection-slice', () => {
     });
   });
 });
+
+describe('selectionRegenerated', () => {
+  it('defaults to false', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    expect(store.getState().selectionRegenerated).toBe(false);
+  });
+
+  it('is cleared by setSelection', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.setState({ selectionRegenerated: true });
+    store.getState().setSelection({ eventIds: [], measureIds: [], trackIds: [] });
+    expect(store.getState().selectionRegenerated).toBe(false);
+  });
+
+  it('is cleared by clearSelection, which funnels through setSelection', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.setState({ selectionRegenerated: true });
+    store.getState().clearSelection();
+    expect(store.getState().selectionRegenerated).toBe(false);
+  });
+
+  it('is cleared by selectMeasures and selectTrack too', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.setState({ selectionRegenerated: true });
+    store.getState().selectMeasures(['m1']);
+    expect(store.getState().selectionRegenerated).toBe(false);
+
+    store.setState({ selectionRegenerated: true });
+    store.getState().selectTrack('t1');
+    expect(store.getState().selectionRegenerated).toBe(false);
+  });
+});

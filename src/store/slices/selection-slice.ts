@@ -21,6 +21,18 @@ export type ClipboardData = { events: NoteEvent[]; anchorTick: number };
 
 export type SelectionSlice = {
   selection: ScoreSelection;
+  /**
+   * True when the current selection is the direct product of an accepted
+   * regeneration — those notes draw in `theme.noteRegenerated` (brown)
+   * instead of the normal selected color.
+   *
+   * Cleared by `setSelection`, and therefore by every selection action
+   * (`toggleEvent`/`selectMeasures`/`selectTrack`/`clearSelection` all funnel
+   * through it), which is what makes "brown until the selection changes"
+   * hold without any other code knowing about the flag. Set only by
+   * `generation-slice.acceptCandidate`.
+   */
+  selectionRegenerated: boolean;
   clipboard: ClipboardData | null;
 
   setSelection: (selection: ScoreSelection) => void;
@@ -59,11 +71,13 @@ export const createSelectionSlice: StateCreator<
   SelectionSlice
 > = (set, get) => ({
   selection: emptySelection(),
+  selectionRegenerated: false,
   clipboard: null,
 
   setSelection: (selection) => {
     set((state) => {
       state.selection = selection;
+      state.selectionRegenerated = false;
     });
     // Routed through generation-slice's own action (rather than this slice
     // writing `state.mode` itself) so generation-slice stays the only code

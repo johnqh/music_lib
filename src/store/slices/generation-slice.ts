@@ -21,6 +21,23 @@ import { normalizeSelection, selectionIsRegenerable } from '../../domain/selecti
 import type { ScoreSelection } from '../../domain/selection/types.js';
 import type { AppState } from '../useAppStore.js';
 
+/**
+ * Every event id the candidate fragment introduces. These exist in the score
+ * only after `applyCandidate` splices the fragment in, which is why
+ * `acceptCandidate` reads them *after* dispatching, not before.
+ */
+function fragmentEventIds(fragment: ScoreFragment): string[] {
+  const ids: string[] = [];
+  for (const trackFragment of fragment.tracks) {
+    for (const measure of trackFragment.measures) {
+      for (const voice of measure.voices) {
+        for (const event of voice.events) ids.push(event.id);
+      }
+    }
+  }
+  return ids;
+}
+
 export type GenerationMode = 'generate' | 'regenerate';
 
 /**
@@ -272,14 +289,17 @@ export function createGenerationSlice(
       const command = applyCandidate(score, candidate);
       get().dispatchCommand(command);
 
-      // Event ids never survive a splice (a candidate's own event ids are
-      // always freshly generated, and nothing here has enough information
-      // to map an old event onto a specific new one) -- cleared
-      // unconditionally, same as `measureIds` is remapped or dropped.
+      // OLD event ids never survive a splice, and nothing here can map one
+      // onto a specific new event -- so they're dropped. The candidate's OWN
+      // ids are a different matter: they were freshly generated when the
+      // fragment was built and exist in the score as of the dispatch above,
+      // so they become the selection. That, plus `selectionRegenerated`
+      // below, is what draws the accepted notes brown until the user selects
+      // something else.
       const newMeasuresByTrack = new Map(candidate.fragment.tracks.map((t) => [t.trackId, t.measures]));
       const remappedSelection: ScoreSelection = {
         ...selection,
-        eventIds: [],
+        eventIds: fragmentEventIds(candidate.fragment),
         measureIds: selection.measureIds
           .map((id) => {
             const position = positionByOldMeasureId.get(id);
@@ -300,6 +320,10 @@ export function createGenerationSlice(
         state.activeCandidateId = null;
         state.previewFragment = null;
         state.selection = normalizedSelection;
+        // Written here rather than via `setSelection` (which clears it):
+        // this is the one place that sets the flag, and only when the
+        // remapped selection actually survived normalization.
+        state.selectionRegenerated = normalizedSelection.eventIds.length > 0;
       });
       get().syncModeFromSelection(normalizedSelection);
     },

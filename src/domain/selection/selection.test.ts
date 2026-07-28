@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from '../score/factory.js';
-import { normalizeSelection, selectionIsRegenerable, selectionToRange } from './selection.js';
+import { normalizeSelection, selectionIsRegenerable, selectionSummaryLabel, selectionToRange } from './selection.js';
 import { emptySelection } from './types.js';
 import type { ScoreSelection } from './types.js';
 
@@ -189,5 +189,33 @@ describe('selectionIsRegenerable', () => {
       range: { startTick: 0, endTick: 100, trackIds: ['no-such-track'] },
     };
     expect(selectionIsRegenerable(score, sel)).toBe(false);
+  });
+});
+
+describe('selectionSummaryLabel regenerated variant', () => {
+  const sel = { eventIds: ['a', 'b'], measureIds: [], trackIds: [] };
+
+  it('marks a regenerated note selection', () => {
+    expect(selectionSummaryLabel(sel, true)).toBe('2 note(s) selected, regenerated');
+  });
+
+  it('is unchanged when not regenerated', () => {
+    expect(selectionSummaryLabel(sel, false)).toBe('2 note(s) selected');
+    expect(selectionSummaryLabel(sel)).toBe('2 note(s) selected');
+  });
+
+  it('marks measure and track selections too', () => {
+    expect(selectionSummaryLabel({ eventIds: [], measureIds: ['m'], trackIds: [] }, true)).toBe(
+      '1 measure(s) selected, regenerated',
+    );
+    expect(selectionSummaryLabel({ eventIds: [], measureIds: [], trackIds: ['t'] }, true)).toBe(
+      '1 track(s) selected, regenerated',
+    );
+  });
+
+  it('does not mark an empty selection', () => {
+    expect(selectionSummaryLabel({ eventIds: [], measureIds: [], trackIds: [] }, true)).toBe(
+      'No selection',
+    );
   });
 });
