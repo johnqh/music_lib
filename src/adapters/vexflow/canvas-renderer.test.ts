@@ -285,3 +285,87 @@ describe('note and stave coloring', () => {
     expect(strokes.every((s) => s === THEME.staveInactive)).toBe(true);
   });
 });
+
+describe('measure-number gutter drawing', () => {
+  it('draws a number for each measure in the drawn window', () => {
+    const score = twinkleScore();
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const texts = ctx.ops.filter((o) => o.method === 'fillText').map((o) => String(o.args[0]));
+    expect(texts).toContain('1');
+    expect(texts).toContain('2');
+  });
+
+  it('numbers measures from 1, not 0', () => {
+    const score = twinkleScore();
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const texts = ctx.ops.filter((o) => o.method === 'fillText').map((o) => String(o.args[0]));
+    expect(texts).not.toContain('0');
+  });
+
+  it('tints the gutter cell of a selected measure', () => {
+    const score = twinkleScore();
+    const measureId = score.tracks[0].measures[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    // fillStyle is a property write, so the mock's op log can't correlate it
+    // with the fillRect that used it — capture it at call time instead.
+    const fills: string[] = [];
+    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: { fillStyle: string }) {
+      fills.push(this.fillStyle);
+    };
+
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      selectedMeasureIds: new Set([measureId]),
+    });
+
+    expect(fills).toContain(THEME.noteSelected);
+  });
+
+  it('does not tint anything when no measure is selected', () => {
+    const score = twinkleScore();
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    const fills: string[] = [];
+    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: { fillStyle: string }) {
+      fills.push(this.fillStyle);
+    };
+
+    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    expect(fills).not.toContain(THEME.noteSelected);
+  });
+
+  it('draws the gutter inside its own band, above the first stave', () => {
+    const score = twinkleScore();
+    const plan = computeLayout(score, OPTS);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    // The score wraps across several systems, so each number must land in
+    // *its own* system's band — not merely somewhere above the first stave.
+    const numbers = ctx.ops
+      .filter((o) => o.method === 'fillText' && /^\d+$/.test(String(o.args[0])))
+      .map((o) => ({ text: String(o.args[0]), y: Number(o.args[2]) }));
+    expect(numbers.length).toBeGreaterThan(0);
+
+    const bands = plan.systems.map((s) => ({ top: s.gutterTop, bottom: s.yTop }));
+    for (const { text, y } of numbers) {
+      const inSomeBand = bands.some((b) => y >= b.top && y <= b.bottom);
+      expect(inSomeBand, `measure ${text} drawn at y=${y}, outside every gutter band`).toBe(true);
+    }
+  });
+});

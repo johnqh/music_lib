@@ -20,7 +20,7 @@ import { noteColorFor, resolveNoteColorRole } from './note-color.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
-import { computeLayout, resolveZoom } from './layout.js';
+import { MEASURE_HEADER_HEIGHT, computeLayout, resolveZoom } from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
@@ -55,6 +55,14 @@ type BoundingBoxLike = { getX(): number; getY(): number; getW(): number; getH():
 
 /** Width kept free at the end of each measure's note area so the final glyph never crosses the barline — see the joint-format comment in `drawSystem`. */
 const BARLINE_CLEARANCE = 12;
+
+/** Measure-number type, and where it sits inside the gutter band. */
+const GUTTER_FONT = '11px sans-serif';
+const GUTTER_TEXT_INSET = 3;
+/** Distance from the band's bottom edge up to the text baseline, so numbers sit just above the stave. */
+const GUTTER_TEXT_BASELINE_INSET = 5;
+/** Selected-measure tint opacity: enough to read as "selected", light enough to keep the number legible over it. */
+const GUTTER_TINT_ALPHA = 0.18;
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
@@ -97,7 +105,7 @@ export class CanvasScoreRenderer {
 
     for (const system of visibleSystems) {
       try {
-        this.drawSystem(system, plan, score, vexCtx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight, options);
+        this.drawSystem(system, plan, score, vexCtx, ctx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight, options);
       } catch (error) {
         // One corrupt system must not blank the rest of the sheet.
         console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
@@ -211,6 +219,8 @@ export class CanvasScoreRenderer {
     plan: LayoutPlan,
     score: Score,
     vexCtx: CanvasContext,
+    /** The raw 2D context behind `vexCtx`: the measure gutter is a number and a rect, so it needs nothing VexFlow provides. */
+    ctx: CanvasRenderingContext2D,
     z: number,
     channelsByTrack: Map<string, Map<number, Channel>>,
     measureIdToBBox: Map<string, BBox>,
@@ -341,6 +351,57 @@ export class CanvasScoreRenderer {
         connector.draw();
       }
     }
+
+    this.drawMeasureGutter(system, plan, ctx, windowIndices, options);
+  }
+
+  /**
+   * Measure numbers in the band above the system's top stave, plus a tint
+   * behind any measure in `selectedMeasureIds` — measure selection's only
+   * visual feedback, since notes carry their own color now.
+   *
+   * Drawn straight to the 2D context: there is no VexFlow object for "the
+   * space above a stave", and a number plus a rect needs none. Measure
+   * geometry comes off track 0 because every track shares one measure grid
+   * (see `rebuildMeasureTicks`), which is what lets one gutter serve the
+   * whole system.
+   */
+  private drawMeasureGutter(
+    system: SystemLayout,
+    plan: LayoutPlan,
+    ctx: CanvasRenderingContext2D,
+    windowIndices: number[],
+    options: CanvasRenderOptions,
+  ): void {
+    const measures = plan.trackLayouts[0]?.measures;
+    const track = plan.tracks[0];
+    if (!measures || !track) return;
+
+    const previousFill = ctx.fillStyle;
+    const previousFont = ctx.font;
+    const baselineY = system.gutterTop + MEASURE_HEADER_HEIGHT - GUTTER_TEXT_BASELINE_INSET;
+
+    for (const measureIndex of windowIndices) {
+      const placement = measures.find((m) => m.measureIndex === measureIndex);
+      const measure = track.measures[measureIndex];
+      if (!placement || !measure) continue;
+      const box = placement.box;
+
+      if (options.selectedMeasureIds?.has(measure.id)) {
+        ctx.fillStyle = options.theme.noteSelected;
+        ctx.globalAlpha = GUTTER_TINT_ALPHA;
+        ctx.fillRect(box.x, system.gutterTop, box.width, MEASURE_HEADER_HEIGHT);
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.fillStyle = options.theme.foreground;
+      ctx.font = GUTTER_FONT;
+      // `measure.index` is 0-based; measure numbers are 1-based.
+      ctx.fillText(String(measure.index + 1), box.x + GUTTER_TEXT_INSET, baselineY);
+    }
+
+    ctx.fillStyle = previousFill;
+    ctx.font = previousFont;
   }
 
   dispose(): void {

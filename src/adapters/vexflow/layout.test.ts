@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
+import { MEASURE_HEADER_HEIGHT, boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { chordScore, denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
@@ -174,5 +174,34 @@ describe('density-aware measure widths', () => {
     const nonFirst = plan.trackLayouts[0].measures.filter((l) => !l.isFirstInSystem);
     expect(nonFirst.length).toBeGreaterThan(0);
     for (const layout of nonFirst) expect(layout.box.width).toBe(200);
+  });
+});
+
+describe('measure-number gutter', () => {
+  it('reserves a gutter band above every system', () => {
+    const plan = computeLayout(stressScore(1, 40), options());
+    expect(plan.systems.length).toBeGreaterThan(1);
+    for (const system of plan.systems) {
+      expect(system.gutterTop).toBe(system.yTop - MEASURE_HEADER_HEIGHT);
+    }
+  });
+
+  it('keeps the first system gutter on screen', () => {
+    const plan = computeLayout(twinkleScore(), options());
+    expect(plan.systems[0].gutterTop).toBeGreaterThanOrEqual(0);
+  });
+
+  it('carves later gutters out of the existing system gap rather than overlapping the previous system', () => {
+    const plan = computeLayout(stressScore(1, 40), options());
+    for (let i = 1; i < plan.systems.length; i += 1) {
+      expect(plan.systems[i].gutterTop).toBeGreaterThanOrEqual(plan.systems[i - 1].yBottom);
+    }
+  });
+
+  it('leaves room for the gutter inside totalHeight', () => {
+    const plan = computeLayout(twinkleScore(), options());
+    expect(plan.totalHeight).toBeGreaterThanOrEqual(
+      plan.systems[plan.systems.length - 1].yBottom + MEASURE_HEADER_HEIGHT,
+    );
   });
 });

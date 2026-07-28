@@ -41,6 +41,8 @@ export type SystemLayout = {
   measureIndices: number[];
   xLeft: number;
   xRight: number;
+  /** Top of the measure-number band; always `yTop - MEASURE_HEADER_HEIGHT`. */
+  gutterTop: number;
   yTop: number;
   yBottom: number;
 };
@@ -76,6 +78,17 @@ const TRACK_GAP = 20;
 const SYSTEM_GAP = 40;
 const LEFT_MARGIN = 10;
 const TOP_MARGIN = 10;
+
+/**
+ * Height of the measure-number band above each system's top stave (also the
+ * click target for measure selection).
+ *
+ * Systems after the first take it out of `SYSTEM_GAP`, so nothing reflows.
+ * The first system has only `TOP_MARGIN` above it — not enough — so the
+ * effective top margin is raised by this much, which is why `totalHeight`
+ * grows by twice this value (the margin is counted at both ends).
+ */
+export const MEASURE_HEADER_HEIGHT = 18;
 
 /** Guards against a zero/negative/non-finite zoom breaking division or `context.scale`. */
 export function resolveZoom(zoom: number): number {
@@ -129,7 +142,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const trackGap = TRACK_GAP;
   const systemGap = SYSTEM_GAP;
   const leftMargin = LEFT_MARGIN;
-  const topMargin = TOP_MARGIN;
+  const topMargin = TOP_MARGIN + MEASURE_HEADER_HEIGHT;
 
   // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared
   // width per measure index across every track, from the densest voice.
@@ -194,7 +207,14 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
     });
 
     maxSystemRight = Math.max(maxSystemRight, cursorX);
-    systems.push({ measureIndices, xLeft: leftMargin, xRight: cursorX, yTop, yBottom });
+    systems.push({
+      measureIndices,
+      xLeft: leftMargin,
+      xRight: cursorX,
+      gutterTop: yTop - MEASURE_HEADER_HEIGHT,
+      yTop,
+      yBottom,
+    });
   });
 
   const totalHeight = systems.length > 0 ? systems[systems.length - 1].yBottom + topMargin : topMargin * 2;
