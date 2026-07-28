@@ -40,23 +40,27 @@ export function resolveNoteColorRole(
  * The non-color half of a note's state cue (spec §27: "do not rely on color
  * alone"). The old highlight overlay carried this with solid/dashed/dotted
  * stroke patterns; those went away with the rectangles, so the weight of the
- * glyph itself carries it now:
+ * glyph carries it now — a thicker `lineWidth` on stems, flags and beams.
  *
- * - `lineWidth` thickens stems, flags and beams;
- * - `shadowBlur` haloes the notehead, which `lineWidth` cannot reach (a
- *   notehead is a filled glyph, not a stroke — without this a stemless whole
- *   note would have no non-color cue at all).
+ * Deliberately NOT a shadow. An earlier version added `shadowBlur` so the cue
+ * would reach a notehead too (a filled glyph, which no stroke width can
+ * thicken). Canvas shadows force the rasterizer down a separate blur pass per
+ * draw, and this is applied to precisely the notes that change most often —
+ * every note-on and note-off during playback, on the thread Tone.js schedules
+ * from. Playback hesitated. The cue is worth less than smooth audio.
  *
- * One emphasis level for every non-normal state rather than three
- * distinguishable ones: the perceptually important distinction is "is this
- * note affected" versus "is it not". *Which* state it is comes from hue plus
- * the selection summary that the status bar and screen-reader text announce
- * ("3 note(s) selected, regenerated"). `selected` and `regenerated` are
- * mutually exclusive anyway — `regenerated` is a property of the whole
- * selection — and `playing` is transient and accompanied by the moving caret.
+ * The cost of that trade: a *stemless* whole note now has color as its only
+ * cue. Every other note keeps the stroke-weight channel, and the selection
+ * summary in the status bar and screen-reader text still names the state.
+ *
+ * One emphasis level for every non-normal state rather than three: the
+ * perceptually important distinction is "is this note affected" versus "is it
+ * not". `selected` and `regenerated` are mutually exclusive anyway
+ * (`regenerated` is a property of the whole selection), and `playing` is
+ * transient and accompanied by the moving caret.
  */
-export function noteEmphasisFor(role: NoteColorRole): { lineWidth: number; shadowBlur: number } {
-  return role === 'normal' ? { lineWidth: 1, shadowBlur: 0 } : { lineWidth: 2.5, shadowBlur: 4 };
+export function noteEmphasisFor(role: NoteColorRole): { lineWidth: number } {
+  return { lineWidth: role === 'normal' ? 1 : 2.5 };
 }
 
 /** The theme color a role draws in. */

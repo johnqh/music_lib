@@ -73,16 +73,25 @@ describe('noteColorFor', () => {
 
 describe('noteEmphasisFor', () => {
   it('leaves normal notes unemphasised', () => {
-    expect(noteEmphasisFor('normal')).toEqual({ lineWidth: 1, shadowBlur: 0 });
+    expect(noteEmphasisFor('normal')).toEqual({ lineWidth: 1 });
   });
 
   it('emphasises every non-normal state, so state is perceivable without color', () => {
     for (const role of ['selected', 'regenerated', 'playing'] as const) {
-      const { lineWidth, shadowBlur } = noteEmphasisFor(role);
-      expect(lineWidth).toBeGreaterThan(noteEmphasisFor('normal').lineWidth);
-      // The halo is what reaches a stemless whole note, whose filled
-      // notehead no stroke width can thicken.
-      expect(shadowBlur).toBeGreaterThan(0);
+      expect(noteEmphasisFor(role).lineWidth).toBeGreaterThan(
+        noteEmphasisFor('normal').lineWidth,
+      );
+    }
+  });
+
+  it('never asks for a shadow', () => {
+    // Canvas shadows force a per-draw blur pass in the rasterizer, and this
+    // is applied to the notes that change on every note-on/note-off during
+    // playback. Regression guard: reintroducing one here is what made
+    // playback hesitate.
+    for (const role of ['normal', 'selected', 'regenerated', 'playing'] as const) {
+      expect(noteEmphasisFor(role)).not.toHaveProperty('shadowBlur');
+      expect(noteEmphasisFor(role)).not.toHaveProperty('shadowColor');
     }
   });
 });

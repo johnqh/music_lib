@@ -194,7 +194,7 @@ describe('note and stave coloring', () => {
    * still delegating to the real implementation — the point is to observe
    * the colors, not to stub out styling.
    */
-  type StyleCall = { fillStyle?: string; strokeStyle?: string };
+  type StyleCall = { fillStyle?: string; strokeStyle?: string; lineWidth?: number; shadowBlur?: number };
   function captureStyles(cls: typeof Stave | typeof StaveNote) {
     const calls: StyleCall[] = [];
     const proto = cls.prototype as { setStyle: (style: StyleCall) => unknown };
@@ -399,9 +399,22 @@ describe('non-color state redundancy (spec §27)', () => {
     const selected = calls.find((s) => s.fillStyle === THEME.noteSelected)!;
     const normal = calls.find((s) => s.fillStyle === THEME.noteNormal)!;
     expect(selected.lineWidth).toBeGreaterThan(normal.lineWidth!);
-    // The halo is what a stemless whole note relies on.
-    expect(selected.shadowBlur).toBeGreaterThan(0);
-    expect(normal.shadowBlur).toBeUndefined();
+  });
+
+  it('never sets a shadow, which would cost a rasterizer blur pass per note', () => {
+    const score = twinkleScore();
+    const noteId = allNotes(score)[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const { calls, restore } = captureNoteStyles();
+
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      noteColors: new Map([[noteId, 'playing' as const]]),
+    });
+    restore();
+
+    expect(calls.every((s) => s.shadowBlur === undefined)).toBe(true);
   });
 
   it('emphasises playing notes too, so playback is followable in grayscale', () => {
@@ -417,6 +430,7 @@ describe('non-color state redundancy (spec §27)', () => {
     });
     restore();
 
-    expect(calls.find((s) => s.fillStyle === THEME.notePlaying)!.shadowBlur).toBeGreaterThan(0);
+    const playing = calls.find((s) => s.fillStyle === THEME.notePlaying)!;
+    expect(playing.lineWidth).toBeGreaterThan(1);
   });
 });
