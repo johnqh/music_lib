@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
 import type { RenderTheme } from './types.js';
-import { chordScore, denseVsSparseScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { chordScore, denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
-const theme: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
+const theme: RenderTheme = testRenderTheme();
 
 function options(overrides: Partial<Parameters<typeof computeLayout>[1]> = {}) {
   return { zoom: 1, layoutMode: 'page' as const, width: 900, theme, ...overrides };

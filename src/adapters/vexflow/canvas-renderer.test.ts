@@ -3,10 +3,10 @@ import { CanvasScoreRenderer } from './canvas-renderer.js';
 import { computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
-import { denseVsSparseScore, stressScore, twinkleScore } from '../../test/fixtures.js';
+import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore } from '../../test/fixtures.js';
 import { allNotes } from '../../domain/score/queries.js';
 
-const THEME: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
+const THEME: RenderTheme = testRenderTheme();
 const OPTS = {
   zoom: 1,
   layoutMode: 'page' as const,

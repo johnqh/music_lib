@@ -6,12 +6,28 @@
  * them rather than by editing their fields.
  */
 
-/** Colors used to draw the notation and paint highlight states; see `paintHighlights` in `overlay.ts`. */
+/** How a note is colored, by state. See `note-color.ts`'s `resolveNoteColorRole` for precedence. */
+export type NoteColorRole = 'normal' | 'selected' | 'regenerated' | 'playing';
+
+/**
+ * Colors used to draw the notation. Note state is carried by the notehead's
+ * own color — there is no highlight overlay any more (the second canvas and
+ * `paintHighlights` were deleted), so every note state needs its own entry
+ * here rather than a single `selection`/`playback` stroke color.
+ */
 export type RenderTheme = {
+  /** Non-note glyphs: clefs, key/time signatures, braces, measure numbers. */
   foreground: string;
-  selection: string;
-  playback: string;
-  preview: string;
+  noteNormal: string;
+  noteSelected: string;
+  noteRegenerated: string;
+  notePlaying: string;
+  /** Stave lines + barlines of the active track. */
+  staveActive: string;
+  /** Stave lines + barlines of every other track. */
+  staveInactive: string;
+  /** Playback caret. Drawn as a DOM element by the app, but themed here so every render color lives in one object. */
+  caret: string;
 };
 
 export type RenderOptions = {

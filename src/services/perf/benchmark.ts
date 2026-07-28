@@ -61,9 +61,13 @@ export const DEFAULT_BENCHMARK_SIZES: BenchmarkSize[] = [
 const RENDER_WIDTH = 900;
 const RENDER_THEME: RenderTheme = {
   foreground: '#111111',
-  selection: '#0066ff',
-  playback: '#ff6600',
-  preview: '#999999',
+  noteNormal: '#111111',
+  noteSelected: '#000000',
+  noteRegenerated: '#8b5a2b',
+  notePlaying: '#0066ff',
+  staveActive: '#000000',
+  staveInactive: '#666666',
+  caret: '#d32f2f',
 };
 
 /** Wall-clock milliseconds, via `performance.now()` where available (sub-millisecond, monotonic) or `Date.now()` otherwise. */

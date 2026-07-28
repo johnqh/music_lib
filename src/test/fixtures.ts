@@ -16,6 +16,7 @@ import type {
   Track,
 } from '@sudobility/music_types';
 import { measureDurationTicks, ticksFor } from '../domain/time/ticks.js';
+import type { RenderTheme } from '../adapters/vexflow/types.js';
 import type { DurationName } from '@sudobility/music_types';
 
 const FIXED_TIMESTAMP = '2024-01-01T00:00:00.000Z';
@@ -386,5 +387,25 @@ export function stressScore(trackCount: number, measureCount: number): Score {
     },
     tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
     tracks,
+  };
+}
+
+/**
+ * A `RenderTheme` for tests: every role gets a distinct, obviously-fake
+ * value so an assertion that the wrong role was used fails loudly instead of
+ * matching a lookalike hex. Shared here (rather than redeclared per suite)
+ * so adding a role to `RenderTheme` breaks in one place, and so consuming
+ * apps' jsdom suites can import the same object.
+ */
+export function testRenderTheme(): RenderTheme {
+  return {
+    foreground: '#111111',
+    noteNormal: '#222222',
+    noteSelected: '#333333',
+    noteRegenerated: '#444444',
+    notePlaying: '#555555',
+    staveActive: '#666666',
+    staveInactive: '#777777',
+    caret: '#888888',
   };
 }

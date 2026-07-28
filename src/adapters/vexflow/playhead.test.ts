@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { computeLayout } from './layout.js';
 import { caretPositionForTick, tickForPoint } from './playhead.js';
 import type { RenderTheme } from './types.js';
-import { stressScore, twinkleScore } from '../../test/fixtures.js';
+import { stressScore, testRenderTheme, twinkleScore } from '../../test/fixtures.js';
 
-const theme: RenderTheme = { foreground: '#000', selection: '#00f', playback: '#f00', preview: '#999' };
+const theme: RenderTheme = testRenderTheme();
 
 function plan(score = twinkleScore()) {
   return computeLayout(score, { zoom: 1, layoutMode: 'page', width: 900, theme });
