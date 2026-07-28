@@ -671,3 +671,61 @@ describe('PlaybackController.dispose', () => {
     expect(engine.loadScore).not.toHaveBeenCalled();
   });
 });
+
+describe('togglePlay selection handling', () => {
+  let controller: PlaybackController | null = null;
+  afterEach(() => {
+    controller?.dispose();
+    controller = null;
+  });
+
+  function seeded() {
+    const store = makeStore();
+    store.getState().setScore(twinkleScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+    return { store, engine };
+  }
+
+  it('clears the selection when starting playback', () => {
+    const { store } = seeded();
+    controller!.togglePlay();
+    expect(store.getState().selection.eventIds).toEqual([]);
+  });
+
+  it('does not clear the selection when pausing', () => {
+    const { store } = seeded();
+    store.getState().setPlaybackState('playing');
+    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+
+    controller!.togglePlay();
+
+    expect(store.getState().state).toBe('paused');
+    expect(store.getState().selection.eventIds).toEqual(['a']);
+  });
+
+  it('does not clear the selection on stop', () => {
+    const { store } = seeded();
+    controller!.stop();
+    expect(store.getState().selection.eventIds).toEqual(['a']);
+  });
+
+  it('does not clear the selection on seek', () => {
+    const { store } = seeded();
+    controller!.seek(480);
+    expect(store.getState().selection.eventIds).toEqual(['a']);
+  });
+
+  it('is a no-op with no score, leaving the selection alone', () => {
+    const store = makeStore();
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+
+    controller.togglePlay();
+
+    expect(engine.play).not.toHaveBeenCalled();
+    expect(store.getState().selection.eventIds).toEqual(['a']);
+  });
+});

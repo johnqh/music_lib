@@ -218,6 +218,7 @@ export class PlaybackController {
       // `engine.play()` call happens only once the committed score has
       // genuinely finished (re)loading, rather than racing ahead of it by
       // calling `engine.play()` directly here.
+      this.store.getState().clearSelection(); // same deselect-on-play rule as the ordinary branch below
       this.pendingResume = { tick: this.store.getState().positionTick };
       this.stopPreview();
       return;
@@ -226,6 +227,13 @@ export class PlaybackController {
     if (state === 'playing') {
       this.engine.pause();
     } else {
+      // Starting playback deselects. Only on the ->playing transition:
+      // `pause()` and `stop()` deliberately leave the selection alone, so
+      // pausing to edit keeps what you had selected.
+      //
+      // "Play from the caret" needs no code here — the engine resumes from
+      // the transport position, and a caret seek is exactly what set it.
+      this.store.getState().clearSelection();
       this.engine.play().catch((error: unknown) => this.reportError('Playback failed to start', error));
     }
   }
