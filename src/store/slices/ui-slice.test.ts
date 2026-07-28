@@ -3,10 +3,10 @@ import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 
 describe('ui-slice', () => {
-  it('defaults to notation view, system theme, zoom 1, quarter-note snap, developer mode off', () => {
+  it('defaults to no explicit active track, system theme, zoom 1, quarter-note snap, developer mode off', () => {
     const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
-    expect(state.view).toBe('notation');
+    expect(state.activeTrackId).toBeNull();
     expect(state.themeMode).toBe('system');
     expect(state.zoom).toBe(1);
     expect(state.snapGrid).toBe('quarter');
@@ -17,8 +17,8 @@ describe('ui-slice', () => {
 
   it('simple setters write their own field', () => {
     const store = createAppStore({ context: testStoreContext() });
-    store.getState().setView('piano-roll');
-    expect(store.getState().view).toBe('piano-roll');
+    store.getState().setActiveTrack('track-1');
+    expect(store.getState().activeTrackId).toBe('track-1');
     store.getState().setThemeMode('dark');
     expect(store.getState().themeMode).toBe('dark');
     store.getState().setZoom(2);
@@ -71,5 +71,14 @@ describe('ui-slice', () => {
       store.getState().pushToast({ message: 'Uh oh', severity: 'error' });
       expect(store.getState().toasts[0].severity).toBe('error');
     });
+  });
+});
+
+describe('activeTrackId', () => {
+  it('setActiveTrack(null) clears an explicit choice', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setActiveTrack('track-1');
+    store.getState().setActiveTrack(null);
+    expect(store.getState().activeTrackId).toBeNull();
   });
 });

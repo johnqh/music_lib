@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { testStoreContext } from '../test/store-context.js';
 import { createAppStore } from './useAppStore.js';
 import {
+  selectActiveTrackId,
   selectCurrentMeasureBeat,
   selectSelectedMeasureRange,
   selectSelectedNoteCount,
   selectSelectedNotes,
 } from './selectors.js';
-import { twinkleScore } from '../test/fixtures.js';
+import { twinkleScore, twoTrackScore } from '../test/fixtures.js';
 
 describe('selectors', () => {
   describe('selectSelectedNotes / selectSelectedNoteCount', () => {
@@ -133,5 +134,43 @@ describe('selectors', () => {
       const third = selectCurrentMeasureBeat(store.getState());
       expect(third).not.toBe(first);
     });
+  });
+});
+
+describe('selectActiveTrackId', () => {
+  it('returns null when there is no score', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    expect(selectActiveTrackId(store.getState())).toBeNull();
+  });
+
+  it('falls back to the first track when nothing is set', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = twinkleScore();
+    store.getState().setScore(score);
+    expect(selectActiveTrackId(store.getState())).toBe(score.tracks[0].id);
+  });
+
+  it('returns the stored id when it still resolves', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = twoTrackScore();
+    store.getState().setScore(score);
+    store.getState().setActiveTrack(score.tracks[1].id);
+    expect(selectActiveTrackId(store.getState())).toBe(score.tracks[1].id);
+  });
+
+  it('falls back to the first track when the stored id no longer resolves', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = twinkleScore();
+    store.getState().setScore(score);
+    store.getState().setActiveTrack('deleted-track');
+    expect(selectActiveTrackId(store.getState())).toBe(score.tracks[0].id);
+  });
+
+  it('is reference-stable across unrelated store updates', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twoTrackScore());
+    const first = selectActiveTrackId(store.getState());
+    store.getState().setZoom(2);
+    expect(selectActiveTrackId(store.getState())).toBe(first);
   });
 });

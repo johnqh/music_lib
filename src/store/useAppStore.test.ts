@@ -63,9 +63,9 @@ describe('useAppStore (integration)', () => {
     store.getState().redo();
     expect(findNote().velocity).toBe(100);
 
-    // 16. Switch to piano roll (ui-slice) — a purely orthogonal concern.
-    store.getState().setView('piano-roll');
-    expect(store.getState().view).toBe('piano-roll');
+    // 16. Change the active track (ui-slice) — a purely orthogonal concern.
+    store.getState().setActiveTrack(store.getState().score!.tracks[0].id);
+    expect(store.getState().activeTrackId).toBe(store.getState().score!.tracks[0].id);
 
     // Save.
     await store.getState().saveNow();

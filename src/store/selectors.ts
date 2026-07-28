@@ -112,3 +112,22 @@ export const selectCurrentMeasureBeat = memoize2(
     return { measureIndex: measure.index + 1, beat };
   },
 );
+
+/**
+ * The effective active track id: the explicitly-set one when it still
+ * resolves against the current score, else the first track, else `null`
+ * (no score, or a score with no tracks).
+ *
+ * Resolving here rather than reconciling `ui-slice.activeTrackId` on every
+ * score change means "only one track, so it's active" and "the active track
+ * was just deleted" both fall out with no subscription and no effect.
+ */
+export const selectActiveTrackId = memoize2(
+  (state) => state.score,
+  (state) => state.activeTrackId,
+  (score, activeTrackId): string | null => {
+    if (!score || score.tracks.length === 0) return null;
+    if (activeTrackId && score.tracks.some((t) => t.id === activeTrackId)) return activeTrackId;
+    return score.tracks[0].id;
+  },
+);

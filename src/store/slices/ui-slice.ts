@@ -1,15 +1,17 @@
 /**
- * UI slice (spec §6, §33): view mode, theme, zoom/snap, developer settings
+ * UI slice (spec §6, §33): active track, theme, zoom/snap, developer settings
  * (spec §33: mock seed, id/tick overlays), dialog open-state, and toasts.
  * Pure UI/app state — no domain mutation happens here (that's always
  * `score-slice.dispatchCommand`).
+ *
+ * There is no view mode: notation and the piano roll are shown at the same
+ * time, so nothing switches between them.
  */
 import type { StateCreator } from 'zustand';
 import { createId } from '../../domain/score/ids.js';
-import type { DurationName } from '@sudobility/music_types';
+import type { DurationName, UUID } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
-export type ViewMode = 'notation' | 'piano-roll';
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 export type DevSettings = {
@@ -42,7 +44,16 @@ const DEFAULT_DEV_SETTINGS: DevSettings = {
 };
 
 export type UiSlice = {
-  view: ViewMode;
+  /**
+   * The track the caret, the piano roll, and the notation's active-stave
+   * coloring follow. `null` means "not explicitly chosen" — read it through
+   * `selectActiveTrackId`, which resolves that to the score's first track.
+   *
+   * Deliberately NOT persisted: a track id is meaningful only inside one
+   * project, so a device-level preference would carry a dead id across
+   * projects. It resets to "first track" on load, which is the default anyway.
+   */
+  activeTrackId: UUID | null;
   themeMode: ThemeMode;
   zoom: number;
   snapGrid: DurationName;
@@ -51,7 +62,7 @@ export type UiSlice = {
   dialogs: Record<string, boolean>;
   toasts: Toast[];
 
-  setView: (view: ViewMode) => void;
+  setActiveTrack: (trackId: UUID | null) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setZoom: (zoom: number) => void;
   setSnapGrid: (grid: DurationName) => void;
@@ -69,7 +80,7 @@ export type UiSlice = {
 export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [], UiSlice> = (
   set,
 ) => ({
-  view: 'notation',
+  activeTrackId: null,
   themeMode: 'system',
   zoom: 1,
   snapGrid: 'quarter',
@@ -78,9 +89,9 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   dialogs: {},
   toasts: [],
 
-  setView: (view) => {
+  setActiveTrack: (trackId) => {
     set((state) => {
-      state.view = view;
+      state.activeTrackId = trackId;
     });
   },
   setThemeMode: (mode) => {
