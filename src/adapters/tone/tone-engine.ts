@@ -41,7 +41,7 @@
  * `setTempoMultiplier` needs) disposes every track's instrument and
  * rebuilds it fresh (`rebuildChannels`) — disposing the underlying Tone
  * nodes is the one operation guaranteed to stop sound regardless of which
- * of the six instrument categories (mono/poly/noise/membrane) is playing.
+ * of the instrument categories (mono/poly/AM/FM/noise/membrane) is playing.
  * Recreating a handful of synth nodes is cheap, so this trades a small
  * amount of overhead for a simple, uniform correctness guarantee.
  */

@@ -1,6 +1,6 @@
 /**
- * Instrument factories (spec §10, Task 13 brief): six synthesized voices
- * (piano, electric piano, strings, bass, synth lead, drum kit), chosen by
+ * Instrument factories (spec §10, Task 13 brief): one synthesized voice per
+ * General MIDI family (sixteen in all, see `InstrumentCategory`), chosen by
  * `createInstrument(nameOrProgram, isPercussion)` from a track's
  * `instrumentName` (free text, e.g. "Electric Piano") or `midiProgram`
  * (General MIDI program number). `tone-engine.ts` is the only intended
@@ -33,13 +33,46 @@ export type InstrumentHandle = {
   dispose(): void;
 };
 
-export type InstrumentCategory = 'piano' | 'electric-piano' | 'strings' | 'bass' | 'synth-lead' | 'drum-kit';
+/**
+ * One synthesized voice per General MIDI family, plus `electric-piano` (which
+ * splits the piano family) and `drum-kit` (chosen by clef, not program).
+ * `plucked` covers both guitar and ethnic, and `synth-effects` covers both FX
+ * families — the only two places a voice is shared, because the timbres really
+ * are the same shape.
+ */
+export type InstrumentCategory =
+  | 'piano'
+  | 'electric-piano'
+  | 'chromatic-percussion'
+  | 'organ'
+  | 'plucked'
+  | 'bass'
+  | 'strings'
+  | 'ensemble'
+  | 'brass'
+  | 'reed'
+  | 'pipe'
+  | 'synth-lead'
+  | 'synth-pad'
+  | 'synth-effects'
+  | 'percussive'
+  | 'drum-kit';
 
 // ---- category resolution ---------------------------------------------------
 
 const NAME_CATEGORY_PATTERNS: Array<[RegExp, InstrumentCategory]> = [
   [/drum|percussion|\bkit\b/i, 'drum-kit'],
   [/electric.?piano|rhodes|wurlitzer|e\.?\s?piano/i, 'electric-piano'],
+  [/\bpad\b/i, 'synth-pad'],
+  [/organ|accordion|harmonica/i, 'organ'],
+  // Word-bounded `lute` and `harp`: "Flute" contains the first and
+  // "Harpsichord" the second, and both belong to other families.
+  [/guitar|sitar|banjo|koto|shamisen|\blute\b|\bharp\b/i, 'plucked'],
+  [/trumpet|trombone|tuba|horn|brass/i, 'brass'],
+  [/sax|oboe|clarinet|bassoon|reed/i, 'reed'],
+  [/flute|piccolo|recorder|whistle|ocarina|pipe/i, 'pipe'],
+  [/celesta|glocken|vibraphone|marimba|xylophone|music box|bell/i, 'chromatic-percussion'],
+  [/ensemble|choir|voice|aahs|oohs/i, 'ensemble'],
   [/string|violin|viola|cello|orchestra/i, 'strings'],
   [/bass/i, 'bass'],
   [/synth.?lead|\blead\b|square/i, 'synth-lead'],
@@ -54,34 +87,36 @@ function categoryForName(name: string): InstrumentCategory {
 }
 
 /**
- * The synth voice for a GM family. Six voices cannot represent sixteen
- * families, so each family maps to its nearest available one — plucked and
- * struck sounds to `electric-piano`, sustained winds and pads to
- * `synth-lead`, tuned percussion to `drum-kit`.
+ * The synth voice for each GM family — one apiece, so a trumpet no longer
+ * shares a voice with a flute or an organ.
  *
- * This is deliberately "nearest of six", not "correct". Every family outside
- * the five ranges below used to fall through to `'piano'`, which was harmless
- * while only six instruments were selectable but meant 122 of the 128 programs
- * played a piano once the full catalogue became pickable. Real per-family
- * timbres need roughly ten new Tone voices and are tracked separately.
+ * Two families deliberately share: `ethnic` joins `guitar` on `plucked` (sitar,
+ * banjo, koto and shamisen are all plucked strings), and `sound-effects` joins
+ * `synth-effects` (both are noise/modulation textures rather than pitched
+ * instruments). Everything else has its own.
+ *
+ * These are synthesized approximations, not samples. A trumpet is a sawtooth
+ * with a filter bite and a medium attack — recognisably brass-shaped rather
+ * than genuinely a trumpet. Real fidelity needs a sample library, which the
+ * module doc explains the code is already structured for.
  */
 const FAMILY_CATEGORY: Record<GmFamily, InstrumentCategory> = {
   piano: 'piano',
-  'chromatic-percussion': 'electric-piano', // struck and bright
-  organ: 'synth-lead', // sustained
-  guitar: 'electric-piano', // plucked
+  'chromatic-percussion': 'chromatic-percussion',
+  organ: 'organ',
+  guitar: 'plucked',
   bass: 'bass',
   strings: 'strings',
-  ensemble: 'strings',
-  brass: 'synth-lead', // sustained
-  reed: 'synth-lead', // sustained
-  pipe: 'synth-lead', // sustained
+  ensemble: 'ensemble',
+  brass: 'brass',
+  reed: 'reed',
+  pipe: 'pipe',
   'synth-lead': 'synth-lead',
-  'synth-pad': 'strings', // slow, sustained pad
-  'synth-effects': 'synth-lead',
-  ethnic: 'electric-piano', // mostly plucked
-  percussive: 'drum-kit',
-  'sound-effects': 'synth-lead',
+  'synth-pad': 'synth-pad',
+  'synth-effects': 'synth-effects',
+  ethnic: 'plucked',
+  percussive: 'percussive',
+  'sound-effects': 'synth-effects',
 };
 
 /** Category for a General MIDI program number (0-indexed GM1 sound set); `'piano'` for anything outside 0-127. */
@@ -191,6 +226,128 @@ function createSynthLeadInstrument(): InstrumentHandle {
   );
 }
 
+// ---- per-family voices ------------------------------------------------------
+//
+// Each is a synthesized approximation shaped like the family, not a sample of
+// it: the envelope and oscillator carry the family's character (struck vs
+// plucked vs sustained vs breathy), which is what makes a brass line read as
+// brass next to a flute line. See `FAMILY_CATEGORY` above for the trade.
+
+/** Celesta, glockenspiel, vibraphone, marimba: struck metal/wood — bright, inharmonic, no sustain. */
+function createChromaticPercussionInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 5.1, // inharmonic ratio is what makes it read as a bell
+      modulationIndex: 8,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 1.4, sustain: 0, release: 1.4 },
+      modulation: { type: 'sine' },
+      modulationEnvelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.15 },
+    }),
+  );
+}
+
+/** Drawbar/church organ, accordion, harmonica: instant on, full sustain, instant off — no decay at all. */
+function createOrganInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      // `fatsine` stacks detuned copies, standing in for drawbar registration.
+      oscillator: { type: 'fatsine', count: 3, spread: 20 },
+      envelope: { attack: 0.01, decay: 0, sustain: 1, release: 0.08 },
+    }),
+  );
+}
+
+/** Guitars and the plucked ethnic instruments: hard attack, quick decay, nothing held. */
+function createPluckedInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 0.003, decay: 0.9, sustain: 0, release: 0.5 },
+    }),
+  );
+}
+
+/** String/choir ensembles: like `strings` but detuned and slower, for the massed effect. */
+function createEnsembleInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'fatsawtooth', count: 3, spread: 30 },
+      envelope: { attack: 0.9, decay: 0.4, sustain: 0.85, release: 1.6 },
+    }),
+  );
+}
+
+/** Trumpet, trombone, horn: sustained with a bite — the filter sweep is the brassiness. */
+function createBrassInstrument(): InstrumentHandle {
+  const voice = new Tone.PolySynth(Tone.MonoSynth, {
+    oscillator: { type: 'sawtooth' },
+    envelope: { attack: 0.06, decay: 0.15, sustain: 0.8, release: 0.3 },
+    filterEnvelope: {
+      attack: 0.05,
+      decay: 0.2,
+      sustain: 0.6,
+      release: 0.4,
+      baseFrequency: 300,
+      octaves: 3,
+    },
+  });
+  return wrapVoice(voice);
+}
+
+/** Saxes, oboe, clarinet, bassoon: square-ish and woody, quicker on than brass. */
+function createReedInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.04, decay: 0.2, sustain: 0.75, release: 0.25 },
+    }),
+  );
+}
+
+/** Flute, piccolo, recorder, whistle: near-pure tone with a breathy onset. */
+function createPipeInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.08, decay: 0.1, sustain: 0.9, release: 0.3 },
+    }),
+  );
+}
+
+/** Synth pads: much slower in and far longer out than `strings`, which is what makes it a pad. */
+function createSynthPadInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'fatsine', count: 3, spread: 40 },
+      envelope: { attack: 1.6, decay: 0.5, sustain: 0.9, release: 3 },
+    }),
+  );
+}
+
+/** FX and sound-effect programs: amplitude-modulated and deliberately unstable. */
+function createSynthEffectsInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 2.5,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.3, decay: 0.6, sustain: 0.5, release: 1.5 },
+      modulation: { type: 'square' },
+      modulationEnvelope: { attack: 0.4, decay: 0.3, sustain: 0.6, release: 1 },
+    }),
+  );
+}
+
+/** Taiko, melodic tom, steel drums, woodblock: pitched percussion — a struck membrane, unlike the unpitched kit. */
+function createPercussiveInstrument(): InstrumentHandle {
+  return wrapVoice(
+    new Tone.MembraneSynth({
+      octaves: 2,
+      envelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.5 },
+    }),
+  );
+}
+
 // ---- drum kit (MembraneSynth kick / NoiseSynth snare+hat) ------------------
 
 /** GM percussion note numbers routed to the kick voice (bass drums + toms — pitched, membrane-appropriate). */
@@ -289,8 +446,28 @@ export function createInstrument(nameOrProgram: string | number, isPercussion: b
       return createPianoInstrument();
     case 'electric-piano':
       return createElectricPianoInstrument();
+    case 'chromatic-percussion':
+      return createChromaticPercussionInstrument();
+    case 'organ':
+      return createOrganInstrument();
+    case 'plucked':
+      return createPluckedInstrument();
     case 'strings':
       return createStringsInstrument();
+    case 'ensemble':
+      return createEnsembleInstrument();
+    case 'brass':
+      return createBrassInstrument();
+    case 'reed':
+      return createReedInstrument();
+    case 'pipe':
+      return createPipeInstrument();
+    case 'synth-pad':
+      return createSynthPadInstrument();
+    case 'synth-effects':
+      return createSynthEffectsInstrument();
+    case 'percussive':
+      return createPercussiveInstrument();
     case 'bass':
       return createBassInstrument();
     case 'synth-lead':

@@ -33,6 +33,12 @@ vi.mock('tone', () => {
       record('Synth', options, this);
     }
   }
+  class AMSynth extends MockNode {
+    constructor(options?: unknown) {
+      super();
+      record('AMSynth', options, this);
+    }
+  }
   class FMSynth extends MockNode {
     constructor(public options?: unknown) {
       super();
@@ -87,7 +93,7 @@ vi.mock('tone', () => {
       record('Gain', { value }, this);
     }
   }
-  return { Synth, FMSynth, MonoSynth, MembraneSynth, NoiseSynth, Sampler, PolySynth, Filter, Gain };
+  return { Synth, AMSynth, FMSynth, MonoSynth, MembraneSynth, NoiseSynth, Sampler, PolySynth, Filter, Gain };
 });
 
 import * as Tone from 'tone';
@@ -112,7 +118,10 @@ describe('resolveInstrumentCategory', () => {
     expect(resolveInstrumentCategory('Piano', false)).toBe('piano');
     expect(resolveInstrumentCategory('Electric Piano', false)).toBe('electric-piano');
     expect(resolveInstrumentCategory('Rhodes', false)).toBe('electric-piano');
-    expect(resolveInstrumentCategory('String Ensemble', false)).toBe('strings');
+    // GM puts "String Ensemble" in the Ensemble family, which now has its own
+    // voice; it only read as plain 'strings' while that voice didn't exist.
+    expect(resolveInstrumentCategory('String Ensemble', false)).toBe('ensemble');
+    expect(resolveInstrumentCategory('Violin', false)).toBe('strings');
     expect(resolveInstrumentCategory('Acoustic Bass', false)).toBe('bass');
     expect(resolveInstrumentCategory('Synth Lead', false)).toBe('synth-lead');
     expect(resolveInstrumentCategory('Drum Kit', false)).toBe('drum-kit');
@@ -127,16 +136,11 @@ describe('resolveInstrumentCategory', () => {
     expect(resolveInstrumentCategory(4, false)).toBe('electric-piano'); // Electric Piano 1
     expect(resolveInstrumentCategory(5, false)).toBe('electric-piano'); // Electric Piano 2
     expect(resolveInstrumentCategory(33, false)).toBe('bass'); // Electric Bass
-    expect(resolveInstrumentCategory(48, false)).toBe('strings'); // String Ensemble
+    expect(resolveInstrumentCategory(48, false)).toBe('ensemble'); // String Ensemble 1
+    expect(resolveInstrumentCategory(40, false)).toBe('strings'); // Violin
     expect(resolveInstrumentCategory(81, false)).toBe('synth-lead'); // Lead 2 (sawtooth)
   });
 
-  it('gives organ and guitar their nearest voice rather than defaulting to piano', () => {
-    // Previously both returned 'piano'. Harmless when only six instruments
-    // were selectable; wrong once all 128 became pickable.
-    expect(resolveInstrumentCategory(19, false)).toBe('synth-lead'); // Church Organ, sustained
-    expect(resolveInstrumentCategory(25, false)).toBe('electric-piano'); // Acoustic Guitar, plucked
-  });
 });
 
 describe('createInstrument: piano', () => {
@@ -316,22 +320,6 @@ describe('categoryForProgram covers every GM family', () => {
     }
   });
 
-  it('keeps the categories the app already shipped', () => {
-    expect(resolveInstrumentCategory(0, false)).toBe('piano'); // Acoustic Grand
-    expect(resolveInstrumentCategory(4, false)).toBe('electric-piano'); // E.Piano 1
-    expect(resolveInstrumentCategory(32, false)).toBe('bass'); // Acoustic Bass
-    expect(resolveInstrumentCategory(48, false)).toBe('strings'); // String Ensemble 1
-    expect(resolveInstrumentCategory(80, false)).toBe('synth-lead'); // Lead 1
-  });
-
-  it('maps the newly-covered families to their nearest voice', () => {
-    expect(resolveInstrumentCategory(56, false)).toBe('synth-lead'); // Trumpet -> sustained
-    expect(resolveInstrumentCategory(73, false)).toBe('synth-lead'); // Flute -> sustained
-    expect(resolveInstrumentCategory(24, false)).toBe('electric-piano'); // Guitar -> plucked
-    expect(resolveInstrumentCategory(112, false)).toBe('drum-kit'); // Percussive
-    expect(resolveInstrumentCategory(8, false)).toBe('electric-piano'); // Celesta -> struck
-  });
-
   it('still lets a percussion clef win over any program', () => {
     expect(resolveInstrumentCategory(0, true)).toBe('drum-kit');
     expect(resolveInstrumentCategory(56, true)).toBe('drum-kit');
@@ -340,5 +328,64 @@ describe('categoryForProgram covers every GM family', () => {
   it('falls back for a program outside the GM range rather than throwing', () => {
     expect(() => resolveInstrumentCategory(999, false)).not.toThrow();
     expect(resolveInstrumentCategory(999, false)).toBe('piano');
+  });
+});
+
+describe('per-family synth voices', () => {
+  it('gives the wind and keyboard families genuinely different voices', () => {
+    // The point of the exercise: these all used to collapse onto 'piano', and
+    // then onto a shared "nearest of six". They must now be distinct.
+    const categories = [16, 24, 40, 48, 56, 64, 72, 88, 112].map((program) =>
+      resolveInstrumentCategory(program, false),
+    );
+    expect(new Set(categories).size).toBe(categories.length);
+  });
+
+  it('maps each family to its own voice', () => {
+    expect(resolveInstrumentCategory(0, false)).toBe('piano'); // Acoustic Grand
+    expect(resolveInstrumentCategory(8, false)).toBe('chromatic-percussion'); // Celesta
+    expect(resolveInstrumentCategory(16, false)).toBe('organ'); // Drawbar Organ
+    expect(resolveInstrumentCategory(24, false)).toBe('plucked'); // Acoustic Guitar
+    expect(resolveInstrumentCategory(32, false)).toBe('bass'); // Acoustic Bass
+    expect(resolveInstrumentCategory(40, false)).toBe('strings'); // Violin
+    expect(resolveInstrumentCategory(48, false)).toBe('ensemble'); // String Ensemble 1
+    expect(resolveInstrumentCategory(56, false)).toBe('brass'); // Trumpet
+    expect(resolveInstrumentCategory(64, false)).toBe('reed'); // Soprano Sax
+    expect(resolveInstrumentCategory(72, false)).toBe('pipe'); // Piccolo
+    expect(resolveInstrumentCategory(80, false)).toBe('synth-lead'); // Lead 1
+    expect(resolveInstrumentCategory(88, false)).toBe('synth-pad'); // Pad 1
+    expect(resolveInstrumentCategory(96, false)).toBe('synth-effects'); // FX 1
+    expect(resolveInstrumentCategory(104, false)).toBe('plucked'); // Sitar
+    expect(resolveInstrumentCategory(112, false)).toBe('percussive'); // Tinkle Bell
+    expect(resolveInstrumentCategory(120, false)).toBe('synth-effects'); // Guitar Fret Noise
+  });
+
+  it('keeps electric piano distinct from acoustic within the piano family', () => {
+    expect(resolveInstrumentCategory(4, false)).toBe('electric-piano');
+    expect(resolveInstrumentCategory(0, false)).toBe('piano');
+  });
+
+  it('builds a usable instrument for every one of the 128 programs', () => {
+    for (const instrument of GM_INSTRUMENTS) {
+      const handle = createInstrument(instrument.program, false);
+      expect(typeof handle.triggerAttackRelease, `program ${instrument.program}`).toBe('function');
+      expect(typeof handle.connect).toBe('function');
+      expect(typeof handle.dispose).toBe('function');
+      handle.dispose();
+    }
+  });
+
+  it('resolves the new voices from a free-text name too', () => {
+    // Tracks imported from MIDI/MusicXML can carry a name and no useful program.
+    expect(resolveInstrumentCategory('Church Organ', false)).toBe('organ');
+    expect(resolveInstrumentCategory('Acoustic Guitar', false)).toBe('plucked');
+    expect(resolveInstrumentCategory('Trumpet', false)).toBe('brass');
+    expect(resolveInstrumentCategory('Alto Sax', false)).toBe('reed');
+    expect(resolveInstrumentCategory('Flute', false)).toBe('pipe');
+    expect(resolveInstrumentCategory('Warm Pad', false)).toBe('synth-pad');
+  });
+
+  it('still lets a percussion clef win over any program', () => {
+    expect(resolveInstrumentCategory(56, true)).toBe('drum-kit');
   });
 });
