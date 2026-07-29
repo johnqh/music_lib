@@ -17,6 +17,8 @@
  */
 import * as Tone from 'tone';
 import { midiToHertz } from './midi.js';
+import { gmInstrument } from '../../domain/instruments/gm.js';
+import type { GmFamily } from '../../domain/instruments/gm.js';
 
 /**
  * The uniform shape `tone-engine.ts` schedules through, regardless of which
@@ -52,19 +54,43 @@ function categoryForName(name: string): InstrumentCategory {
 }
 
 /**
- * Category for a General MIDI program number (0-indexed GM1 sound set).
- * Only the ranges this module actually distinguishes are called out;
- * everything else (organ, guitar, brass, reed, pipe, ensemble, sound
- * effects, ...) falls back to `'piano'`, per spec §10's fallback-synth
- * guidance — there is no dedicated voice for those families yet.
+ * The synth voice for a GM family. Six voices cannot represent sixteen
+ * families, so each family maps to its nearest available one — plucked and
+ * struck sounds to `electric-piano`, sustained winds and pads to
+ * `synth-lead`, tuned percussion to `drum-kit`.
+ *
+ * This is deliberately "nearest of six", not "correct". Every family outside
+ * the five ranges below used to fall through to `'piano'`, which was harmless
+ * while only six instruments were selectable but meant 122 of the 128 programs
+ * played a piano once the full catalogue became pickable. Real per-family
+ * timbres need roughly ten new Tone voices and are tracked separately.
  */
+const FAMILY_CATEGORY: Record<GmFamily, InstrumentCategory> = {
+  piano: 'piano',
+  'chromatic-percussion': 'electric-piano', // struck and bright
+  organ: 'synth-lead', // sustained
+  guitar: 'electric-piano', // plucked
+  bass: 'bass',
+  strings: 'strings',
+  ensemble: 'strings',
+  brass: 'synth-lead', // sustained
+  reed: 'synth-lead', // sustained
+  pipe: 'synth-lead', // sustained
+  'synth-lead': 'synth-lead',
+  'synth-pad': 'strings', // slow, sustained pad
+  'synth-effects': 'synth-lead',
+  ethnic: 'electric-piano', // mostly plucked
+  percussive: 'drum-kit',
+  'sound-effects': 'synth-lead',
+};
+
+/** Category for a General MIDI program number (0-indexed GM1 sound set); `'piano'` for anything outside 0-127. */
 function categoryForProgram(program: number): InstrumentCategory {
-  if (program === 4 || program === 5) return 'electric-piano'; // Electric Piano 1/2
-  if (program >= 0 && program <= 7) return 'piano'; // Acoustic/Bright/Electric Grand, Honky-tonk, ...
-  if (program >= 32 && program <= 39) return 'bass';
-  if (program >= 40 && program <= 55) return 'strings'; // Strings + ensemble
-  if (program >= 80 && program <= 87) return 'synth-lead';
-  return 'piano';
+  const instrument = gmInstrument(program);
+  if (!instrument) return 'piano';
+  // Electric Piano 1/2 sit in the piano family but have their own voice.
+  if (program === 4 || program === 5) return 'electric-piano';
+  return FAMILY_CATEGORY[instrument.family];
 }
 
 /** Resolves the synthesized voice category for a track (`isPercussion` — a `percussion`-clef track per spec §4 — always wins, matching a GM drum-channel track regardless of its nominal program/name). */

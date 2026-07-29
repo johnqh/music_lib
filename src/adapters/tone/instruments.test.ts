@@ -92,6 +92,7 @@ vi.mock('tone', () => {
 
 import * as Tone from 'tone';
 import { createInstrument, resolveInstrumentCategory } from './instruments.js';
+import { GM_INSTRUMENTS } from '../../domain/instruments/gm.js';
 
 beforeEach(() => {
   constructedInstances.length = 0;
@@ -130,9 +131,11 @@ describe('resolveInstrumentCategory', () => {
     expect(resolveInstrumentCategory(81, false)).toBe('synth-lead'); // Lead 2 (sawtooth)
   });
 
-  it('defaults an unmapped GM program (e.g. organ, guitar) to piano', () => {
-    expect(resolveInstrumentCategory(19, false)).toBe('piano'); // Church Organ
-    expect(resolveInstrumentCategory(25, false)).toBe('piano'); // Acoustic Guitar
+  it('gives organ and guitar their nearest voice rather than defaulting to piano', () => {
+    // Previously both returned 'piano'. Harmless when only six instruments
+    // were selectable; wrong once all 128 became pickable.
+    expect(resolveInstrumentCategory(19, false)).toBe('synth-lead'); // Church Organ, sustained
+    expect(resolveInstrumentCategory(25, false)).toBe('electric-piano'); // Acoustic Guitar, plucked
   });
 });
 
@@ -289,5 +292,53 @@ describe('createInstrument: drum kit mono-voice retrigger guard', () => {
     handle.triggerAttackRelease(36, 0.1, 3, 0.9); // kick at the same t=3
 
     expect(kick.triggerAttackRelease.mock.calls[0][2]).toBe(3);
+  });
+});
+
+describe('categoryForProgram covers every GM family', () => {
+  it('never falls back to piano for a non-piano family', () => {
+    // The regression this guards: 122 of 128 programs used to resolve to
+    // 'piano', so picking Trumpet played a piano.
+    const pianoFamilyPrograms = new Set(
+      GM_INSTRUMENTS.filter((i) => i.family === 'piano').map((i) => i.program),
+    );
+    for (const instrument of GM_INSTRUMENTS) {
+      const category = resolveInstrumentCategory(instrument.program, false);
+      if (!pianoFamilyPrograms.has(instrument.program)) {
+        expect(category, `program ${instrument.program} (${instrument.name})`).not.toBe('piano');
+      }
+    }
+  });
+
+  it('resolves a category for all 128 programs', () => {
+    for (const instrument of GM_INSTRUMENTS) {
+      expect(resolveInstrumentCategory(instrument.program, false)).toBeTruthy();
+    }
+  });
+
+  it('keeps the categories the app already shipped', () => {
+    expect(resolveInstrumentCategory(0, false)).toBe('piano'); // Acoustic Grand
+    expect(resolveInstrumentCategory(4, false)).toBe('electric-piano'); // E.Piano 1
+    expect(resolveInstrumentCategory(32, false)).toBe('bass'); // Acoustic Bass
+    expect(resolveInstrumentCategory(48, false)).toBe('strings'); // String Ensemble 1
+    expect(resolveInstrumentCategory(80, false)).toBe('synth-lead'); // Lead 1
+  });
+
+  it('maps the newly-covered families to their nearest voice', () => {
+    expect(resolveInstrumentCategory(56, false)).toBe('synth-lead'); // Trumpet -> sustained
+    expect(resolveInstrumentCategory(73, false)).toBe('synth-lead'); // Flute -> sustained
+    expect(resolveInstrumentCategory(24, false)).toBe('electric-piano'); // Guitar -> plucked
+    expect(resolveInstrumentCategory(112, false)).toBe('drum-kit'); // Percussive
+    expect(resolveInstrumentCategory(8, false)).toBe('electric-piano'); // Celesta -> struck
+  });
+
+  it('still lets a percussion clef win over any program', () => {
+    expect(resolveInstrumentCategory(0, true)).toBe('drum-kit');
+    expect(resolveInstrumentCategory(56, true)).toBe('drum-kit');
+  });
+
+  it('falls back for a program outside the GM range rather than throwing', () => {
+    expect(() => resolveInstrumentCategory(999, false)).not.toThrow();
+    expect(resolveInstrumentCategory(999, false)).toBe('piano');
   });
 });
