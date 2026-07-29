@@ -47,6 +47,9 @@ export * from './domain/time/ticks.js';
 export * from './domain/time/tempo-map.js';
 export * from './domain/time/durations.js';
 
+// domain/instruments
+export * from './domain/instruments/gm.js';
+
 // domain/pitch
 export * from './domain/pitch/pitch.js';
 export * from './domain/pitch/transpose.js';
