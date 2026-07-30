@@ -399,6 +399,7 @@ export function stressScore(trackCount: number, measureCount: number): Score {
  */
 export function testRenderTheme(): RenderTheme {
   return {
+    background: '#f0f0f0',
     foreground: '#111111',
     noteNormal: '#222222',
     noteSelected: '#333333',

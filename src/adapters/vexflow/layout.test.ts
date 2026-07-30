@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEASURE_HEADER_HEIGHT, boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
+import { MEASURE_HEADER_HEIGHT, TRACK_INFO_WIDTH, boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { chordScore, denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
@@ -40,7 +40,10 @@ describe('computeLayout', () => {
 
   it('gives the first measure of each system extra width for clef/key/time', () => {
     const score = twinkleScore();
-    const plan = computeLayout(score, options({ width: 650 }));
+    // 650 + the gutter: the width budget has to leave room for a second
+    // measure, or every measure is first-in-system and there is nothing to
+    // compare against.
+    const plan = computeLayout(score, options({ width: 650 + TRACK_INFO_WIDTH }));
     const measures = plan.trackLayouts[0].measures;
     const firstOfFirstSystem = measures.find((m) => m.isFirstInSystem);
     const nonFirst = measures.find((m) => !m.isFirstInSystem);
@@ -203,5 +206,35 @@ describe('measure-number gutter', () => {
     expect(plan.totalHeight).toBeGreaterThanOrEqual(
       plan.systems[plan.systems.length - 1].yBottom + MEASURE_HEADER_HEIGHT,
     );
+  });
+});
+
+describe('track-info gutter', () => {
+  it('reserves TRACK_INFO_WIDTH at the left of every system', () => {
+    const plan = computeLayout(twinkleScore(), options());
+    for (const system of plan.systems) {
+      expect(system.xLeft).toBeGreaterThanOrEqual(TRACK_INFO_WIDTH);
+    }
+  });
+
+  it('shifts the first stave right by exactly the gutter width', () => {
+    const plan = computeLayout(twinkleScore(), options());
+    const firstBox = plan.trackLayouts[0].measures[0].box;
+    // 10px LEFT_MARGIN was the origin before the gutter existed.
+    expect(firstBox.x).toBe(10 + TRACK_INFO_WIDTH);
+  });
+
+  it('grows totalWidth to account for the gutter', () => {
+    const plan = computeLayout(twinkleScore(), options());
+    const lastMeasure = plan.trackLayouts[0].measures.at(-1)!;
+    expect(plan.totalWidth).toBeGreaterThan(TRACK_INFO_WIDTH);
+    expect(plan.totalWidth).toBeGreaterThanOrEqual(lastMeasure.box.x);
+  });
+
+  it('keeps every track\'s staves at the same x, so one gutter serves them all', () => {
+    const plan = computeLayout(twoTrackScore(), options());
+    const a = plan.trackLayouts[0].measures[0].box.x;
+    const b = plan.trackLayouts[1].measures[0].box.x;
+    expect(a).toBe(b);
   });
 });

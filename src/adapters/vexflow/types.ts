@@ -16,6 +16,12 @@ export type NoteColorRole = 'normal' | 'selected' | 'regenerated' | 'playing';
  * here rather than a single `selection`/`playback` stroke color.
  */
 export type RenderTheme = {
+  /**
+   * The paper the score sits on. Only needed where the canvas must *occlude*
+   * rather than overlay — the viewport-pinned track-info gutter, which content
+   * scrolls underneath. Everything else draws over a transparent canvas.
+   */
+  background: string;
   /** Non-note glyphs: clefs, key/time signatures, braces, measure numbers. */
   foreground: string;
   noteNormal: string;

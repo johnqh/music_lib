@@ -60,6 +60,7 @@ export const DEFAULT_BENCHMARK_SIZES: BenchmarkSize[] = [
 
 const RENDER_WIDTH = 900;
 const RENDER_THEME: RenderTheme = {
+  background: '#ffffff',
   foreground: '#111111',
   noteNormal: '#111111',
   noteSelected: '#000000',

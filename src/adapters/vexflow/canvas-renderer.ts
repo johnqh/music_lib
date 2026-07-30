@@ -20,7 +20,7 @@ import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-colo
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
-import { MEASURE_HEADER_HEIGHT, computeLayout, resolveZoom } from './layout.js';
+import { MEASURE_HEADER_HEIGHT, TRACK_INFO_WIDTH, computeLayout, resolveZoom } from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
@@ -63,6 +63,15 @@ const GUTTER_TEXT_INSET = 3;
 const GUTTER_TEXT_BASELINE_INSET = 5;
 /** Selected-measure tint opacity: enough to read as "selected", light enough to keep the number legible over it. */
 const GUTTER_TINT_ALPHA = 0.18;
+
+/** Track-info gutter type and insets. */
+const TRACK_INFO_NAME_FONT = 'bold 12px sans-serif';
+const TRACK_INFO_DETAIL_FONT = '11px sans-serif';
+const TRACK_INFO_INSET = 10;
+/** Where the name baseline sits below the stave's top edge. */
+const TRACK_INFO_NAME_BASELINE = 22;
+/** Gap from the name baseline down to the instrument baseline. */
+const TRACK_INFO_LINE_GAP = 16;
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
@@ -132,7 +141,78 @@ export class CanvasScoreRenderer {
       }
     }
 
+    // Last, so it overlays any content that scrolled underneath it.
+    this.drawTrackInfoGutter(plan, ctx, z, dpr, visibleSystems, options);
+
     return { idToBBox, measureIdToBBox, drawnMeasureIndices, plan, theme: options.theme };
+  }
+
+  /**
+   * The track-info gutter: name, instrument and mute/solo state beside every
+   * stave, for every visible system.
+   *
+   * Pinned to the viewport's left edge rather than drawn at content x=0. In
+   * continuous mode the score is one very wide system scrolled horizontally, so
+   * a gutter in content space would slide out of view — the one thing a
+   * permanent label column cannot do. The vertical scroll is kept, so the
+   * labels still track their staves.
+   *
+   * Reads `name`/`instrumentName`/`muted`/`solo` straight off the live `Track`,
+   * so there is no render option to keep in sync. Alignment is structural: the
+   * gutter is the space `layout.ts` reserved via `TRACK_INFO_WIDTH`, in the
+   * same coordinate space as the staves.
+   */
+  private drawTrackInfoGutter(
+    plan: LayoutPlan,
+    ctx: CanvasRenderingContext2D,
+    z: number,
+    dpr: number,
+    visibleSystems: SystemLayout[],
+    options: CanvasRenderOptions,
+  ): void {
+    if (plan.trackLayouts.length === 0) return;
+
+    const previousFill = ctx.fillStyle;
+    const previousFont = ctx.font;
+
+    // Same transform, minus the horizontal scroll: pins x, keeps y tracking.
+    ctx.setTransform(z * dpr, 0, 0, z * dpr, 0, -options.viewport.top * z * dpr + 0);
+
+    for (const system of visibleSystems) {
+      const measureIndex = system.measureIndices[0];
+
+      // Opaque, so staves scrolling under the gutter don't show through.
+      ctx.fillStyle = options.theme.background;
+      ctx.fillRect(0, system.gutterTop, TRACK_INFO_WIDTH, system.yBottom - system.gutterTop);
+
+      for (const trackLayout of plan.trackLayouts) {
+        const placement = trackLayout.measures.find((m) => m.measureIndex === measureIndex);
+        if (!placement) continue;
+        const track = trackLayout.track;
+        const isActive = options.activeTrackId != null && track.id === options.activeTrackId;
+        ctx.fillStyle = isActive ? options.theme.staveActive : options.theme.staveInactive;
+
+        const top = placement.box.y;
+        ctx.font = TRACK_INFO_NAME_FONT;
+        ctx.fillText(track.name, TRACK_INFO_INSET, top + TRACK_INFO_NAME_BASELINE);
+
+        ctx.font = TRACK_INFO_DETAIL_FONT;
+        ctx.fillText(
+          track.instrumentName,
+          TRACK_INFO_INSET,
+          top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP,
+        );
+
+        // Mute/solo are the only state here that changes what you hear, so they
+        // are worth showing without making the track active first.
+        const stateBaseline = top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP * 2;
+        if (track.muted) ctx.fillText('M', TRACK_INFO_INSET, stateBaseline);
+        if (track.solo) ctx.fillText('S', TRACK_INFO_INSET + 14, stateBaseline);
+      }
+    }
+
+    ctx.fillStyle = previousFill;
+    ctx.font = previousFont;
   }
 
   /**

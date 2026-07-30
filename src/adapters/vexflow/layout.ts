@@ -77,6 +77,18 @@ const STAVE_HEIGHT = 100;
 const TRACK_GAP = 20;
 const SYSTEM_GAP = 40;
 const LEFT_MARGIN = 10;
+
+/**
+ * Width reserved at the left of every system for the track-info gutter (track
+ * name, instrument, mute/solo), and the width the app's track editing panel
+ * matches.
+ *
+ * Reserving it here is what makes the gutter's alignment with the staves
+ * structural: it lives in the same coordinate space, so there is nothing to
+ * synchronise. The previous approach positioned a DOM list against reported
+ * geometry and had to be stopped from scrolling independently.
+ */
+export const TRACK_INFO_WIDTH = 220;
 const TOP_MARGIN = 10;
 
 /**
@@ -141,7 +153,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const staveHeight = STAVE_HEIGHT;
   const trackGap = TRACK_GAP;
   const systemGap = SYSTEM_GAP;
-  const leftMargin = LEFT_MARGIN;
+  const leftMargin = LEFT_MARGIN + TRACK_INFO_WIDTH;
   const topMargin = TOP_MARGIN + MEASURE_HEADER_HEIGHT;
 
   // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared

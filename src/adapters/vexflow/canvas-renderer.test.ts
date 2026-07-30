@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer } from './canvas-renderer.js';
-import { computeLayout } from './layout.js';
+import { TRACK_INFO_WIDTH, computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
-import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore } from '../../test/fixtures.js';
+import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import { allNotes } from '../../domain/score/queries.js';
 
 const THEME: RenderTheme = testRenderTheme();
@@ -432,5 +432,118 @@ describe('non-color state redundancy (spec §27)', () => {
 
     const playing = calls.find((s) => s.fillStyle === THEME.notePlaying)!;
     expect(playing.lineWidth).toBeGreaterThan(1);
+  });
+});
+
+describe('track-info gutter drawing', () => {
+  /** Captures fillText calls plus the fillStyle in force at each one. */
+  function captureText(ctx: ReturnType<typeof createMock2DContext>) {
+    const calls: Array<{ text: string; x: number; y: number; style: unknown }> = [];
+    (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText =
+      function (this: { fillStyle: unknown }, text, x, y) {
+        calls.push({ text: String(text), x, y, style: this.fillStyle });
+      };
+    return calls;
+  }
+
+  it('draws the track name and instrument beside the stave', () => {
+    const score = twoTrackScore();
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const drawn = texts.map((t) => t.text);
+    for (const track of score.tracks) {
+      expect(drawn).toContain(track.name);
+      expect(drawn).toContain(track.instrumentName);
+    }
+  });
+
+  it('repeats the gutter for every visible system', () => {
+    const score = stressScore(1, 40);
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    const result = new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
+
+    // One name per drawn system, which is what an engraved score does.
+    const systems = result.plan.systems.length;
+    expect(systems).toBeGreaterThan(1);
+    expect(texts.filter((t) => t.text === score.tracks[0].name)).toHaveLength(systems);
+  });
+
+  it('marks a muted track M and a soloed track S', () => {
+    const score = twoTrackScore();
+    const muted = {
+      ...score,
+      tracks: [{ ...score.tracks[0], muted: true }, { ...score.tracks[1], solo: true }],
+    };
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(muted, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const drawn = texts.map((t) => t.text);
+    expect(drawn).toContain('M');
+    expect(drawn).toContain('S');
+  });
+
+  it('draws the active track name in the active color and others inactive', () => {
+    const score = twoTrackScore();
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[1].id,
+    });
+
+    const active = texts.find((t) => t.text === score.tracks[1].name)!;
+    const inactive = texts.find((t) => t.text === score.tracks[0].name)!;
+    expect(active.style).toBe(THEME.staveActive);
+    expect(inactive.style).toBe(THEME.staveInactive);
+  });
+
+  it('keeps the gutter at the viewport edge when scrolled horizontally', () => {
+    // Continuous mode is one very wide system; a gutter drawn in content space
+    // would slide out of view, which is the one thing a label column cannot do.
+    const score = twinkleScore();
+    const name = score.tracks[0].name;
+
+    const unscrolled = createMock2DContext();
+    const a = captureText(unscrolled);
+    new CanvasScoreRenderer().render(score, unscrolled, {
+      ...OPTS,
+      layoutMode: 'continuous',
+      viewport: { top: 0, bottom: 10_000, left: 0, right: 900 },
+    });
+
+    const scrolled = createMock2DContext();
+    const b = captureText(scrolled);
+    new CanvasScoreRenderer().render(score, scrolled, {
+      ...OPTS,
+      layoutMode: 'continuous',
+      viewport: { top: 0, bottom: 10_000, left: 600, right: 1500 },
+    });
+
+    expect(b.find((t) => t.text === name)!.x).toBe(a.find((t) => t.text === name)!.x);
+  });
+
+  it('fills an opaque background behind the gutter', () => {
+    const score = twinkleScore();
+    const ctx = createMock2DContext();
+    const rects: number[] = [];
+    (ctx as unknown as { fillRect: (x: number, y: number, w: number, h: number) => void }).fillRect =
+      (_x, _y, w) => void rects.push(w);
+
+    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    // Otherwise staves scrolling under it show through.
+    expect(rects).toContain(TRACK_INFO_WIDTH);
   });
 });
