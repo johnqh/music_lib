@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer } from './canvas-renderer.js';
 import { TRACK_INFO_WIDTH, computeLayout } from './layout.js';
+import { gmInstrumentEmoji } from '../../domain/instruments/gm-icon.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
@@ -534,16 +535,32 @@ describe('track-info gutter drawing', () => {
     expect(b.find((t) => t.text === name)!.x).toBe(a.find((t) => t.text === name)!.x);
   });
 
-  it('fills an opaque background behind the gutter', () => {
+  it('clears the gutter region rather than filling it with a colour', () => {
+    // Clearing shows the surface behind the canvas, so the gutter's background
+    // matches the sheet's by construction; a theme colour could drift from it.
+    // It also occludes content that scrolled underneath.
     const score = twinkleScore();
     const ctx = createMock2DContext();
-    const rects: number[] = [];
-    (ctx as unknown as { fillRect: (x: number, y: number, w: number, h: number) => void }).fillRect =
-      (_x, _y, w) => void rects.push(w);
 
     new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
 
-    // Otherwise staves scrolling under it show through.
-    expect(rects).toContain(TRACK_INFO_WIDTH);
+    const clears = ctx.ops.filter((o) => o.method === 'clearRect').map((o) => o.args[2]);
+    expect(clears).toContain(TRACK_INFO_WIDTH);
+  });
+
+  it('draws the instrument glyph beside the instrument name', () => {
+    const score = twoTrackScore();
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const glyph = texts.find((t) => t.text === gmInstrumentEmoji(score.tracks[0].midiProgram));
+    const name = texts.find((t) => t.text === score.tracks[0].instrumentName);
+    expect(glyph).toBeDefined();
+    expect(name).toBeDefined();
+    // Glyph first, so it reads as a label for the text beside it.
+    expect(glyph!.x).toBeLessThan(name!.x);
+    expect(glyph!.y).toBe(name!.y);
   });
 });

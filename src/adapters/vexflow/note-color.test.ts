@@ -3,7 +3,6 @@ import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-colo
 import type { NoteColorRole, RenderTheme } from './types.js';
 
 const theme: RenderTheme = {
-  background: '#background',
   foreground: '#foreground',
   noteNormal: '#normal',
   noteSelected: '#selected',

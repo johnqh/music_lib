@@ -17,6 +17,7 @@
 import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
 import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
+import { gmInstrumentEmoji } from '../../domain/instruments/gm-icon.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
@@ -67,6 +68,9 @@ const GUTTER_TINT_ALPHA = 0.18;
 /** Track-info gutter type and insets. */
 const TRACK_INFO_NAME_FONT = 'bold 12px sans-serif';
 const TRACK_INFO_DETAIL_FONT = '11px sans-serif';
+const TRACK_INFO_ICON_FONT = '13px sans-serif';
+/** Space the instrument glyph occupies before its name. */
+const TRACK_INFO_ICON_WIDTH = 18;
 const TRACK_INFO_INSET = 10;
 /** Where the name baseline sits below the stave's top edge. */
 const TRACK_INFO_NAME_BASELINE = 22;
@@ -181,9 +185,12 @@ export class CanvasScoreRenderer {
     for (const system of visibleSystems) {
       const measureIndex = system.measureIndices[0];
 
-      // Opaque, so staves scrolling under the gutter don't show through.
-      ctx.fillStyle = options.theme.background;
-      ctx.fillRect(0, system.gutterTop, TRACK_INFO_WIDTH, system.yBottom - system.gutterTop);
+      // `clearRect`, not a fill: clearing shows whatever is behind the canvas,
+      // which is exactly the surface the sheet sits on — so the gutter's
+      // background matches the sheet's by construction and cannot drift from
+      // it the way a theme colour could. It also occludes the content that
+      // scrolled underneath, which is the other thing this needs to do.
+      ctx.clearRect(0, system.gutterTop, TRACK_INFO_WIDTH, system.yBottom - system.gutterTop);
 
       for (const trackLayout of plan.trackLayouts) {
         const placement = trackLayout.measures.find((m) => m.measureIndex === measureIndex);
@@ -196,11 +203,17 @@ export class CanvasScoreRenderer {
         ctx.font = TRACK_INFO_NAME_FONT;
         ctx.fillText(track.name, TRACK_INFO_INSET, top + TRACK_INFO_NAME_BASELINE);
 
+        // Icon then instrument name, so the glyph reads as a label for the text
+        // beside it rather than decoration floating on its own.
+        const detailBaseline = top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP;
+        ctx.font = TRACK_INFO_ICON_FONT;
+        ctx.fillText(gmInstrumentEmoji(track.midiProgram), TRACK_INFO_INSET, detailBaseline);
+
         ctx.font = TRACK_INFO_DETAIL_FONT;
         ctx.fillText(
           track.instrumentName,
-          TRACK_INFO_INSET,
-          top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP,
+          TRACK_INFO_INSET + TRACK_INFO_ICON_WIDTH,
+          detailBaseline,
         );
 
         // Mute/solo are the only state here that changes what you hear, so they

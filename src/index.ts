@@ -49,6 +49,7 @@ export * from './domain/time/durations.js';
 
 // domain/instruments
 export * from './domain/instruments/gm.js';
+export * from './domain/instruments/gm-icon.js';
 
 // domain/pitch
 export * from './domain/pitch/pitch.js';
