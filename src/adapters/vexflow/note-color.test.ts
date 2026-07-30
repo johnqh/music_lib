@@ -5,6 +5,7 @@ import type { NoteColorRole, RenderTheme } from './types.js';
 const theme: RenderTheme = {
   foreground: '#foreground',
   noteNormal: '#normal',
+  noteInactive: '#inactive',
   noteSelected: '#selected',
   noteRegenerated: '#regenerated',
   notePlaying: '#playing',
@@ -92,6 +93,25 @@ describe('noteEmphasisFor', () => {
     for (const role of ['normal', 'selected', 'regenerated', 'playing'] as const) {
       expect(noteEmphasisFor(role)).not.toHaveProperty('shadowBlur');
       expect(noteEmphasisFor(role)).not.toHaveProperty('shadowColor');
+    }
+  });
+});
+
+describe('noteColorFor: inactive tracks', () => {
+  it('dims an unstyled note that is not on the active track', () => {
+    expect(noteColorFor('normal', theme, false)).toBe('#inactive');
+    expect(noteColorFor('normal', theme, true)).toBe('#normal');
+  });
+
+  it('defaults to the active-track colour, so existing callers are unchanged', () => {
+    expect(noteColorFor('normal', theme)).toBe('#normal');
+  });
+
+  it('never dims a note that carries state, wherever it is', () => {
+    // cmd-shift-click selects across every track, so dimming a selection that
+    // happens to sit off the active track would hide what the user just did.
+    for (const role of ['selected', 'regenerated', 'playing'] as const) {
+      expect(noteColorFor(role, theme, false)).toBe(noteColorFor(role, theme, true));
     }
   });
 });

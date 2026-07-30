@@ -401,6 +401,7 @@ export function testRenderTheme(): RenderTheme {
   return {
     foreground: '#111111',
     noteNormal: '#222222',
+    noteInactive: '#888888',
     noteSelected: '#333333',
     noteRegenerated: '#444444',
     notePlaying: '#555555',

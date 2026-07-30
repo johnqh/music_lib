@@ -590,3 +590,67 @@ describe('track-info gutter drawing', () => {
     expect(strokes.at(-1)).toBe(THEME.staveActive);
   });
 });
+
+describe('inactive-track dimming', () => {
+  /** Captures setStyle calls on a VexFlow class, with the styles applied. */
+  function captureNoteStyles() {
+    const original = StaveNote.prototype.setStyle;
+    const styles: Array<Record<string, unknown>> = [];
+    StaveNote.prototype.setStyle = function (this: StaveNote, style: Record<string, unknown>) {
+      styles.push(style);
+      return original.call(this, style);
+    } as typeof original;
+    return { styles, restore: () => (StaveNote.prototype.setStyle = original) };
+  }
+
+  it('draws notes off the active track in the inactive colour', () => {
+    const score = stressScore(2, 2);
+    const { styles, restore } = captureNoteStyles();
+
+    new CanvasScoreRenderer().render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[0].id,
+    });
+    restore();
+
+    const fills = styles.map((s) => s.fillStyle);
+    expect(fills).toContain(THEME.noteNormal);
+    expect(fills).toContain(THEME.noteInactive);
+  });
+
+  it('dims nothing when no track is active', () => {
+    // Dimming is relative — with nothing to be relative to, every note in the
+    // score going grey would just look washed out.
+    const score = stressScore(2, 2);
+    const { styles, restore } = captureNoteStyles();
+
+    new CanvasScoreRenderer().render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
+    restore();
+
+    expect(styles.length).toBeGreaterThan(0);
+    expect(styles.map((s) => s.fillStyle)).not.toContain(THEME.noteInactive);
+  });
+
+  it('keeps a selected note its selected colour even off the active track', () => {
+    const score = stressScore(2, 2);
+    const offActive = allNotes(score).filter((n) => score.tracks[1].measures.some((m) =>
+      m.voices.some((v) => v.events.some((e) => e.id === n.id)),
+    ));
+    expect(offActive.length).toBeGreaterThan(0);
+    const { styles, restore } = captureNoteStyles();
+
+    new CanvasScoreRenderer().render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[0].id,
+      noteColors: new Map([[offActive[0].id, 'selected' as const]]),
+    });
+    restore();
+
+    expect(styles.map((s) => s.fillStyle)).toContain(THEME.noteSelected);
+  });
+});

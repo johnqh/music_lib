@@ -63,8 +63,19 @@ export function noteEmphasisFor(role: NoteColorRole): { lineWidth: number } {
   return { lineWidth: role === 'normal' ? 1 : 2.5 };
 }
 
-/** The theme color a role draws in. */
-export function noteColorFor(role: NoteColorRole, theme: RenderTheme): string {
+/**
+ * The theme color a role draws in.
+ *
+ * Only `normal` varies by track. A selected, regenerated or playing note keeps
+ * its state color wherever it is: those states are the reason to look at the
+ * note, and cmd-shift-click selects across every track, so dimming a selection
+ * because it is not on the active track would hide what the user just did.
+ */
+export function noteColorFor(
+  role: NoteColorRole,
+  theme: RenderTheme,
+  onActiveTrack = true,
+): string {
   switch (role) {
     case 'playing':
       return theme.notePlaying;
@@ -73,6 +84,6 @@ export function noteColorFor(role: NoteColorRole, theme: RenderTheme): string {
     case 'selected':
       return theme.noteSelected;
     case 'normal':
-      return theme.noteNormal;
+      return onActiveTrack ? theme.noteNormal : theme.noteInactive;
   }
 }

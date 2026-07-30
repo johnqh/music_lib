@@ -62,6 +62,7 @@ const RENDER_WIDTH = 900;
 const RENDER_THEME: RenderTheme = {
   foreground: '#111111',
   noteNormal: '#111111',
+  noteInactive: '#777777',
   noteSelected: '#000000',
   noteRegenerated: '#8b5a2b',
   notePlaying: '#0066ff',

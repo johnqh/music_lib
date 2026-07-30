@@ -128,10 +128,12 @@ export class CanvasScoreRenderer {
     }
 
     // Ties span measures (and systems) within the drawn window; draw last, on top.
-    for (const channels of channelsByTrack.values()) {
+    for (const [trackId, channels] of channelsByTrack) {
+      const tieColor = this.trackColor(this.notesDimmed(trackId, options), options);
       for (const channel of channels.values()) {
         try {
           for (const tie of buildTies(channel)) {
+            tie.setStyle({ fillStyle: tieColor, strokeStyle: tieColor });
             tie.setContext(vexCtx);
             tie.draw();
           }
@@ -253,14 +255,45 @@ export class CanvasScoreRenderer {
    * `lineWidth` carries the same state redundantly *without* color (spec §27)
    * — see `noteEmphasisFor`, including why this is not a shadow.
    */
-  private styleNote(note: StaveNote, meta: NoteMeta, options: CanvasRenderOptions): void {
+  private styleNote(
+    note: StaveNote,
+    meta: NoteMeta,
+    dimmed: boolean,
+    options: CanvasRenderOptions,
+  ): void {
     const role = resolveNoteColorRole(meta.eventIds, options.noteColors);
-    const color = noteColorFor(role, options.theme);
+    const color = noteColorFor(role, options.theme, !dimmed);
     note.setStyle({
       fillStyle: color,
       strokeStyle: color,
       lineWidth: noteEmphasisFor(role).lineWidth,
     });
+  }
+
+  /**
+   * Whether `trackId` is *the* active track. With no active track set, nothing
+   * is active, so every stave draws in `staveInactive` — the neutral state.
+   */
+  private isActiveTrack(trackId: string, options: CanvasRenderOptions): boolean {
+    return options.activeTrackId != null && trackId === options.activeTrackId;
+  }
+
+  /**
+   * Whether a track's notes should dim.
+   *
+   * Deliberately not `!isActiveTrack`. Dimming is *relative* — it says "this
+   * track is not the one you are working on" — so with no active track set
+   * there is nothing to be relative to and no note dims. Stave lines can sit in
+   * their neutral colour without looking wrong; every note in the score going
+   * grey would just look washed out.
+   */
+  private notesDimmed(trackId: string, options: CanvasRenderOptions): boolean {
+    return options.activeTrackId != null && trackId !== options.activeTrackId;
+  }
+
+  /** The unstyled-note color for a track, which its beams and ties follow. */
+  private trackColor(dimmed: boolean, options: CanvasRenderOptions): string {
+    return dimmed ? options.theme.noteInactive : options.theme.noteNormal;
   }
 
   private recordEventBBox(
@@ -345,7 +378,7 @@ export class CanvasScoreRenderer {
   ): void {
     const staves: Stave[] = [];
     const voicesToDraw: Voice[] = [];
-    const beamsToDraw: Beam[] = [];
+    const beamsToDraw: Array<{ beam: Beam; dimmed: boolean }> = [];
     /** trackIndex -> the system's first-measure stave, for the brace connector. */
     const firstStaveByTrack = new Map<number, Stave>();
     const allMetas: NoteMeta[] = []; // buildMeasureContent appends; unused here (channels carry the metas)
@@ -383,17 +416,15 @@ export class CanvasScoreRenderer {
         // this never bleeds into those glyphs — they keep drawing in
         // `theme.foreground` from the context, which is what we want: an
         // inactive track's clef must not wash out along with its lines.
+        const isActiveTrack = this.isActiveTrack(track.id, options);
         stave.setStyle({
-          strokeStyle:
-            options.activeTrackId != null && track.id === options.activeTrackId
-              ? options.theme.staveActive
-              : options.theme.staveInactive,
+          strokeStyle: isActiveTrack ? options.theme.staveActive : options.theme.staveInactive,
         });
         stave.setContext(vexCtx);
         stave.format();
         staves.push(stave);
         measureStaves.push(stave);
-        beamsToDraw.push(...beams);
+        for (const beam of beams) beamsToDraw.push({ beam, dimmed: this.notesDimmed(track.id, options) });
         if (measureIndex === system.measureIndices[0]) firstStaveByTrack.set(trackIndex, stave);
 
         if (voices.length > 0) {
@@ -439,10 +470,11 @@ export class CanvasScoreRenderer {
     // entries carried over from earlier systems in the same frame get
     // restyled too, which is idempotent and cheap (channels only ever hold
     // the drawn window, so this stays O(visible)).
-    for (const channels of channelsByTrack.values()) {
+    for (const [trackId, channels] of channelsByTrack) {
+      const dimmed = this.notesDimmed(trackId, options);
       for (const channel of channels.values()) {
         for (const entry of channel) {
-          this.styleNote(entry.note, entry.meta, options);
+          this.styleNote(entry.note, entry.meta, dimmed, options);
         }
       }
     }
@@ -450,9 +482,11 @@ export class CanvasScoreRenderer {
     // Draw order: staves, then notes/voices, then beams on top (ties drawn later, cross-system).
     staves.forEach((s) => s.draw());
     voicesToDraw.forEach((v) => v.draw(vexCtx));
-    beamsToDraw.forEach((b) => {
-      b.setContext(vexCtx);
-      b.draw();
+    beamsToDraw.forEach(({ beam, dimmed }) => {
+      const color = this.trackColor(dimmed, options);
+      beam.setStyle({ fillStyle: color, strokeStyle: color });
+      beam.setContext(vexCtx);
+      beam.draw();
     });
 
     if (plan.tracks.length > 1) {

@@ -18,7 +18,20 @@ export type NoteColorRole = 'normal' | 'selected' | 'regenerated' | 'playing';
 export type RenderTheme = {
   /** Non-note glyphs: clefs, key/time signatures, braces, measure numbers. */
   foreground: string;
+  /** An unstyled note on the active track. */
   noteNormal: string;
+  /**
+   * An unstyled note on any other track. Dimmer than `noteNormal`, so which
+   * track you are editing reads from the notes and not only from the stave
+   * lines — but still a real content colour, since an inactive track's music is
+   * there to be read, not decoration.
+   *
+   * Deliberately not "black for active, grey for others" as stated: black is
+   * already what `noteSelected` means, so painting every note on the active
+   * track black would make a selection invisible on the one track you are most
+   * likely to be selecting in.
+   */
+  noteInactive: string;
   noteSelected: string;
   noteRegenerated: string;
   notePlaying: string;
