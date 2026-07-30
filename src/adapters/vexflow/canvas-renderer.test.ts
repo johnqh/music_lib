@@ -635,6 +635,28 @@ describe('inactive-track dimming', () => {
     expect(styles.map((s) => s.fillStyle)).not.toContain(THEME.noteInactive);
   });
 
+  it("dims a stave's clef and time signature with the rest of its track", () => {
+    // Those glyphs draw from the context rather than the stave's own style, so
+    // they are the one part of a track that can be left behind at full strength.
+    const score = stressScore(2, 2);
+    const fills = new Set<unknown>();
+    const ctx = new Proxy(createMock2DContext(), {
+      set(target, prop, value) {
+        if (prop === 'fillStyle') fills.add(value);
+        return Reflect.set(target, prop, value);
+      },
+    });
+
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[0].id,
+    });
+
+    expect([...fills]).toContain(THEME.noteInactive);
+    expect([...fills]).toContain(THEME.foreground);
+  });
+
   it('keeps a selected note its selected colour even off the active track', () => {
     const score = stressScore(2, 2);
     const offActive = allNotes(score).filter((n) => score.tracks[1].measures.some((m) =>

@@ -376,7 +376,7 @@ export class CanvasScoreRenderer {
     viewportRight: number,
     options: CanvasRenderOptions,
   ): void {
-    const staves: Stave[] = [];
+    const staves: Array<{ stave: Stave; dimmed: boolean }> = [];
     const voicesToDraw: Voice[] = [];
     const beamsToDraw: Array<{ beam: Beam; dimmed: boolean }> = [];
     /** trackIndex -> the system's first-measure stave, for the brace connector. */
@@ -413,16 +413,15 @@ export class CanvasScoreRenderer {
         );
         // Stave lines only. `Stave.draw` calls `restoreStyle()` *before*
         // drawing its modifiers (clef / key signature / time signature), so
-        // this never bleeds into those glyphs — they keep drawing in
-        // `theme.foreground` from the context, which is what we want: an
-        // inactive track's clef must not wash out along with its lines.
+        // this never reaches those glyphs — they draw in whatever the context
+        // carries, which is why the draw loop below sets that per stave.
         const isActiveTrack = this.isActiveTrack(track.id, options);
         stave.setStyle({
           strokeStyle: isActiveTrack ? options.theme.staveActive : options.theme.staveInactive,
         });
         stave.setContext(vexCtx);
         stave.format();
-        staves.push(stave);
+        staves.push({ stave, dimmed: this.notesDimmed(track.id, options) });
         measureStaves.push(stave);
         for (const beam of beams) beamsToDraw.push({ beam, dimmed: this.notesDimmed(track.id, options) });
         if (measureIndex === system.measureIndices[0]) firstStaveByTrack.set(trackIndex, stave);
@@ -480,7 +479,19 @@ export class CanvasScoreRenderer {
     }
 
     // Draw order: staves, then notes/voices, then beams on top (ties drawn later, cross-system).
-    staves.forEach((s) => s.draw());
+    // Per stave, not once for the frame: a stave's modifiers (clef, key and
+    // time signature) draw from the context, so this is the only place they can
+    // pick up their track's dimming. Without it a dimmed track kept a
+    // full-strength clef sitting over its greyed notes, which read as a
+    // rendering fault rather than as an inactive track.
+    staves.forEach(({ stave, dimmed }) => {
+      const color = dimmed ? options.theme.noteInactive : options.theme.foreground;
+      vexCtx.setFillStyle(color);
+      vexCtx.setStrokeStyle(color);
+      stave.draw();
+    });
+    vexCtx.setFillStyle(options.theme.foreground);
+    vexCtx.setStrokeStyle(options.theme.foreground);
     voicesToDraw.forEach((v) => v.draw(vexCtx));
     beamsToDraw.forEach(({ beam, dimmed }) => {
       const color = this.trackColor(dimmed, options);
