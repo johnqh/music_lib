@@ -17,7 +17,8 @@
 import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
 import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
-import { gmInstrumentEmoji } from '../../domain/instruments/gm-icon.js';
+import { gmInstrumentIcon } from '../../domain/instruments/gm-icon.js';
+import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
@@ -68,8 +69,9 @@ const GUTTER_TINT_ALPHA = 0.18;
 /** Track-info gutter type and insets. */
 const TRACK_INFO_NAME_FONT = 'bold 12px sans-serif';
 const TRACK_INFO_DETAIL_FONT = '11px sans-serif';
-const TRACK_INFO_ICON_FONT = '13px sans-serif';
-/** Space the instrument glyph occupies before its name. */
+/** Side of the square the instrument's line art is drawn into. */
+const TRACK_INFO_ICON_SIZE = 13;
+/** Space the instrument icon occupies before its name. */
 const TRACK_INFO_ICON_WIDTH = 18;
 const TRACK_INFO_INSET = 10;
 /** Where the name baseline sits below the stave's top edge. */
@@ -177,6 +179,7 @@ export class CanvasScoreRenderer {
     if (plan.trackLayouts.length === 0) return;
 
     const previousFill = ctx.fillStyle;
+    const previousStroke = ctx.strokeStyle;
     const previousFont = ctx.font;
 
     // Same transform, minus the horizontal scroll: pins x, keeps y tracking.
@@ -204,10 +207,19 @@ export class CanvasScoreRenderer {
         ctx.fillText(track.name, TRACK_INFO_INSET, top + TRACK_INFO_NAME_BASELINE);
 
         // Icon then instrument name, so the glyph reads as a label for the text
-        // beside it rather than decoration floating on its own.
+        // beside it rather than decoration floating on its own. The icon is
+        // stroked, so it takes the same active/inactive colour as the text.
         const detailBaseline = top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP;
-        ctx.font = TRACK_INFO_ICON_FONT;
-        ctx.fillText(gmInstrumentEmoji(track.midiProgram), TRACK_INFO_INSET, detailBaseline);
+        ctx.strokeStyle = ctx.fillStyle;
+        strokeInstrumentIcon(
+          ctx,
+          gmInstrumentIcon(track.midiProgram),
+          TRACK_INFO_INSET,
+          // Positioned off the text baseline, so the icon sits on the line
+          // rather than hanging above it.
+          detailBaseline - TRACK_INFO_ICON_SIZE + 1,
+          TRACK_INFO_ICON_SIZE,
+        );
 
         ctx.font = TRACK_INFO_DETAIL_FONT;
         ctx.fillText(
@@ -225,6 +237,7 @@ export class CanvasScoreRenderer {
     }
 
     ctx.fillStyle = previousFill;
+    ctx.strokeStyle = previousStroke;
     ctx.font = previousFont;
   }
 

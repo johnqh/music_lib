@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Business logic for ScoreSmith: score domain model, commands/undo, validation, quantization, rendering/audio/file adapters, and the app store",
   "type": "module",
   "main": "./dist/index.js",

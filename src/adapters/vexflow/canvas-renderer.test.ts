@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer } from './canvas-renderer.js';
 import { TRACK_INFO_WIDTH, computeLayout } from './layout.js';
-import { gmInstrumentEmoji } from '../../domain/instruments/gm-icon.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
@@ -548,19 +547,46 @@ describe('track-info gutter drawing', () => {
     expect(clears).toContain(TRACK_INFO_WIDTH);
   });
 
-  it('draws the instrument glyph beside the instrument name', () => {
+  it('strokes the instrument icon before the instrument name', () => {
     const score = twoTrackScore();
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
     new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
 
-    const glyph = texts.find((t) => t.text === gmInstrumentEmoji(score.tracks[0].midiProgram));
+    // The gutter draws last, so everything after its final clearRect is the
+    // gutter's own drawing — which is where the icon has to be.
+    const isGutterClear = (o: (typeof ctx.ops)[number]) =>
+      o.method === 'clearRect' && o.args[2] === TRACK_INFO_WIDTH;
+    const gutterStart = ctx.ops.length - 1 - [...ctx.ops].reverse().findIndex(isGutterClear);
+    const gutterOps = ctx.ops.slice(gutterStart);
+
+    const iconOrigin = gutterOps.find((o) => o.method === 'translate');
     const name = texts.find((t) => t.text === score.tracks[0].instrumentName);
-    expect(glyph).toBeDefined();
-    expect(name).toBeDefined();
-    // Glyph first, so it reads as a label for the text beside it.
-    expect(glyph!.x).toBeLessThan(name!.x);
-    expect(glyph!.y).toBe(name!.y);
+    expect(iconOrigin, 'icon is placed with a translate').toBeDefined();
+    expect(gutterOps.some((o) => o.method === 'stroke')).toBe(true);
+    // Icon first, so it reads as a label for the text beside it.
+    expect(iconOrigin!.args[0] as number).toBeLessThan(name!.x);
+  });
+
+  it('strokes the icon in the same colour as the track it labels', () => {
+    // The whole reason the icons are line art rather than emoji: an emoji keeps
+    // its own colours, so it stayed bright beside a dimmed inactive track name.
+    const score = twoTrackScore();
+    const ctx = createMock2DContext();
+    const strokes: unknown[] = [];
+    (ctx as unknown as { stroke: () => void }).stroke = function (this: { strokeStyle: unknown }) {
+      strokes.push(this.strokeStyle);
+    };
+
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      activeTrackId: score.tracks[1].id,
+    });
+
+    // The gutter draws last and the icon is its only stroke, so the final one
+    // belongs to the last track — the active one here.
+    expect(strokes.at(-1)).toBe(THEME.staveActive);
   });
 });
