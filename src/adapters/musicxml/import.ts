@@ -16,6 +16,7 @@
  * every imported note is given the domain default velocity, 80.
  */
 import { createId } from '../../domain/score/ids.js';
+import type { XmlElement, XmlParser } from '@sudobility/music_types';
 import type {
   Accidental,
   Clef,
@@ -54,23 +55,23 @@ const ARTICULATION_FROM_ELEMENT: Record<string, NonNullable<NoteEvent['articulat
 
 // ---- Small DOM helpers -------------------------------------------------------
 
-function directChild(el: Element, tagName: string): Element | null {
+function directChild(el: XmlElement, tagName: string): XmlElement | null {
   for (const child of Array.from(el.children)) {
     if (child.tagName === tagName) return child;
   }
   return null;
 }
 
-function directChildren(el: Element, tagName: string): Element[] {
+function directChildren(el: XmlElement, tagName: string): XmlElement[] {
   return Array.from(el.children).filter((c) => c.tagName === tagName);
 }
 
-function textOf(el: Element | null, tagName: string): string | null {
+function textOf(el: XmlElement | null, tagName: string): string | null {
   if (!el) return null;
   return directChild(el, tagName)?.textContent?.trim() ?? null;
 }
 
-function numberOf(el: Element | null, tagName: string): number | null {
+function numberOf(el: XmlElement | null, tagName: string): number | null {
   const text = el ? textOf(el, tagName) : null;
   if (text === null) return null;
   const n = Number(text);
@@ -95,9 +96,9 @@ class WarningCollector {
 
 type ScorePartMeta = { name: string; instrumentName: string; midiProgram: number; midiChannel: number };
 
-function parsePartList(doc: Document): Map<string, ScorePartMeta> {
+function parsePartList(root: XmlElement): Map<string, ScorePartMeta> {
   const result = new Map<string, ScorePartMeta>();
-  const partList = directChild(doc.documentElement, 'part-list');
+  const partList = directChild(root, 'part-list');
   if (!partList) return result;
 
   for (const scorePart of directChildren(partList, 'score-part')) {
@@ -130,7 +131,7 @@ function defaultLineForSign(sign: string): number {
   return 2;
 }
 
-function parseClef(clefEl: Element, warnings: WarningCollector): Clef {
+function parseClef(clefEl: XmlElement, warnings: WarningCollector): Clef {
   const sign = textOf(clefEl, 'sign') ?? '';
   if (sign === 'percussion' || sign === 'none') return 'percussion';
 
@@ -158,7 +159,7 @@ type MeasureState = {
   clef: Clef | null;
 };
 
-function applyAttributes(attrs: Element, state: MeasureState, measureNumber: number, warnings: WarningCollector): void {
+function applyAttributes(attrs: XmlElement, state: MeasureState, measureNumber: number, warnings: WarningCollector): void {
   const divisions = numberOf(attrs, 'divisions');
   if (divisions !== null && divisions > 0) {
     state.ratio = SCORE_PPQ / divisions;
@@ -243,7 +244,7 @@ function parseAlter(alterText: string | null, warnings: WarningCollector): Accid
   return clamped;
 }
 
-function parsePitch(pitchEl: Element, warnings: WarningCollector): Pitch {
+function parsePitch(pitchEl: XmlElement, warnings: WarningCollector): Pitch {
   const step = parseStep(textOf(pitchEl, 'step'), warnings);
   const alter = parseAlter(textOf(pitchEl, 'alter'), warnings);
   const octave = numberOf(pitchEl, 'octave') ?? 4;
@@ -274,7 +275,7 @@ const SILENTLY_IGNORED_NOTE_CHILDREN = new Set([
   'listen',
 ]);
 
-function warnUnsupportedNoteChildren(noteEl: Element, warnings: WarningCollector): void {
+function warnUnsupportedNoteChildren(noteEl: XmlElement, warnings: WarningCollector): void {
   for (const child of Array.from(noteEl.children)) {
     if (SILENTLY_IGNORED_NOTE_CHILDREN.has(child.tagName)) continue;
     if (child.tagName === 'grace') {
@@ -300,7 +301,7 @@ function warnUnsupportedNoteChildren(noteEl: Element, warnings: WarningCollector
   }
 }
 
-function parseArticulation(noteEl: Element, warnings: WarningCollector): NoteEvent['articulation'] | undefined {
+function parseArticulation(noteEl: XmlElement, warnings: WarningCollector): NoteEvent['articulation'] | undefined {
   const notations = directChild(noteEl, 'notations');
   const articulationsEl = notations ? directChild(notations, 'articulations') : null;
   if (!articulationsEl) return undefined;
@@ -344,7 +345,7 @@ type ParsedNote = {
  * `cursor` is the shared measure-relative tick cursor *before* this note;
  * `measureEndTick` bounds a `<rest measure="yes">` shorthand.
  */
-function parseNote(noteEl: Element, cursor: number, measureEndTick: number, ratio: number, warnings: WarningCollector): ParsedNote {
+function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, ratio: number, warnings: WarningCollector): ParsedNote {
   warnUnsupportedNoteChildren(noteEl, warnings);
 
   if (directChild(noteEl, 'grace')) {
@@ -471,7 +472,7 @@ function fillAndClip(
 type ParsedMeasure = { measure: Measure; tempoEvents: TempoEvent[] };
 
 function parseMeasure(
-  measureEl: Element,
+  measureEl: XmlElement,
   index: number,
   startTick: number,
   state: MeasureState,
@@ -586,7 +587,7 @@ function parseMeasure(
 
 // ---- Part / track assembly ------------------------------------------------------
 
-function parsePart(partEl: Element, meta: ScorePartMeta | undefined, partIndex: number, warnings: WarningCollector): { track: Track; tempoEvents: TempoEvent[] } {
+function parsePart(partEl: XmlElement, meta: ScorePartMeta | undefined, partIndex: number, warnings: WarningCollector): { track: Track; tempoEvents: TempoEvent[] } {
   const trackId = createId();
   const state: MeasureState = {
     ratio: 1,
@@ -663,23 +664,23 @@ export type MusicXmlImportResult = { score: Score; warnings: string[] };
  * that isn't parseable XML, or whose root isn't `<score-partwise>`
  * (score-timewise documents aren't supported).
  */
-export function importMusicXml(xmlText: string): MusicXmlImportResult {
-  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  if (doc.getElementsByTagName('parsererror').length > 0) {
-    throw new Error('importMusicXml: the input is not well-formed XML.');
-  }
-  if (!doc.documentElement || doc.documentElement.tagName !== 'score-partwise') {
+export function importMusicXml(xmlText: string, parser: XmlParser): MusicXmlImportResult {
+  // Well-formedness is the parser's business -- it throws XmlParseError -- so
+  // all that is left here is rejecting a document that parses but is not a
+  // score-partwise.
+  const root = parser.parse(xmlText);
+  if (root.tagName !== 'score-partwise') {
     throw new Error(
-      `importMusicXml: expected a <score-partwise> root element, found <${doc.documentElement?.tagName ?? 'none'}>. score-timewise documents are not supported.`,
+      `importMusicXml: expected a <score-partwise> root element, found <${root.tagName}>. score-timewise documents are not supported.`,
     );
   }
 
   const warnings = new WarningCollector();
-  const partMeta = parsePartList(doc);
+  const partMeta = parsePartList(root);
 
   const tracks: Track[] = [];
   const allTempoEvents: TempoEvent[] = [];
-  Array.from(doc.documentElement.children)
+  Array.from(root.children)
     .filter((el) => el.tagName === 'part')
     .forEach((partEl, index) => {
       const id = partEl.getAttribute('id');
@@ -690,8 +691,8 @@ export function importMusicXml(xmlText: string): MusicXmlImportResult {
 
   const tempoMap = buildTempoMap(allTempoEvents, warnings);
 
-  const workTitle = textOf(directChild(doc.documentElement, 'work'), 'work-title');
-  const identification = directChild(doc.documentElement, 'identification');
+  const workTitle = textOf(directChild(root, 'work'), 'work-title');
+  const identification = directChild(root, 'identification');
   const composer = identification
     ? Array.from(directChildren(identification, 'creator')).find((c) => c.getAttribute('type') === 'composer')?.textContent?.trim()
     : undefined;

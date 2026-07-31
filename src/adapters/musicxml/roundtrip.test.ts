@@ -18,10 +18,13 @@ import { allNotes } from '../../domain/score/queries.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { MockXmlParser } from '@sudobility/music_io/mocks';
+
+const parser = new MockXmlParser();
 
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
   const xml = exportMusicXml(source);
-  const { score, warnings } = importMusicXml(xml);
+  const { score, warnings } = importMusicXml(xml, parser);
   return { imported: score, warnings };
 }
 
