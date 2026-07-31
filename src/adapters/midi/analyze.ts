@@ -3,7 +3,7 @@
  * per-track name/channel/program/note-count/duration, tempo events, and
  * time signatures, without importing anything into the score model yet.
  */
-import { Midi } from '@tonejs/midi';
+import type { MidiCodec, MidiFile, MidiTrackData } from '@sudobility/music_types';
 
 export type MidiTrackSummary = {
   index: number;
@@ -31,7 +31,7 @@ export type MidiSummary = {
   timeSignatures: MidiTimeSignatureSummary[];
 };
 
-function summarizeTrack(track: Midi['tracks'][number], index: number): MidiTrackSummary {
+function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
   const noteCount = track.notes.length;
   const averageMidi =
     noteCount > 0 ? track.notes.reduce((sum, note) => sum + note.midi, 0) / noteCount : null;
@@ -43,7 +43,7 @@ function summarizeTrack(track: Midi['tracks'][number], index: number): MidiTrack
     program: track.instrument.number,
     instrumentName: track.instrument.name ?? 'Instrument',
     noteCount,
-    durationSeconds: track.duration,
+    durationSeconds: track.durationSeconds,
     isPercussion: track.channel === 9,
     averageMidi,
   };
@@ -55,8 +55,7 @@ function summarizeTrack(track: Midi['tracks'][number], index: number): MidiTrack
  * errors are a caller concern — the file picker/wizard is expected to
  * surface them, per spec §28).
  */
-export function analyzeMidi(data: ArrayBuffer): MidiSummary {
-  const midi = new Midi(data);
+export function analyzeMidiFile(midi: MidiFile): MidiSummary {
 
   return {
     ppq: midi.header.ppq,
@@ -69,4 +68,9 @@ export function analyzeMidi(data: ArrayBuffer): MidiSummary {
       denominator: t.timeSignature[1],
     })),
   };
+}
+
+/** Decodes `data` and summarizes it. The codec is the only platform-bound part. */
+export function analyzeMidi(data: ArrayBuffer, codec: MidiCodec): MidiSummary {
+  return analyzeMidiFile(codec.decode(data));
 }

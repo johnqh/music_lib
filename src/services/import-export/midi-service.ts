@@ -7,11 +7,12 @@
  * microtask on the calling thread) when it isn't — notably vitest/jsdom,
  * where `Worker` is undefined, per the Task 7 brief.
  */
-import { analyzeMidi } from '../../adapters/midi/analyze.js';
+import { analyzeMidiFile } from '../../adapters/midi/analyze.js';
 import type { MidiSummary } from '../../adapters/midi/analyze.js';
-import { importMidi } from '../../adapters/midi/import.js';
+import { importMidiFile } from '../../adapters/midi/import.js';
 import type { MidiImportResult } from '../../adapters/midi/import.js';
 import type { MidiImportOptions } from '../../adapters/midi/import-options.js';
+import type { MidiCodec } from '@sudobility/music_types';
 import type { MidiWorkerRequest, MidiWorkerResponse } from '../../workers/midi-import.worker';
 
 type PendingRequest = { resolve: (value: never) => void; reject: (reason: unknown) => void };
@@ -48,7 +49,10 @@ export class MidiService {
   private worker: Worker | null;
   private readonly pending = new Map<string, PendingRequest>();
 
-  constructor(options: MidiServiceOptions = {}) {
+  private readonly codec: MidiCodec;
+
+  constructor(codec: MidiCodec, options: MidiServiceOptions = {}) {
+    this.codec = codec;
     if (options.createWorker) {
       this.worker = options.createWorker();
     } else {
@@ -94,18 +98,20 @@ export class MidiService {
 
   /** Parses and summarizes a MIDI file for the import wizard, without importing it. */
   async analyze(data: ArrayBuffer): Promise<MidiSummary> {
+    const midi = this.codec.decode(data);
     if (this.worker) {
-      return this.sendToWorker<MidiSummary>({ type: 'analyze', requestId: createRequestId(), data });
+      return this.sendToWorker<MidiSummary>({ type: 'analyze', requestId: createRequestId(), midi });
     }
-    return analyzeMidi(data);
+    return analyzeMidiFile(midi);
   }
 
   /** Imports a MIDI file as a `Score` per `options` (spec §15). */
   async import(data: ArrayBuffer, options: MidiImportOptions): Promise<MidiImportResult> {
+    const midi = this.codec.decode(data);
     if (this.worker) {
-      return this.sendToWorker<MidiImportResult>({ type: 'import', requestId: createRequestId(), data, options });
+      return this.sendToWorker<MidiImportResult>({ type: 'import', requestId: createRequestId(), midi, options });
     }
-    return importMidi(data, options);
+    return importMidiFile(midi, options);
   }
 
   /** Terminates the underlying worker (if any) and rejects any still-pending requests. Safe to call more than once. */

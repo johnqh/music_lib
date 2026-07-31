@@ -14,6 +14,11 @@ import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import type { Score } from '@sudobility/music_types';
 import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { createMusicIo } from '@sudobility/music_io/mocks';
+
+// The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
+// and the mocks entry -- unlike music_io/web -- does not import music_lib.
+const codec = createMusicIo().midiCodec;
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;
@@ -21,10 +26,10 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 /** Exports `source`, then re-imports it quantized to the nearest sixteenth note. */
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
-  const buffer = toArrayBuffer(exportMidi(source));
-  const summary = analyzeMidi(buffer);
+  const buffer = toArrayBuffer(exportMidi(source, codec));
+  const summary = analyzeMidi(buffer, codec);
   const options = { ...defaultMidiImportOptions(summary), quantizeGrid: 'sixteenth' as const, detectKey: false };
-  const { score, warnings } = importMidi(buffer, options);
+  const { score, warnings } = importMidi(buffer, options, codec);
   return { imported: score, warnings };
 }
 

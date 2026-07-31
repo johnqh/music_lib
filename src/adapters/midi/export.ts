@@ -4,10 +4,9 @@
  * and its use here is an explicitly sanctioned exception to the
  * adapters/services "no non-domain library" purity rule.
  */
-import { Midi } from '@tonejs/midi';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { joinTiedNotes } from '../../domain/score/ties.js';
-import type { MusicalEvent, NoteEvent, Score, TimeSignature, Track } from '@sudobility/music_types';
+import type { MidiCodec, MidiFile, MidiTimeSignatureEvent, MidiTrackData, MusicalEvent, NoteEvent, Score, TimeSignature, Track } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 
 /** General MIDI channel 10 (0-indexed 9), the standard percussion channel. */
@@ -63,11 +62,11 @@ function collectTrackNotes(track: Track): NoteEvent[] {
  * shares the same meter sequence, so the first track's is authoritative).
  * Falls back to a single 4/4-at-0 entry for a score with no tracks/measures.
  */
-function collectTimeSignatureChanges(score: Score): Array<{ ticks: number; timeSignature: number[] }> {
+function collectTimeSignatureChanges(score: Score): MidiTimeSignatureEvent[] {
   const track = score.tracks[0];
   if (!track || track.measures.length === 0) return [{ ticks: 0, timeSignature: [4, 4] }];
 
-  const changes: Array<{ ticks: number; timeSignature: number[] }> = [];
+  const changes: MidiTimeSignatureEvent[] = [];
   let last: TimeSignature | null = null;
   for (const measure of track.measures) {
     const ts = measure.timeSignature;
@@ -88,36 +87,39 @@ function collectTimeSignatureChanges(score: Score): Array<{ ticks: number; timeS
  * part of the internal `Score` model, so none is emitted (spec §16's
  * "sustain where represented" — nothing is represented here yet).
  */
-export function exportMidi(score: Score): Uint8Array {
-  const midi = new Midi();
-  midi.header.fromJSON({
-    name: score.metadata.title,
-    ppq: score.ppq,
-    meta: [],
-    tempos: score.tempoMap.map((t) => ({ ticks: t.tick, bpm: t.bpm })),
-    timeSignatures: collectTimeSignatureChanges(score),
-    keySignatures: [],
-  });
+export function exportMidi(score: Score, codec: MidiCodec): Uint8Array {
+  const file: MidiFile = {
+    header: {
+      name: score.metadata.title,
+      ppq: score.ppq,
+      tempos: score.tempoMap.map((t) => ({ ticks: t.tick, bpm: t.bpm })),
+      timeSignatures: collectTimeSignatureChanges(score),
+    },
+    tracks: score.tracks.map(
+      (track): MidiTrackData => ({
+        name: track.name,
+        channel: track.clef === 'percussion' ? PERCUSSION_CHANNEL : track.midiChannel,
+        instrument: { number: track.midiProgram },
+        notes: collectTrackNotes(track).map((note) => ({
+          midi: pitchToMidi(note.pitch),
+          ticks: note.startTick,
+          durationTicks: Math.max(1, note.durationTicks),
+          velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
+        })),
+        controlChanges: {
+          [CC_VOLUME]: [{ number: CC_VOLUME, ticks: 0, value: clamp01(track.volume) }],
+          [CC_PAN]: [{ number: CC_PAN, ticks: 0, value: panToNormalized(track.pan) }],
+        },
+        // Durations are outputs of decoding, not inputs to encoding; the codec
+        // ignores them here.
+        durationTicks: 0,
+        durationSeconds: 0,
+      }),
+    ),
+    duration: 0,
+  };
 
-  for (const track of score.tracks) {
-    const midiTrack = midi.addTrack();
-    midiTrack.name = track.name;
-    midiTrack.channel = track.clef === 'percussion' ? PERCUSSION_CHANNEL : track.midiChannel;
-    midiTrack.instrument.number = track.midiProgram;
-    midiTrack.addCC({ number: CC_VOLUME, ticks: 0, value: clamp01(track.volume) });
-    midiTrack.addCC({ number: CC_PAN, ticks: 0, value: panToNormalized(track.pan) });
-
-    for (const note of collectTrackNotes(track)) {
-      midiTrack.addNote({
-        midi: pitchToMidi(note.pitch),
-        ticks: note.startTick,
-        durationTicks: Math.max(1, note.durationTicks),
-        velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
-      });
-    }
-  }
-
-  return midi.toArray();
+  return codec.encode(file);
 }
 
 /**

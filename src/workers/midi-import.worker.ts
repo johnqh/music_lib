@@ -3,20 +3,25 @@
  * §29). Deliberately thin: a `postMessage` protocol shim over
  * `adapters/midi/analyze` and `adapters/midi/import` — every real behavior
  * lives in those (directly unit-tested) modules, not here. vitest/jsdom
+ * The message carries an already-decoded `MidiFile`, not raw bytes: decoding
+ * needs a `MidiCodec`, which is not structured-cloneable, and importing one
+ * here would make music_lib depend on music_io. Parsing is cheap; the
+ * quantization and voice allocation this offloads are not. vitest/jsdom
  * cannot run real `Worker` threads, so this file itself isn't
  * unit-tested; `services/import-export/midi-service.ts` has a non-worker
  * fallback that calls the same two adapter functions directly, which *is*
  * exercised in tests.
  */
-import { analyzeMidi } from '../adapters/midi/analyze.js';
+import { analyzeMidiFile } from '../adapters/midi/analyze.js';
 import type { MidiSummary } from '../adapters/midi/analyze.js';
-import { importMidi } from '../adapters/midi/import.js';
+import { importMidiFile } from '../adapters/midi/import.js';
 import type { MidiImportResult } from '../adapters/midi/import.js';
 import type { MidiImportOptions } from '../adapters/midi/import-options.js';
+import type { MidiFile } from '@sudobility/music_types';
 
 export type MidiWorkerRequest =
-  | { type: 'analyze'; requestId: string; data: ArrayBuffer }
-  | { type: 'import'; requestId: string; data: ArrayBuffer; options: MidiImportOptions };
+  | { type: 'analyze'; requestId: string; midi: MidiFile }
+  | { type: 'import'; requestId: string; midi: MidiFile; options: MidiImportOptions };
 
 export type MidiWorkerResponse =
   | { type: 'analyze'; requestId: string; result: MidiSummary }
@@ -25,9 +30,9 @@ export type MidiWorkerResponse =
 
 function handleRequest(request: MidiWorkerRequest): MidiWorkerResponse {
   if (request.type === 'analyze') {
-    return { type: 'analyze', requestId: request.requestId, result: analyzeMidi(request.data) };
+    return { type: 'analyze', requestId: request.requestId, result: analyzeMidiFile(request.midi) };
   }
-  return { type: 'import', requestId: request.requestId, result: importMidi(request.data, request.options) };
+  return { type: 'import', requestId: request.requestId, result: importMidiFile(request.midi, request.options) };
 }
 
 self.onmessage = (event: MessageEvent<MidiWorkerRequest>) => {

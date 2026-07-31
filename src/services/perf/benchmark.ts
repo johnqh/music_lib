@@ -18,7 +18,7 @@
  * diagnostic JSON" download.
  */
 import { stressScore } from '../../test/fixtures.js';
-import type { Score } from '@sudobility/music_types';
+import type { MidiCodec, Score } from '@sudobility/music_types';
 import type { ScoreRange } from '../../domain/selection/types.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import { quantizeEvents } from '../../domain/quantization/quantize.js';
@@ -103,7 +103,7 @@ function representativeRange(score: Score): ScoreRange {
 }
 
 /** Benchmarks every perf-relevant operation named in the Task 17 brief against one `stressScore(size.trackCount, size.measureCount)`. */
-function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
+function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeReport {
   const score = stressScore(size.trackCount, size.measureCount);
   const timings: BenchmarkTiming[] = [];
 
@@ -123,7 +123,7 @@ function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
   const replaceTiming = time(() => replaceFragment(score, extractTiming.result));
   timings.push({ name: 'replaceFragment', ms: replaceTiming.ms });
 
-  const exportTiming = time(() => exportMidi(score));
+  const exportTiming = time(() => exportMidi(score, codec));
   timings.push({ name: 'exportMidi', ms: exportTiming.ms });
 
   // Canvas renderer (windowed): timed against the recording mock context, so
@@ -167,8 +167,11 @@ function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
  * the resulting timings are, as always with wall-clock measurement, only
  * meaningful relative to the machine/run they were captured on.
  */
-export function runBenchmark(sizes: BenchmarkSize[] = DEFAULT_BENCHMARK_SIZES): BenchmarkReport {
-  return { generatedAt: new Date().toISOString(), sizes: sizes.map(benchmarkSize) };
+export function runBenchmark(
+  codec: MidiCodec,
+  sizes: BenchmarkSize[] = DEFAULT_BENCHMARK_SIZES,
+): BenchmarkReport {
+  return { generatedAt: new Date().toISOString(), sizes: sizes.map((size) => benchmarkSize(size, codec)) };
 }
 
 export type BenchmarkTableRow = {

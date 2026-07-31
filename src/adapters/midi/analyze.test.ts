@@ -4,6 +4,11 @@ import { exportMidi } from './export.js';
 import { createEmptyScore } from '../../domain/score/factory.js';
 import { createId } from '../../domain/score/ids.js';
 import { chordScore, twoTrackScore } from '../../test/fixtures.js';
+import { createMusicIo } from '@sudobility/music_io/mocks';
+
+// The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
+// and the mocks entry -- unlike music_io/web -- does not import music_lib.
+const codec = createMusicIo().midiCodec;
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;
@@ -12,7 +17,7 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 describe('analyzeMidi', () => {
   it('summarizes PPQ, duration, tempo events, and time signatures', () => {
     const score = chordScore();
-    const summary = analyzeMidi(toArrayBuffer(exportMidi(score)));
+    const summary = analyzeMidi(toArrayBuffer(exportMidi(score, codec)), codec);
 
     expect(summary.ppq).toBe(score.ppq);
     // Standard MIDI encodes tempo as integer microseconds-per-quarter-note,
@@ -26,7 +31,7 @@ describe('analyzeMidi', () => {
 
   it('summarizes one entry per track with name/channel/program/note count', () => {
     const score = twoTrackScore();
-    const summary = analyzeMidi(toArrayBuffer(exportMidi(score)));
+    const summary = analyzeMidi(toArrayBuffer(exportMidi(score, codec)), codec);
 
     expect(summary.tracks).toHaveLength(2);
     const [treble, bass] = summary.tracks;
@@ -67,7 +72,7 @@ describe('analyzeMidi', () => {
       { id: createId(), startTick: 480, durationTicks: 1440, voiceId: drumVoice.id, trackId: drumTrack.id },
     ];
 
-    const summary = analyzeMidi(toArrayBuffer(exportMidi(score)));
+    const summary = analyzeMidi(toArrayBuffer(exportMidi(score, codec)), codec);
     const drums = summary.tracks.find((t) => t.name === 'Drums');
     const empty = summary.tracks.find((t) => t.name === 'Empty');
 

@@ -10,8 +10,7 @@
  * to surface (spec §15: "Do not claim MIDI import perfectly reconstructs
  * notation").
  */
-import { Midi } from '@tonejs/midi';
-import type { Track as SourceMidiTrack } from '@tonejs/midi';
+import type { MidiCodec, MidiFile, MidiTrackData as SourceMidiTrack } from '@sudobility/music_types';
 import { detectKeySignature } from './key-detection.js';
 import { assembleTrackMeasures, buildMeasureSpans } from './measures.js';
 import type { TimeSignatureChange } from './measures.js';
@@ -386,9 +385,16 @@ export type MidiImportResult = { score: Score; warnings: string[] };
  * expected to surface it before the import is committed (spec §15: MIDI
  * import must be reviewable, and one undoable operation once committed).
  */
-export function importMidi(data: ArrayBuffer, options: MidiImportOptions): MidiImportResult {
+/**
+ * Converts an already-decoded MIDI file into a `Score`.
+ *
+ * Split out from `importMidi` so the heavy work — quantization and voice
+ * allocation — can be handed to a worker without the worker needing a codec.
+ * `MidiFile` is plain data and therefore structured-cloneable; a `MidiCodec` is
+ * not, and giving the worker one would make music_lib depend on music_io.
+ */
+export function importMidiFile(midi: MidiFile, options: MidiImportOptions): MidiImportResult {
   const warnings: string[] = [ALWAYS_WARNING];
-  const midi = new Midi(data);
   const ratio = SCORE_PPQ / midi.header.ppq;
 
   const tempoMap = buildTempoMap(midi.header.tempos, ratio, warnings);
@@ -447,7 +453,9 @@ export function importMidi(data: ArrayBuffer, options: MidiImportOptions): MidiI
     version: 1,
     ppq: SCORE_PPQ,
     metadata: {
-      title: midi.header.name.trim().length > 0 ? midi.header.name.trim() : 'Imported MIDI',
+      // The neutral model makes `name` optional, since not every Standard MIDI
+      // File carries one; @tonejs/midi papered over that with an empty string.
+      title: (midi.header.name ?? '').trim().length > 0 ? midi.header.name!.trim() : 'Imported MIDI',
       createdAt: now,
       updatedAt: now,
     },
@@ -456,4 +464,13 @@ export function importMidi(data: ArrayBuffer, options: MidiImportOptions): MidiI
   };
 
   return { score, warnings };
+}
+
+/** Decodes `data` and imports it. The codec is the only platform-bound part. */
+export function importMidi(
+  data: ArrayBuffer,
+  options: MidiImportOptions,
+  codec: MidiCodec,
+): MidiImportResult {
+  return importMidiFile(codec.decode(data), options);
 }

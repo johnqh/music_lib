@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BENCHMARK_SIZES, runBenchmark, toBenchmarkTable } from './benchmark.js';
+import { createMusicIo } from '@sudobility/music_io/mocks';
+
+const codec = createMusicIo().midiCodec;
 
 // Small sizes only (per the Task 17 brief: "benchmark runs under vitest on
 // small sizes") — `DEFAULT_BENCHMARK_SIZES` (up to 20 tracks x 500 measures)
@@ -11,7 +14,7 @@ const SMALL_SIZES = [
 
 describe('runBenchmark', () => {
   it('returns one report per size, each with a positive note count and a non-negative timing for every named operation', () => {
-    const report = runBenchmark(SMALL_SIZES);
+    const report = runBenchmark(codec, SMALL_SIZES);
 
     expect(report.sizes).toHaveLength(SMALL_SIZES.length);
     report.sizes.forEach((sizeReport, i) => {
@@ -48,15 +51,15 @@ describe('runBenchmark', () => {
   });
 
   it('is deterministic in shape/content given the same sizes (stressScore has no randomness)', () => {
-    const a = runBenchmark(SMALL_SIZES);
-    const b = runBenchmark(SMALL_SIZES);
+    const a = runBenchmark(codec, SMALL_SIZES);
+    const b = runBenchmark(codec, SMALL_SIZES);
     expect(a.sizes.map((s) => s.noteCount)).toEqual(b.sizes.map((s) => s.noteCount));
   });
 });
 
 describe('toBenchmarkTable', () => {
   it('flattens a report into one row per (size, operation) pair, rounded to 2 decimal places', () => {
-    const report = runBenchmark(SMALL_SIZES);
+    const report = runBenchmark(codec, SMALL_SIZES);
     const table = toBenchmarkTable(report);
 
     const opsPerSize = report.sizes[0].timings.length;
