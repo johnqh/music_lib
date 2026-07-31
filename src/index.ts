@@ -70,11 +70,6 @@ export * from './adapters/vexflow/playhead.js';
 export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/note-color.js';
 
-// adapters/tone
-export * from './adapters/tone/instruments.js';
-export * from './adapters/tone/tone-engine.js';
-export * from './adapters/tone/schedule.js';
-export * from './adapters/tone/midi.js';
 
 // adapters/midi
 export * from './adapters/midi/analyze.js';
@@ -91,7 +86,6 @@ export * from './adapters/musicxml/duration-map.js';
 
 // services
 export * from './services/errors.js';
-export * from './services/import-export/download.js';
 export * from './services/import-export/midi-service.js';
 export * from './services/import-export/musicxml-service.js';
 export * from './services/perf/benchmark.js';
