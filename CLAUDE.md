@@ -39,6 +39,33 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Gotchas
 
+- **This package is platform-free, and three guard tests keep it that way**
+  (`src/platform/no-platform-imports.test.ts`): no `tone`/`@tonejs/midi` import,
+  no platform runtime dependency, no DOM global outside the canvas renderer.
+  Runtime dependencies are exactly `immer`, `vexflow` and `zod`. Without the
+  guards nothing would notice a regression — every test here runs in jsdom,
+  where the offending import works fine, and the breakage only appears in a
+  React Native bundle.
+- **Platform services arrive two different ways.** Playback is a long-lived
+  singleton reached through a module import, so it comes from the registry
+  (`initializeMusicPlatform` / `getMusicPlatform`); `playbackController`'s lazy
+  Proxy resolves the engine on first use, which is why every call site kept
+  working when the engine moved out. Everything stateless — `XmlParser`,
+  `MidiCodec` — is a function or constructor parameter instead, so those stay
+  testable with no global setup.
+- **`vexflow` stays here** because it is not actually platform-bound: the canvas
+  renderer draws into a 2D context the caller supplies, and was verified to
+  render a full score with no DOM present at all.
+- **The MIDI worker takes a decoded `MidiFile`, not bytes.** A `MidiCodec` is not
+  structured-cloneable, and importing one inside the worker would make this
+  package depend on `music_io`, which already peer-depends on this one. So the
+  service decodes on the main thread (parsing is cheap) and the worker does the
+  quantization and voice allocation it exists for. `importMidiFile` /
+  `analyzeMidiFile` are that seam.
+- **Tests use `@sudobility/music_io/mocks`, never `music_io/web`.** The web entry
+  imports this package, so reaching for it in a test pulls this package's own
+  published dist back in through its dependency.
+
 - There is no highlight overlay. Note state is the notehead's own color: callers pass `noteColors` (an `eventId -> NoteColorRole` map) and `activeTrackId` into `CanvasScoreRenderer.render`, and `RenderTheme` carries one color per state. `paintHighlights`/`overlay.ts` were deleted — don't reintroduce a second canvas.
 - VexFlow's `Stave.draw` restores its style *before* drawing clef/key/time modifiers, and `StaveNote.draw` applies its own style across its modifiers — so one `setStyle` per element is enough, and an inactive track's clef never inherits the dimmed stave color.
 
