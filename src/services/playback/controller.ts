@@ -8,18 +8,18 @@
  * `createPlaybackController(engine, store)` is the testable factory
  * (matching `features/score-editor/editing.ts`'s `EditorStoreApi` DI
  * convention); `playbackController` is the ready-made singleton the app
- * uses, wired to a real `TonePlaybackEngine` and the app-wide
+ * uses, wired to the registered platform's engine and the app-wide
  * `useAppStore`. Every mutating method here is meant to be called
  * directly by UI (`components/transport/TransportBar.tsx`), not dispatched
  * as a store action — playback is real-time device control, not score
  * history.
  */
-import { TonePlaybackEngine } from '../../adapters/tone/tone-engine.js';
 import type { PlaybackEngine } from './types.js';
 import { scoreEndTick } from '../../domain/score/queries.js';
 import { selectionToRange } from '../../domain/selection/selection.js';
 import type { ScoreRange } from '../../domain/selection/types.js';
 import type { Score } from '@sudobility/music_types';
+import { getMusicPlatform } from '../../platform/registry.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 
@@ -397,16 +397,22 @@ let singleton: PlaybackController | null = null;
 
 function realController(): PlaybackController {
   if (!singleton) {
-    singleton = createPlaybackController(new TonePlaybackEngine(), useAppStore);
+    // The engine comes from the registry, not from here: this file must not
+    // know which platform it is running on.
+    singleton = createPlaybackController(getMusicPlatform().playback, useAppStore);
   }
   return singleton;
 }
 
 /**
- * The app's single running controller, wired to the real Tone engine and
- * the app-wide store — constructed lazily on first property access (a
- * Proxy) so importing this module neither builds Tone nodes nor requires
- * `initializeAppStore` to have run yet.
+ * The app's single running controller, wired to the registered platform's
+ * engine and the app-wide store — constructed lazily on first property access
+ * (a Proxy) so importing this module neither builds an audio graph nor requires
+ * `initializeAppStore`/`initializeMusicPlatform` to have run yet.
+ *
+ * That laziness is why every existing `playbackController.*` call site kept
+ * working unchanged when the engine moved out to music_io: the Proxy resolves
+ * the engine on first use, by which time the app has registered a platform.
  */
 export const playbackController: PlaybackController = new Proxy({} as PlaybackController, {
   get(_target, prop) {

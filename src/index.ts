@@ -107,3 +107,6 @@ export * from './services/prefs.js';
 export * from './templates/index.js';
 export * from './store/useAppStore.js';
 export * from './store/selectors.js';
+
+// platform
+export * from './platform/registry.js';
