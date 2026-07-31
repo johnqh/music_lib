@@ -238,3 +238,45 @@ describe('track-info gutter', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('page mode fits the viewport width', () => {
+  // The track-info gutter's reserved column used to be mirrored as the trailing
+  // margin, padding every page layout with a phantom TRACK_INFO_WIDTH and
+  // giving page mode a horizontal scrollbar it should never have.
+  for (const width of [640, 900, 1280, 1920]) {
+    it(`never exceeds a ${width}px viewport`, () => {
+      const plan = computeLayout(stressScore(3, 40), {
+        zoom: 1,
+        layoutMode: 'page',
+        width,
+        theme: testRenderTheme(),
+      });
+      expect(plan.totalWidth).toBeLessThanOrEqual(width);
+      for (const system of plan.systems) expect(system.xRight).toBeLessThanOrEqual(width);
+    });
+  }
+
+  it('fits the viewport at zoom, where the budget is width/zoom', () => {
+    const width = 1280;
+    for (const zoom of [0.75, 1, 1.5, 2]) {
+      const plan = computeLayout(stressScore(2, 30), {
+        zoom,
+        layoutMode: 'page',
+        width,
+        theme: testRenderTheme(),
+      });
+      expect(plan.totalWidth * zoom).toBeLessThanOrEqual(width + 0.001);
+    }
+  });
+
+  it('still lays continuous mode out past the viewport, which is the point of it', () => {
+    const plan = computeLayout(stressScore(1, 40), {
+      zoom: 1,
+      layoutMode: 'continuous',
+      width: 900,
+      theme: testRenderTheme(),
+    });
+    expect(plan.totalWidth).toBeGreaterThan(900);
+    expect(plan.systems).toHaveLength(1);
+  });
+});

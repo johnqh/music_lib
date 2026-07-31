@@ -154,6 +154,12 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const trackGap = TRACK_GAP;
   const systemGap = SYSTEM_GAP;
   const leftMargin = LEFT_MARGIN + TRACK_INFO_WIDTH;
+  // Trailing margin is the plain page margin, NOT `leftMargin`: that one
+  // carries the track-info gutter's reserved column, and mirroring it on the
+  // right padded every page-mode layout with a phantom TRACK_INFO_WIDTH of
+  // empty space — enough to push `totalWidth` past the viewport and give page
+  // mode a horizontal scrollbar it should never have had.
+  const rightMargin = LEFT_MARGIN;
   const topMargin = TOP_MARGIN + MEASURE_HEADER_HEIGHT;
 
   // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared
@@ -185,8 +191,16 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const logicalAvailableWidth =
     options.layoutMode === 'continuous'
       ? Number.POSITIVE_INFINITY
-      : Math.max(options.width / zoom, BASE_MEASURE_WIDTH + headerWidth);
-  const systemsOfIndices = groupIntoSystems(measureCount, (i) => widthOf(i, true), logicalAvailableWidth - leftMargin);
+      : Math.max(options.width / zoom, leftMargin + rightMargin + BASE_MEASURE_WIDTH + headerWidth);
+  // Both margins come out of the budget, so a packed system's right edge lands
+  // at or inside `logicalAvailableWidth` and page mode's `totalWidth` below can
+  // be exactly the viewport. The floor above is what one measure needs *with*
+  // its margins, so this can never go negative.
+  const systemsOfIndices = groupIntoSystems(
+    measureCount,
+    (i) => widthOf(i, true),
+    logicalAvailableWidth - leftMargin - rightMargin,
+  );
 
   const rowHeight = (count: number): number => (count > 0 ? count * staveHeight + Math.max(0, count - 1) * trackGap : 0);
   const trackRowHeight = rowHeight(tracks.length);
@@ -233,7 +247,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   // Both terms are logical units here: `maxSystemRight` is logical by
   // construction, and `options.width` (a screen-pixel budget) is divided by
   // zoom to match, same as `logicalAvailableWidth` above.
-  const totalWidth = Math.max(maxSystemRight + leftMargin, options.layoutMode === 'page' ? options.width / zoom : 0);
+  const totalWidth = Math.max(maxSystemRight + rightMargin, options.layoutMode === 'page' ? options.width / zoom : 0);
 
   return { tracks, trackLayouts, systems, totalWidth, totalHeight };
 }
