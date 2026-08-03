@@ -74,6 +74,18 @@ const DENSE_MEASURE_PADDING = 35;
 /** Extra width reserved on a system's first measure for clef + key signature + time signature. */
 const SYSTEM_HEADER_WIDTH = 90;
 const STAVE_HEIGHT = 100;
+
+/**
+ * Vertical distance between adjacent staff positions, in logical units — one
+ * line to the space beside it.
+ *
+ * VexFlow spaces its five lines 10 units apart and the renderer does not
+ * override that, so a staff position is half of it. Exported because dragging a
+ * note up and down the staff needs to turn pixels into positions, and deriving
+ * that from `STAVE_HEIGHT` would be wrong: that is the whole row a track is
+ * given, padding included, not the ruled staff.
+ */
+export const STAVE_POSITION_HEIGHT = 5;
 const TRACK_GAP = 20;
 const SYSTEM_GAP = 40;
 const LEFT_MARGIN = 10;

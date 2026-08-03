@@ -1,4 +1,4 @@
-import type { KeySignature, Pitch } from '@sudobility/music_types';
+import type { KeySignature, Pitch, PitchStep } from '@sudobility/music_types';
 import { midiToPitch, pitchToMidi } from './pitch.js';
 
 /**
@@ -15,4 +15,32 @@ export function transposePitch(p: Pitch, semitones: number, key?: KeySignature):
  */
 export function transposeDiatonicOctave(p: Pitch, octaves: number): Pitch {
   return { ...p, octave: p.octave + octaves };
+}
+
+/** The seven letter names, in order, for diatonic movement. */
+const STEPS: readonly PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+/**
+ * Moves `p` by `steps` positions on the staff — one step per line-to-adjacent-
+ * space — keeping its accidental.
+ *
+ * Diatonic, not chromatic, because this exists for dragging a note up and down
+ * a staff: the reader is moving it to a *staff position*, and one position is
+ * a tone in some places and a semitone in others. Transposing by semitones
+ * would make the note refuse to follow the pointer across E-F and B-C.
+ *
+ * The accidental rides along unchanged, which is what a drag should do: moving
+ * F# up one step gives G#, not G. Respelling is the caller's business.
+ */
+export function shiftDiatonic(p: Pitch, steps: number): Pitch {
+  if (steps === 0) return p;
+  const index = STEPS.indexOf(p.step);
+  if (index < 0) return p;
+
+  const absolute = index + steps;
+  // Floor division, so it works for downward moves as well as upward.
+  const octaveShift = Math.floor(absolute / STEPS.length);
+  const wrapped = ((absolute % STEPS.length) + STEPS.length) % STEPS.length;
+
+  return { ...p, step: STEPS[wrapped], octave: p.octave + octaveShift };
 }
