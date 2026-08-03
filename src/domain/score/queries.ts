@@ -120,3 +120,17 @@ export function allNotes(score: Score): NoteEvent[] {
   }
   return notes;
 }
+
+/**
+ * `score` with only the named tracks, in score order.
+ *
+ * Returns `score` itself when `trackIds` names every track, so the common
+ * "nothing is hidden" export path costs nothing. Kept tracks are returned by
+ * reference — this filters, it never rewrites the music.
+ */
+export function scoreWithTracks(score: Score, trackIds: string[]): Score {
+  const wanted = new Set(trackIds);
+  const tracks = score.tracks.filter((track) => wanted.has(track.id));
+  if (tracks.length === score.tracks.length) return score;
+  return { ...score, tracks };
+}

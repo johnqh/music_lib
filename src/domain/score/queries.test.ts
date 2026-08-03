@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from './factory.js';
+import { threeTrackScore } from '../../test/fixtures.js';
 import {
   allNotes,
   eventsInRange,
@@ -9,6 +10,7 @@ import {
   measuresInRange,
   noteAt,
   scoreEndTick,
+  scoreWithTracks,
 } from './queries.js';
 import type { NoteEvent, Score } from '@sudobility/music_types';
 
@@ -172,5 +174,34 @@ describe('allNotes', () => {
     const n2 = note({ id: 'n2', startTick: 1920, durationTicks: 480 });
     const score = scoreWithEvents([n1, n2]);
     expect(allNotes(score).map((n) => n.id).sort()).toEqual(['n1', 'n2']);
+  });
+});
+
+describe('scoreWithTracks', () => {
+  const score = () => threeTrackScore();
+
+  it('keeps only the named tracks, in score order', () => {
+    const s = score();
+    const [a, , c] = s.tracks;
+    expect(scoreWithTracks(s, [c.id, a.id]).tracks.map((t) => t.id)).toEqual([a.id, c.id]);
+  });
+
+  it('ignores ids that do not resolve', () => {
+    const s = score();
+    expect(scoreWithTracks(s, [s.tracks[0].id, 'deleted']).tracks.map((t) => t.id)).toEqual([
+      s.tracks[0].id,
+    ]);
+  });
+
+  it('returns the same score when every track is named', () => {
+    // Reference equality, not deep equality: exporting an unfiltered score
+    // should cost nothing.
+    const s = score();
+    expect(scoreWithTracks(s, s.tracks.map((t) => t.id))).toBe(s);
+  });
+
+  it('leaves the tracks it keeps untouched', () => {
+    const s = score();
+    expect(scoreWithTracks(s, [s.tracks[1].id]).tracks[0]).toBe(s.tracks[1]);
   });
 });

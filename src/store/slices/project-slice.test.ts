@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addMeasureCommand } from '../../domain/commands/structure-commands.js';
 import { testStoreContext } from '../../test/store-context.js';
+import { threeTrackScore } from '../../test/fixtures.js';
 import { createAppStore } from '../useAppStore.js';
 
 const AUTOSAVE_MS = 2000;
@@ -123,5 +124,87 @@ describe('project-slice (server-backed)', () => {
     store.getState().markDirty();
     await vi.advanceTimersByTimeAsync(AUTOSAVE_MS + 50);
     expect(context.fakeClient.updateCalls).toBe(0);
+  });
+
+  describe('ui prefs', () => {
+    it('sends visibleTrackIds on save', async () => {
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'V', score: threeTrackScore() });
+      const trackId = store.getState().score!.tracks[0].id;
+
+      store.getState().setVisibleTracks([trackId]);
+      await store.getState().saveNow();
+
+      const record = context.fakeClient.storedRecord(store.getState().projectId!);
+      expect(record!.uiPrefs?.visibleTrackIds).toEqual([trackId]);
+    });
+
+    it('omits visibleTrackIds when nothing is hidden', async () => {
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'V', score: threeTrackScore() });
+
+      store.getState().markDirty();
+      await store.getState().saveNow();
+
+      const record = context.fakeClient.storedRecord(store.getState().projectId!);
+      expect(record!.uiPrefs?.visibleTrackIds).toBeUndefined();
+      expect(record!.uiPrefs?.zoom).toBe(1);
+    });
+
+    it('hydrates visibleTrackIds when opening a project', async () => {
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'V', score: threeTrackScore() });
+      const id = store.getState().projectId!;
+      const trackId = store.getState().score!.tracks[1].id;
+      store.getState().setVisibleTracks([trackId]);
+      await store.getState().saveNow();
+
+      const other = createAppStore({ context });
+      await other.getState().openProject(id);
+      expect(other.getState().visibleTrackIds).toEqual([trackId]);
+    });
+
+    it('resets visibility when opening a project that hid nothing', async () => {
+      // Without the reset, switching projects would carry the previous
+      // project's hidden tracks into a score whose ids mean nothing.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'A', score: threeTrackScore() });
+      store.getState().setVisibleTracks([store.getState().score!.tracks[0].id]);
+      await store.getState().saveNow();
+
+      await store.getState().newProject({ name: 'B', score: threeTrackScore() });
+      expect(store.getState().visibleTrackIds).toBeNull();
+    });
+
+    it('restores zoom when opening a project', async () => {
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'Z', score: threeTrackScore() });
+      const id = store.getState().projectId!;
+      store.getState().setZoom(1.5);
+      store.getState().markDirty();
+      await store.getState().saveNow();
+
+      const other = createAppStore({ context });
+      await other.getState().openProject(id);
+      expect(other.getState().zoom).toBe(1.5);
+    });
+
+    it('changing zoom alone does not queue a save', async () => {
+      // zoom rides along with whatever save happens next; it must not add a
+      // write per click of the zoom button.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: 'Z', score: threeTrackScore() });
+      const before = context.fakeClient.updateCalls;
+
+      store.getState().setZoom(2);
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS + 50);
+      expect(context.fakeClient.updateCalls).toBe(before);
+    });
   });
 });

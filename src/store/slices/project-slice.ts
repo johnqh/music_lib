@@ -56,9 +56,21 @@ export function createProjectSlice(
         });
         try {
           const token = await requireToken(context);
+          const visibleTrackIds = get().visibleTrackIds;
           const saved = await context.client.updateProject(
             record.id,
-            { name: record.name, score },
+            {
+              name: record.name,
+              score,
+              // zoom rides along because ProjectUiPrefs requires it. Changing
+              // it deliberately does NOT mark the project dirty, so it
+              // persists opportunistically on the next real save rather than
+              // adding a write per click of the zoom button.
+              uiPrefs: {
+                zoom: get().zoom,
+                ...(visibleTrackIds ? { visibleTrackIds } : {}),
+              },
+            },
             token
           );
           currentRecord = saved;
@@ -108,6 +120,11 @@ export function createProjectSlice(
         state.projectName = record.name;
         state.dirty = false;
         state.saveState = 'saved';
+        // Reset, not merge: a track id means nothing outside the project it
+        // came from, so carrying the outgoing project's hidden set into the
+        // incoming one would hide arbitrary tracks.
+        state.visibleTrackIds = record.uiPrefs?.visibleTrackIds ?? null;
+        if (record.uiPrefs?.zoom) state.zoom = record.uiPrefs.zoom;
       });
       get().setScore(record.score, { resetHistory: true });
     }
