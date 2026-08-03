@@ -55,7 +55,9 @@ function createFakeEngine(): PlaybackEngine {
     setObserver: vi.fn((obs: PlaybackObserver | null) => {
       observer = obs;
     }),
-    dispose: vi.fn(),
+    noteOn: vi.fn(),
+  noteOff: vi.fn(),
+  dispose: vi.fn(),
   };
 }
 
@@ -727,5 +729,25 @@ describe('togglePlay selection handling', () => {
 
     expect(engine.play).not.toHaveBeenCalled();
     expect(store.getState().selection.eventIds).toEqual(['a']);
+  });
+});
+
+describe('PlaybackController: auditioning', () => {
+  it('passes a held note straight to the engine without touching transport state', () => {
+    // Auditioning is not playback: it must not move the caret, change the
+    // playing/paused state, or join the active-note highlighting.
+    const engine = createFakeEngine();
+    const store = createAppStore({ context: testStoreContext() });
+    const controller = createPlaybackController(engine, store);
+    const before = store.getState().state;
+
+    controller.noteOn(60, 0);
+    controller.noteOff(60);
+
+    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, 0);
+    expect(vi.mocked(engine.noteOff)).toHaveBeenCalledWith(60);
+    expect(store.getState().state).toBe(before);
+    expect(store.getState().positionTick).toBe(0);
+    controller.dispose();
   });
 });

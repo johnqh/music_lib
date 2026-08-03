@@ -326,6 +326,22 @@ export class PlaybackController {
     this.engine.setMasterVolume(volume);
   }
 
+  /**
+   * Sounds a pitch for as long as it is held — auditioning a key while editing.
+   *
+   * Passes straight to the engine and touches no store state on purpose: this
+   * is not transport playback, so it must not move the caret, set the
+   * playing/paused state, or appear in the active-note highlighting that
+   * follows the score.
+   */
+  noteOn(midi: number, program: number): void {
+    this.engine.noteOn(midi, program);
+  }
+
+  noteOff(midi: number): void {
+    this.engine.noteOff(midi);
+  }
+
   // ---- internals ------------------------------------------------------------
 
   /**
