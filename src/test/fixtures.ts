@@ -222,6 +222,51 @@ export function twoTrackScore(): Score {
 }
 
 /**
+ * Three tracks over 2 measures, deliberately plain.
+ *
+ * For tests about *which* tracks are involved — visibility, active-track
+ * resolution, per-track filtering — where two tracks cannot tell "the first
+ * one" apart from "the first visible one", and the music itself is beside the
+ * point.
+ */
+export function threeTrackScore(): Score {
+  const ids = makeIdFactory();
+  const ppq = 480;
+
+  const q = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'quarter' });
+  const measures: NoteSpec[][] = [
+    [q('C', 4), q('D', 4), q('E', 4), q('F', 4)],
+    [q('G', 4), q('F', 4), q('E', 4), q('D', 4)],
+  ];
+
+  const tracks: Track[] = ['Alpha', 'Beta', 'Gamma'].map((name, index) => {
+    const trackId = ids.next('track');
+    return {
+      id: trackId,
+      name,
+      instrumentName: 'Piano',
+      midiProgram: 0,
+      midiChannel: index,
+      clef: 'treble',
+      volume: 1,
+      pan: 0,
+      muted: false,
+      solo: false,
+      measures: buildMelodyMeasures(measures, ppq, FOUR_FOUR, C_MAJOR, trackId, ids),
+    };
+  });
+
+  return {
+    id: ids.next('score'),
+    version: 1,
+    ppq,
+    metadata: { title: 'Three Track Demo', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
+    tracks,
+  };
+}
+
+/**
  * Two tracks with sharply different densities: a treble line of 16
  * sixteenth notes per measure over a bass of one whole note per measure.
  * Exercises cross-track timeline sync — the dense track needs a wider

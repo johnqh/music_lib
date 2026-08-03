@@ -7,6 +7,7 @@ describe('ui-slice', () => {
     const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
     expect(state.activeTrackId).toBeNull();
+    expect(state.visibleTrackIds).toBeNull();
     expect(state.themeMode).toBe('system');
     expect(state.zoom).toBe(1);
     expect(state.snapGrid).toBe('quarter');
@@ -27,6 +28,46 @@ describe('ui-slice', () => {
     expect(store.getState().snapGrid).toBe('eighth');
     store.getState().setDeveloperMode(true);
     expect(store.getState().developerMode).toBe(true);
+  });
+
+  describe('visible tracks', () => {
+    it('setVisibleTracks stores the list and marks the project dirty', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setVisibleTracks(['a', 'b']);
+      expect(store.getState().visibleTrackIds).toEqual(['a', 'b']);
+      expect(store.getState().dirty).toBe(true);
+    });
+
+    it('setVisibleTracks refuses an empty list', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setVisibleTracks(['a']);
+      store.getState().setVisibleTracks([]);
+      expect(store.getState().visibleTrackIds).toEqual(['a']);
+    });
+
+    it('setActiveTrack reveals a hidden track', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setVisibleTracks(['a']);
+      store.getState().setActiveTrack('b');
+      expect(store.getState().visibleTrackIds).toEqual(['a', 'b']);
+    });
+
+    it('setActiveTrack leaves visibility alone when nothing is hidden', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setActiveTrack('b');
+      expect(store.getState().visibleTrackIds).toBeNull();
+    });
+
+    it('setActiveTrack on an already-visible track does not mark dirty', () => {
+      // Only a change worth persisting should trigger a save; moving the
+      // caret's track around must not queue writes.
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setVisibleTracks(['a', 'b']);
+      store.getState().saveNow();
+      const before = store.getState().dirty;
+      store.getState().setActiveTrack('b');
+      expect(store.getState().dirty).toBe(before);
+    });
   });
 
   describe('setDevSettings', () => {

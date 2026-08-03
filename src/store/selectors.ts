@@ -114,20 +114,49 @@ export const selectCurrentMeasureBeat = memoize2(
 );
 
 /**
+ * The tracks to draw, in score order.
+ *
+ * Falls back to every track when `visibleTrackIds` is null, or when nothing it
+ * names still resolves against the score. That fallback is the whole point of
+ * routing every consumer through here: a blank page is never a correct answer,
+ * and this is the one place that has to be true.
+ *
+ * Filters the score's own id list rather than the stored one, so the result is
+ * in score order regardless of the order the boxes were ticked.
+ */
+export const selectVisibleTrackIds = memoize2(
+  (state) => state.score,
+  (state) => state.visibleTrackIds,
+  (score, visibleTrackIds): string[] => {
+    if (!score || score.tracks.length === 0) return [];
+    const all = score.tracks.map((t) => t.id);
+    if (!visibleTrackIds) return all;
+    const wanted = new Set(visibleTrackIds);
+    const kept = all.filter((id) => wanted.has(id));
+    return kept.length > 0 ? kept : all;
+  },
+);
+
+/**
  * The effective active track id: the explicitly-set one when it still
- * resolves against the current score, else the first track, else `null`
- * (no score, or a score with no tracks).
+ * resolves against the *visible* tracks, else the first visible track, else
+ * `null` (no score, or a score with no tracks).
  *
  * Resolving here rather than reconciling `ui-slice.activeTrackId` on every
- * score change means "only one track, so it's active" and "the active track
- * was just deleted" both fall out with no subscription and no effect.
+ * score change means "only one track, so it's active", "the active track was
+ * just deleted" and "the active track was hidden" all fall out with no
+ * subscription and no effect.
+ *
+ * Composed over `selectVisibleTrackIds` rather than reading `state.score`
+ * directly: that selector is memoized, so its result is reference-stable and
+ * serves as this one's memo input.
  */
 export const selectActiveTrackId = memoize2(
-  (state) => state.score,
+  selectVisibleTrackIds,
   (state) => state.activeTrackId,
-  (score, activeTrackId): string | null => {
-    if (!score || score.tracks.length === 0) return null;
-    if (activeTrackId && score.tracks.some((t) => t.id === activeTrackId)) return activeTrackId;
-    return score.tracks[0].id;
+  (visibleIds, activeTrackId): string | null => {
+    if (visibleIds.length === 0) return null;
+    if (activeTrackId && visibleIds.includes(activeTrackId)) return activeTrackId;
+    return visibleIds[0];
   },
 );

@@ -54,6 +54,22 @@ export type UiSlice = {
    * projects. It resets to "first track" on load, which is the default anyway.
    */
   activeTrackId: UUID | null;
+
+  /**
+   * The tracks to draw, or `null` for "all of them".
+   *
+   * `null` rather than a filled-in array of every id, because that is what
+   * distinguishes "this project has never hidden anything" from "somebody
+   * ticked every box" — the first needs nothing persisted and stays correct
+   * when a track is added, the second would go stale the moment one was.
+   *
+   * Unlike `activeTrackId` this IS persisted, per project, through
+   * `ProjectUiPrefs.visibleTrackIds` — a project-scoped preference, not a
+   * device-level one. Read it through `selectVisibleTrackIds`, which resolves
+   * it against the score and guarantees a non-empty result.
+   */
+  visibleTrackIds: string[] | null;
+
   themeMode: ThemeMode;
   zoom: number;
   snapGrid: DurationName;
@@ -63,6 +79,18 @@ export type UiSlice = {
   toasts: Toast[];
 
   setActiveTrack: (trackId: UUID | null) => void;
+
+  /**
+   * Sets which tracks are drawn, and marks the project dirty so the choice
+   * persists on the next autosave.
+   *
+   * An empty list is refused rather than stored: it would leave a blank page
+   * with no control left to click to get back. The UI disables the last
+   * remaining checkbox so the rule is visible before it is hit, but it belongs
+   * here, because the UI is not the only caller.
+   */
+  setVisibleTracks: (trackIds: string[]) => void;
+
   setThemeMode: (mode: ThemeMode) => void;
   setZoom: (zoom: number) => void;
   setSnapGrid: (grid: DurationName) => void;
@@ -79,8 +107,10 @@ export type UiSlice = {
 
 export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [], UiSlice> = (
   set,
+  get,
 ) => ({
   activeTrackId: null,
+  visibleTrackIds: null,
   themeMode: 'system',
   zoom: 1,
   snapGrid: 'quarter',
@@ -90,9 +120,25 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   toasts: [],
 
   setActiveTrack: (trackId) => {
+    let revealed = false;
     set((state) => {
       state.activeTrackId = trackId;
+      // Choosing a track you cannot see and having nothing happen is not a
+      // defensible outcome, so selecting reveals.
+      if (trackId && state.visibleTrackIds && !state.visibleTrackIds.includes(trackId)) {
+        state.visibleTrackIds = [...state.visibleTrackIds, trackId];
+        revealed = true;
+      }
     });
+    if (revealed) get().markDirty();
+  },
+
+  setVisibleTracks: (trackIds) => {
+    if (trackIds.length === 0) return;
+    set((state) => {
+      state.visibleTrackIds = [...trackIds];
+    });
+    get().markDirty();
   },
   setThemeMode: (mode) => {
     set((state) => {

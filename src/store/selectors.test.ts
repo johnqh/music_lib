@@ -7,8 +7,10 @@ import {
   selectSelectedMeasureRange,
   selectSelectedNoteCount,
   selectSelectedNotes,
+  selectVisibleTrackIds,
 } from './selectors.js';
-import { twinkleScore, twoTrackScore } from '../test/fixtures.js';
+import type { Score } from '@sudobility/music_types';
+import { threeTrackScore, twinkleScore, twoTrackScore } from '../test/fixtures.js';
 
 describe('selectors', () => {
   describe('selectSelectedNotes / selectSelectedNoteCount', () => {
@@ -172,5 +174,89 @@ describe('selectActiveTrackId', () => {
     const first = selectActiveTrackId(store.getState());
     store.getState().setZoom(2);
     expect(selectActiveTrackId(store.getState())).toBe(first);
+  });
+
+  describe('with hidden tracks', () => {
+    it('falls back to the first visible track, not the first track', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      const score = threeTrackScore();
+      store.getState().setScore(score);
+      store.getState().setVisibleTracks([score.tracks[1].id, score.tracks[2].id]);
+      expect(selectActiveTrackId(store.getState())).toBe(score.tracks[1].id);
+    });
+
+    it('falls back off an explicitly-set track that is hidden', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      const score = threeTrackScore();
+      store.getState().setScore(score);
+      // Set the active track first: setActiveTrack reveals, so hiding has to
+      // come second for the stale combination to exist at all.
+      store.getState().setActiveTrack(score.tracks[0].id);
+      store.getState().setVisibleTracks([score.tracks[1].id]);
+      expect(selectActiveTrackId(store.getState())).toBe(score.tracks[1].id);
+    });
+  });
+});
+
+describe('selectVisibleTrackIds', () => {
+  const ids = (score: Score): string[] => score.tracks.map((t) => t.id);
+
+  it('returns every track when visibleTrackIds is null', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = threeTrackScore();
+    store.getState().setScore(score);
+    expect(selectVisibleTrackIds(store.getState())).toEqual(ids(score));
+  });
+
+  it('returns the stored subset', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = threeTrackScore();
+    store.getState().setScore(score);
+    store.getState().setVisibleTracks([score.tracks[1].id]);
+    expect(selectVisibleTrackIds(store.getState())).toEqual([score.tracks[1].id]);
+  });
+
+  it('returns them in score order, not stored order', () => {
+    // The order tracks are drawn in is the score's, not the order the user
+    // happened to tick the boxes.
+    const store = createAppStore({ context: testStoreContext() });
+    const score = threeTrackScore();
+    store.getState().setScore(score);
+    store.getState().setVisibleTracks([score.tracks[2].id, score.tracks[0].id]);
+    expect(selectVisibleTrackIds(store.getState())).toEqual([
+      score.tracks[0].id,
+      score.tracks[2].id,
+    ]);
+  });
+
+  it('drops ids that no longer resolve', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = threeTrackScore();
+    store.getState().setScore(score);
+    store.getState().setVisibleTracks([score.tracks[0].id, 'deleted-track']);
+    expect(selectVisibleTrackIds(store.getState())).toEqual([score.tracks[0].id]);
+  });
+
+  it('falls back to every track when nothing stored resolves', () => {
+    // A blank page is never the right answer, so this is the one place the
+    // invariant has to hold no matter what is stored.
+    const store = createAppStore({ context: testStoreContext() });
+    const score = threeTrackScore();
+    store.getState().setScore(score);
+    store.getState().setVisibleTracks(['deleted-track']);
+    expect(selectVisibleTrackIds(store.getState())).toEqual(ids(score));
+  });
+
+  it('returns [] when there is no score', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    expect(selectVisibleTrackIds(store.getState())).toEqual([]);
+  });
+
+  it('is reference-stable across unrelated store updates', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(threeTrackScore());
+    const first = selectVisibleTrackIds(store.getState());
+    store.getState().setZoom(2);
+    expect(selectVisibleTrackIds(store.getState())).toBe(first);
   });
 });
