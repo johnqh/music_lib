@@ -14,7 +14,7 @@
  *
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
-import { CanvasContext, Formatter, Stave, StaveConnector } from 'vexflow';
+import { CanvasContext, Formatter, Stave, StaveConnector, MultiMeasureRest } from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
 import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
 import { gmInstrumentIcon } from '../../domain/instruments/gm-icon.js';
@@ -382,6 +382,7 @@ export class CanvasScoreRenderer {
     const staves: Array<{ stave: Stave; dimmed: boolean }> = [];
     const voicesToDraw: Voice[] = [];
     const beamsToDraw: Array<{ beam: Beam; dimmed: boolean }> = [];
+    const restsToDraw: MultiMeasureRest[] = [];
     /** trackIndex -> the system's first-measure stave, for the brace connector. */
     const firstStaveByTrack = new Map<number, Stave>();
     const allMetas: NoteMeta[] = []; // buildMeasureContent appends; unused here (channels carry the metas)
@@ -405,7 +406,7 @@ export class CanvasScoreRenderer {
 
         const channels = channelsByTrack.get(track.id)!;
         const prevMeasure = track.measures[measureIndex - 1];
-        const { stave, voices, beams } = buildMeasureContent(
+        const { stave, voices, beams, multiMeasureRest } = buildMeasureContent(
           measure,
           track,
           placement,
@@ -427,6 +428,10 @@ export class CanvasScoreRenderer {
         staves.push({ stave, dimmed: this.notesDimmed(track.id, options) });
         measureStaves.push(stave);
         for (const beam of beams) beamsToDraw.push({ beam, dimmed: this.notesDimmed(track.id, options) });
+        if (multiMeasureRest) {
+          multiMeasureRest.setStave(stave);
+          restsToDraw.push(multiMeasureRest);
+        }
         if (measureIndex === system.measureIndices[0]) firstStaveByTrack.set(trackIndex, stave);
 
         if (voices.length > 0) {
@@ -496,6 +501,9 @@ export class CanvasScoreRenderer {
     vexCtx.setFillStyle(options.theme.foreground);
     vexCtx.setStrokeStyle(options.theme.foreground);
     voicesToDraw.forEach((v) => v.draw(vexCtx));
+    // After the formatter has run, so the stave's final geometry is settled.
+    for (const rest of restsToDraw) rest.setContext(vexCtx).draw();
+
     beamsToDraw.forEach(({ beam, dimmed }) => {
       const color = this.trackColor(dimmed, options);
       beam.setStyle({ fillStyle: color, strokeStyle: color });

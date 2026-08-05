@@ -58,6 +58,15 @@ export type LayoutPlan = {
 };
 
 const BASE_MEASURE_WIDTH = 200;
+
+/**
+ * Width of a measure standing in for a run of silent ones.
+ *
+ * Fixed rather than proportional to the count: a 60-bar rest should not be
+ * thirty times wider than a 2-bar one. It only has to fit the horizontal bar
+ * and a numeral.
+ */
+const MULTI_REST_MEASURE_WIDTH = 320;
 /**
  * Heuristic per-event width budget for a measure's densest voice. A measure
  * whose densest voice packs more events than the base width comfortably
@@ -189,6 +198,13 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
         maxEvents = Math.max(maxEvents, voice.events.length);
       }
     }
+    // A collapsed measure's width comes from what it draws — one bar and a
+    // number — not from the events it replaced, of which there are none.
+    const collapsed = tracks.some(
+      (track) => track.measures[measureIndex]?.multiMeasureRestCount !== undefined,
+    );
+    if (collapsed) return MULTI_REST_MEASURE_WIDTH;
+
     return Math.max(BASE_MEASURE_WIDTH, maxEvents * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING);
   });
 

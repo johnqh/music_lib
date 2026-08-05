@@ -386,3 +386,32 @@ describe('system justification', () => {
     }
   });
 });
+
+describe('multi-measure rest width', () => {
+  const withCount = (count: number | undefined) => {
+    const score = twinkleScore();
+    return computeLayout(
+      {
+        ...score,
+        tracks: score.tracks.map((t) => ({
+          ...t,
+          measures: t.measures.map((m, i) =>
+            i === 1 && count !== undefined ? { ...m, multiMeasureRestCount: count } : m,
+          ),
+        })),
+      },
+      options(),
+    ).trackLayouts[0].measures.find((m) => m.measureIndex === 1)!.box.width;
+  };
+
+  it('gives a collapsed measure more room than an ordinary one', () => {
+    // The horizontal bar and its numeral need space; squeezed into one
+    // measure's width a 24-bar rest reads as a mistake.
+    expect(withCount(24)).toBeGreaterThan(withCount(undefined));
+  });
+
+  it('does not scale the width with the count', () => {
+    // A 60-bar rest must not be thirty times wider than a 2-bar one.
+    expect(withCount(60)).toBe(withCount(2));
+  });
+});

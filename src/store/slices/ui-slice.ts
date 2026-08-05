@@ -14,6 +14,9 @@ import type { AppState } from '../useAppStore.js';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/** Whether notation shows what the score sounds, or what each player reads. */
+export type PitchDisplay = 'concert' | 'written';
+
 export type DevSettings = {
   showIds: boolean;
   showTicks: boolean;
@@ -85,6 +88,17 @@ export type UiSlice = {
   snapGrid: DurationName;
 
   /**
+   * Whether notation shows sounding pitch or each player's written pitch.
+   *
+   * A lens on notation only: the store always holds sounding pitch, and
+   * playback, MIDI export and printing ignore this entirely.
+   *
+   * Persisted, unlike `editMode`: it is how this person likes to work, and it
+   * means the same thing in every project.
+   */
+  pitchDisplay: PitchDisplay;
+
+  /**
    * What writing a note does to music already at the caret.
    *
    * Lives here rather than in the editor because everything that writes notes
@@ -129,6 +143,7 @@ export type UiSlice = {
   setThemeMode: (mode: ThemeMode) => void;
   setZoom: (zoom: number) => void;
   setSnapGrid: (grid: DurationName) => void;
+  setPitchDisplay: (display: PitchDisplay) => void;
   setEditMode: (mode: EditMode) => void;
   setActiveVoice: (voiceIndex: number) => void;
   setDeveloperMode: (enabled: boolean) => void;
@@ -151,6 +166,7 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   themeMode: 'system',
   zoom: 1,
   snapGrid: 'quarter',
+  pitchDisplay: 'concert',
   editMode: 'replace',
   activeVoiceIndex: 0,
   developerMode: false,
@@ -192,6 +208,11 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   setSnapGrid: (grid) => {
     set((state) => {
       state.snapGrid = grid;
+    });
+  },
+  setPitchDisplay: (display) => {
+    set((state) => {
+      state.pitchDisplay = display;
     });
   },
   setEditMode: (mode) => {

@@ -717,3 +717,153 @@ describe('showTrackInfo', () => {
     expect(result.idToBBox.size).toBeGreaterThan(0);
   });
 });
+
+describe('multi-measure rests', () => {
+  /** twinkleScore with measure 1 standing in for a 24-bar rest. */
+  function collapsedScore(): Score {
+    const score = twinkleScore();
+    return {
+      ...score,
+      tracks: score.tracks.map((t) => ({
+        ...t,
+        measures: t.measures.map((m, i) =>
+          i === 1 ? { ...m, multiMeasureRestCount: 24, voices: [] } : m,
+        ),
+      })),
+    };
+  }
+
+  /** Path operations recorded while drawing `score`. */
+  function drawOps(score: Score): number {
+    const ctx = createMock2DContext();
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+    });
+    return ctx.ops.filter((op) => op.method === 'bezierCurveTo' || op.method === 'lineTo').length;
+  }
+
+  it('draws the numeral, not just the rest bar', () => {
+    // VexFlow renders the count as glyph outlines rather than text, so there
+    // is no string to match. A two-digit count draws strictly more path
+    // segments than a one-digit one — which is only true if the number is
+    // being drawn at all.
+    const withCount = (count: number): Score => {
+      const score = twinkleScore();
+      return {
+        ...score,
+        tracks: score.tracks.map((t) => ({
+          ...t,
+          measures: t.measures.map((m, i) =>
+            i === 1 ? { ...m, multiMeasureRestCount: count, voices: [] } : m,
+          ),
+        })),
+      };
+    };
+
+    expect(drawOps(withCount(24))).toBeGreaterThan(drawOps(withCount(2)));
+  });
+
+
+  it('still gives the collapsed measure a box to sit in', () => {
+    const ctx = createMock2DContext();
+    const score = collapsedScore();
+    const result = new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+    });
+    expect(result.measureIdToBBox.has(score.tracks[0].measures[1].id)).toBe(true);
+  });
+
+  it('still draws the ordinary measures around it', () => {
+    const ctx = createMock2DContext();
+    const result = new CanvasScoreRenderer().render(collapsedScore(), ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+    });
+    expect(result.idToBBox.size).toBeGreaterThan(0);
+  });
+});
+
+describe('rehearsal marks', () => {
+  /** Text drawn while rendering `score`, and how many boxes were stroked. */
+  function drawn(score: Score): { texts: string[]; rects: number } {
+    const ctx = createMock2DContext();
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+    });
+    return {
+      texts: ctx.ops.filter((op) => op.method === 'fillText').map((op) => String(op.args[0])),
+      rects: ctx.ops.filter((op) => op.method === 'rect').length,
+    };
+  }
+
+  /** `score` with `label` on its second measure, in every track. */
+  function withMark(score: Score, label: string): Score {
+    return {
+      ...score,
+      tracks: score.tracks.map((t) => ({
+        ...t,
+        measures: t.measures.map((m, i) => (i === 1 ? { ...m, rehearsalMark: label } : m)),
+      })),
+    };
+  }
+
+  it('draws the letter itself', () => {
+    // VexFlow puts the label through fillText rather than glyph outlines, so
+    // the actual letter is assertable — much stronger than counting ink.
+    const score = twinkleScore();
+    expect(drawn(score).texts).not.toContain('B');
+    expect(drawn(withMark(score, 'B')).texts).toContain('B');
+  });
+
+  it('draws a doubled letter whole', () => {
+    // "AA", not "A" twice or "A" truncated.
+    const marked = drawn(withMark(twinkleScore(), 'AA'));
+    expect(marked.texts.filter((t) => t === 'AA')).toHaveLength(1);
+  });
+
+  it('boxes it', () => {
+    // A bare letter beside a dynamic or a tempo marking is easy to miss.
+    const score = twinkleScore();
+    expect(drawn(withMark(score, 'B')).rects).toBe(drawn(score).rects + 1);
+  });
+
+  it('still draws the letter on a bar that is a multi-measure rest', () => {
+    // The bar a lost player is most likely hunting for. `setSection` runs
+    // before the collapsed-measure early return for exactly this reason.
+    const score = twinkleScore();
+    const restWithMark: Score = {
+      ...score,
+      tracks: score.tracks.map((t) => ({
+        ...t,
+        measures: t.measures.map((m, i) =>
+          i === 1 ? { ...m, rehearsalMark: 'C', multiMeasureRestCount: 8, voices: [] } : m,
+        ),
+      })),
+    };
+    expect(drawn(restWithMark).texts).toContain('C');
+  });
+});
+
+describe('cue labels', () => {
+  it('draws the instrument name above the cue', () => {
+    // Like a rehearsal mark, the label goes through fillText — so the actual
+    // string is assertable rather than counting ink.
+    const score = twinkleScore();
+    const cued: Score = {
+      ...score,
+      tracks: score.tracks.map((t) => ({
+        ...t,
+        measures: t.measures.map((m, i) =>
+          i === 1 ? { ...m, cue: { label: 'Flute', events: m.voices[0]?.events ?? [] } } : m,
+        ),
+      })),
+    };
+    const ctx = createMock2DContext();
+    new CanvasScoreRenderer().render(cued, ctx, { ...OPTS, viewport: { top: 0, bottom: 5000 } });
+    const texts = ctx.ops.filter((op) => op.method === 'fillText').map((op) => String(op.args[0]));
+    expect(texts).toContain('Flute');
+  });
+});

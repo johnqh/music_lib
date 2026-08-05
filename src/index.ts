@@ -12,6 +12,10 @@
 // domain/score
 export * from './domain/score/factory.js';
 export * from './domain/score/queries.js';
+export * from './domain/score/extract-part.js';
+export * from './domain/score/rehearsal-marks.js';
+export * from './domain/score/cue-notes.js';
+export * from './domain/score/written-pitch.js';
 export * from './domain/score/ties.js';
 export * from './domain/score/fragment.js';
 export * from './domain/score/ids.js';
@@ -53,6 +57,7 @@ export * from './domain/instruments/gm.js';
 export * from './domain/instruments/gm-icon.js';
 export * from './domain/instruments/gm-range.js';
 export * from './domain/instruments/gm-polyphony.js';
+export * from './domain/instruments/gm-transposition.js';
 export * from './domain/instruments/icon-art.js';
 
 // domain/pitch
@@ -69,6 +74,7 @@ export * from './adapters/vexflow/types.js';
 export * from './adapters/vexflow/measure-content.js';
 export * from './adapters/vexflow/convert.js';
 export * from './adapters/vexflow/layout.js';
+export * from './adapters/vexflow/pagination.js';
 export * from './adapters/vexflow/playhead.js';
 export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/note-color.js';

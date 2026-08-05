@@ -13,6 +13,7 @@ export type DevicePrefs = {
   view?: 'notation' | 'piano-roll';
   zoom?: number;
   snapGrid?: string;
+  pitchDisplay?: 'concert' | 'written';
   developerMode?: boolean;
   devSettings?: Record<string, unknown>;
 };

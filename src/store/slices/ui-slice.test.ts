@@ -166,3 +166,13 @@ describe('active voice', () => {
     expect(store.getState().activeVoiceIndex).toBe(0);
   });
 });
+
+describe('pitchDisplay', () => {
+  it('starts in concert pitch and toggles to written', () => {
+    // Concert by default: nothing changes for anyone who does not ask.
+    const store = createAppStore({ context: testStoreContext() });
+    expect(store.getState().pitchDisplay).toBe('concert');
+    store.getState().setPitchDisplay('written');
+    expect(store.getState().pitchDisplay).toBe('written');
+  });
+});

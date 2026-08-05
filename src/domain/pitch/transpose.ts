@@ -44,3 +44,27 @@ export function shiftDiatonic(p: Pitch, steps: number): Pitch {
 
   return { ...p, step: STEPS[wrapped], octave: p.octave + octaveShift };
 }
+
+/**
+ * The key `key` becomes when the music is transposed by `semitones`.
+ *
+ * Moving up a fifth adds one sharp, so a shift of `s` semitones moves the key
+ * by `s × 7` fifths — the circle of fifths advances 7 semitones per step. The
+ * result is folded into -6..6 so a minor third up reads as three flats rather
+ * than nine sharps: both name the same key, but only one is printable.
+ *
+ * An octave leaves the key untouched, which falls out of the arithmetic rather
+ * than needing a special case.
+ */
+export function transposeKeySignature(key: KeySignature, semitones: number): KeySignature {
+  const raw = (((semitones * 7) % 12) + 12) % 12;
+  const delta = raw > 6 ? raw - 12 : raw;
+
+  let fifths = key.fifths + delta;
+  // The sum can still land outside the printable range when the starting key
+  // is already remote; fold it back the same way.
+  while (fifths > 7) fifths -= 12;
+  while (fifths < -7) fifths += 12;
+
+  return { fifths, mode: key.mode };
+}

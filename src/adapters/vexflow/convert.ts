@@ -172,7 +172,11 @@ const REST_KEY = 'b/4';
  *
  * Returns `notes`/`metas` as parallel arrays (same length, same order).
  */
-export function buildVoiceContent(events: MusicalEvent[], ppq: number): VoiceContent {
+export function buildVoiceContent(
+  events: MusicalEvent[],
+  ppq: number,
+  glyphScale?: number,
+): VoiceContent {
   const notes: StaveNote[] = [];
   const metas: NoteMeta[] = [];
 
@@ -193,6 +197,9 @@ export function buildVoiceContent(events: MusicalEvent[], ppq: number): VoiceCon
         duration: code,
         dots,
         type: isRest ? 'r' : undefined,
+        // Omitted rather than passed as undefined: VexFlow reads the key's
+        // presence, not its value.
+        ...(glyphScale === undefined ? {} : { glyph_font_scale: glyphScale }),
       });
 
       for (let i = 0; i < dots; i += 1) {

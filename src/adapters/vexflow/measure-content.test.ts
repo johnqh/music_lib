@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Accidental, Voice } from 'vexflow';
 import type { StaveNote } from 'vexflow';
-import { buildTies } from './measure-content.js';
+import { CUE_GLYPH_SCALE, buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
+import type { MeasureLayout } from './layout.js';
 import { buildVoiceContent, keySignatureToVexSpec } from './convert.js';
 import type { NoteMeta } from './convert.js';
-import type { KeySignature, NoteEvent, Pitch } from '@sudobility/music_types';
+import type { KeySignature, Measure, NoteEvent, Pitch, Track } from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 
 function pitch(step: Pitch['step'], accidental: Pitch['accidental'], octave: number): Pitch {
@@ -121,5 +122,101 @@ describe('key-signature-aware accidentals (finding 3)', () => {
     ];
     const [categories] = accidentalCategoriesFor(events, cMajor);
     expect(categories).toEqual([]);
+  });
+});
+
+describe('cue notes', () => {
+  const quarter = ticksFor('quarter', 480);
+  const C_MAJOR: KeySignature = { fifths: 0, mode: 'major' };
+  const FOUR_FOUR = { numerator: 4, denominator: 4 };
+
+  /** One quarter note, as a cue would carry it. */
+  const cueEvents: NoteEvent[] = [
+    {
+      id: 'c1',
+      pitch: pitch('C', 0, 5),
+      startTick: 0,
+      durationTicks: quarter,
+      velocity: 80,
+      voiceId: 'v',
+      trackId: 't',
+    },
+  ];
+
+  /** A one-voice measure holding a whole-bar rest, optionally carrying a cue. */
+  function measureWith(cue?: { label: string; events: NoteEvent[] }): Measure {
+    return {
+      id: 'm1',
+      index: 0,
+      startTick: 0,
+      durationTicks: 1920,
+      timeSignature: FOUR_FOUR,
+      keySignature: C_MAJOR,
+      voices: [
+        {
+          id: 'v1',
+          name: 'Voice 1',
+          events: [{ id: 'r1', startTick: 0, durationTicks: 1920, voiceId: 'v1', trackId: 't1' }],
+        },
+      ],
+      ...(cue ? { cue } : {}),
+    } as Measure;
+  }
+
+  const track = {
+    id: 't1',
+    name: 'Solo',
+    instrumentName: 'Solo',
+    midiProgram: 0,
+    midiChannel: 0,
+    clef: 'treble' as const,
+    volume: 1,
+    pan: 0,
+    measures: [],
+  } as unknown as Track;
+
+  const placement = {
+    box: { x: 0, y: 0, width: 300, height: 100 },
+    isFirstInSystem: true,
+  } as unknown as MeasureLayout;
+
+  function build(measure: Measure) {
+    return buildMeasureContent(measure, track, placement, undefined, 480, new Map(), []);
+  }
+
+  it('draws the cue at a reduced glyph scale', () => {
+    const { voices } = build(measureWith({ label: 'Flute', events: cueEvents }));
+    const tickables = voices[0].getTickables() as StaveNote[];
+    expect(tickables[0].render_options.glyph_font_scale).toBe(CUE_GLYPH_SCALE);
+  });
+
+  it('draws no whole-bar rest in a cue bar', () => {
+    // Two objects competing for one bar collide, and the canvas layout has no
+    // collision avoidance. Small notes under an instrument name already read
+    // as "not yours".
+    const plain = build(measureWith());
+    const cued = build(measureWith({ label: 'Flute', events: cueEvents }));
+
+    const isRest = (n: StaveNote) => n.getNoteType() === 'r';
+    expect((plain.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(true);
+    expect((cued.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(false);
+  });
+
+  it('does not register cue notes for ties or hit-testing', () => {
+    // A cue note is not the player's note: it must never tie to one, and must
+    // never answer a hit test.
+    const channels = new Map();
+    const metas: NoteMeta[] = [];
+    buildMeasureContent(
+      measureWith({ label: 'Flute', events: cueEvents }),
+      track,
+      placement,
+      undefined,
+      480,
+      channels,
+      metas,
+    );
+    expect(channels.size).toBe(0);
+    expect(metas).toHaveLength(0);
   });
 });
