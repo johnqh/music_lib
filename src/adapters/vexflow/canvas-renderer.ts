@@ -149,8 +149,11 @@ export class CanvasScoreRenderer {
       }
     }
 
-    // Last, so it overlays any content that scrolled underneath it.
-    this.drawTrackInfoGutter(plan, ctx, z, dpr, visibleSystems, options);
+    // Last, so it overlays any content that scrolled underneath it — and not
+    // at all for print, where there is nothing to click.
+    if (options.showTrackInfo ?? true) {
+      this.drawTrackInfoGutter(plan, ctx, z, dpr, visibleSystems, options);
+    }
 
     return { idToBBox, measureIdToBBox, drawnMeasureIndices, plan, theme: options.theme };
   }

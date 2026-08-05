@@ -6,6 +6,7 @@ import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import { allNotes } from '../../domain/score/queries.js';
+import type { Score } from '@sudobility/music_types';
 
 const THEME: RenderTheme = testRenderTheme();
 const OPTS = {
@@ -674,5 +675,45 @@ describe('inactive-track dimming', () => {
     restore();
 
     expect(styles.map((s) => s.fillStyle)).toContain(THEME.noteSelected);
+  });
+});
+
+describe('showTrackInfo', () => {
+  /** Every string the renderer drew — the stub records each call into `ops`. */
+  function drawnText(score: Score, showTrackInfo: boolean): string {
+    const ctx = createMock2DContext();
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+      showTrackInfo,
+    });
+    return ctx.ops
+      .filter((op) => op.method === 'fillText')
+      .map((op) => String(op.args[0]))
+      .join(' ');
+  }
+
+  it('draws the track name by default', () => {
+    const score = twoTrackScore();
+    expect(drawnText(score, true)).toContain(score.tracks[0].name);
+  });
+
+  it('draws no track name when off', () => {
+    // Mute and solo on paper would be the giveaway; the name is what proves
+    // the whole gutter is gone.
+    const score = twoTrackScore();
+    expect(drawnText(score, false)).not.toContain(score.tracks[0].name);
+  });
+
+  it('still draws the music when the gutter is off', () => {
+    // The gutter going away must not take the notes with it.
+    const score = twoTrackScore();
+    const ctx = createMock2DContext();
+    const result = new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+      showTrackInfo: false,
+    });
+    expect(result.idToBBox.size).toBeGreaterThan(0);
   });
 });

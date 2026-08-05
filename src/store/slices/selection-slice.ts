@@ -7,7 +7,7 @@
  * to know where the current selection implies content should land).
  */
 import type { StateCreator } from 'zustand';
-import { findEvent } from '../../domain/score/queries.js';
+import { allNotes, findEvent } from '../../domain/score/queries.js';
 import { selectionToRange } from '../../domain/selection/selection.js';
 import { emptySelection } from '../../domain/selection/types.js';
 import type { ScoreSelection } from '../../domain/selection/types.js';
@@ -15,6 +15,8 @@ import type { NoteEvent, Score, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { pasteEventsCommand } from '../../domain/commands/edit-commands.js';
 import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
+import { closeGap, makeRoom } from '../../domain/commands/ripple-commands.js';
+import { transformCommand } from '../../domain/commands/snapshot.js';
 import type { AppState } from '../useAppStore.js';
 
 export type ClipboardData = { events: NoteEvent[]; anchorTick: number };
@@ -47,9 +49,25 @@ export type SelectionSlice = {
   /** Copies the currently-selected note events to the clipboard (no-op if nothing selected resolves to a note). */
   copySelection: () => void;
   /** Copies, then deletes, the currently-selected notes as one undoable command. */
-  cutSelection: () => void;
+  /**
+   * Copies the selection, then removes it.
+   *
+   * `closeGap` slides the rest of the track earlier to fill the hole; without
+   * it the notes are simply gone and the time they occupied becomes rests.
+   * Which one is wanted is not something the editor can infer, so the caller
+   * decides — see the cut dialog.
+   */
+  cutSelection: (options?: { closeGap?: boolean }) => void;
   /** Pastes the clipboard's notes, anchored at `atTick` (defaults to the tick they were copied from) onto the track implied by the current selection (falling back to the score's first track). No-op if the clipboard is empty or there's no score. */
-  paste: (atTick?: number) => void;
+  /**
+   * Pastes the clipboard at `atTick`.
+   *
+   * `scope` decides what happens to music already there: `replace` clears the
+   * span first, `insert` pushes it later. Omitted, it follows `editMode` — so
+   * a caller that has already asked the user can pass their answer, and one
+   * that has not still behaves consistently with note entry.
+   */
+  paste: (atTick?: number, options?: { scope?: 'replace' | 'insert' | 'stack' }) => void;
 };
 
 /** The track a paste should target: the current selection's own track scope if it has one, else the track of a selected event, else the score's first track. */
@@ -118,27 +136,78 @@ export const createSelectionSlice: StateCreator<
     });
   },
 
-  cutSelection: () => {
+  cutSelection: (options) => {
     const { score, selection } = get();
     if (!score) return;
 
-    const noteIds = selection.eventIds.filter((id) => {
-      const event = findEvent(score, id);
-      return event !== null && isNoteEvent(event);
-    });
-    if (noteIds.length === 0) return;
+    const cutNotes = selection.eventIds
+      .map((id) => findEvent(score, id))
+      .filter((event): event is NoteEvent => event !== null && isNoteEvent(event));
+    if (cutNotes.length === 0) return;
+
+    const noteIds = cutNotes.map((note) => note.id);
+
+    // Measured before the delete, while the notes are still there to measure.
+    const trackId = cutNotes[0].trackId;
+    const sameTrack = cutNotes.every((note) => note.trackId === trackId);
+    const fromTick = Math.min(...cutNotes.map((note) => note.startTick));
+    const toTick = Math.max(...cutNotes.map((note) => note.startTick + note.durationTicks));
 
     get().copySelection();
     get().dispatchCommand(deleteEventsCommand(noteIds));
+
+    // Only for a single-track cut: sliding one track earlier while the others
+    // stay put is exactly the desynchronisation `insert` mode exists for, and
+    // doing it to several tracks at once by accident would be worse.
+    if (options?.closeGap && sameTrack) {
+      get().dispatchCommand(
+        transformCommand('Close gap', (current) =>
+          closeGap(current, trackId, fromTick, toTick - fromTick),
+        ),
+      );
+    }
+
     get().clearSelection();
   },
 
-  paste: (atTick) => {
-    const { score, clipboard, selection } = get();
+  paste: (atTick, options) => {
+    const { score, clipboard, selection, editMode } = get();
     if (!score || !clipboard || clipboard.events.length === 0) return;
     const trackId = resolvePasteTrackId(score, selection);
     if (!trackId) return;
     const anchorTick = atTick ?? clipboard.anchorTick;
+
+    // How much time the clipboard occupies, measured from its own earliest
+    // start — the same span the paste will cover once anchored.
+    const clipStart = Math.min(...clipboard.events.map((e) => e.startTick));
+    const clipEnd = Math.max(...clipboard.events.map((e) => e.startTick + e.durationTicks));
+    const span = clipEnd - clipStart;
+
+    // Paste obeys the edit mode for the same reason entry does: pasting on top
+    // of existing music is the same question as playing on top of it, and
+    // answering it differently in the two places would be arbitrary.
+    const scope = options?.scope ?? editMode;
+    if (scope === 'insert') {
+      get().dispatchCommand(
+        transformCommand('Make room for paste', (current) =>
+          makeRoom(current, trackId, anchorTick, span),
+        ),
+      );
+    } else if (scope === 'replace') {
+      // Cleared explicitly, because reflow clusters same-span notes into a
+      // chord rather than replacing them — so leaving it implicit would make
+      // replace behave as stack whenever the lengths happened to match.
+      const occupying = allNotes(get().score ?? score)
+        .filter(
+          (note) =>
+            note.trackId === trackId &&
+            note.startTick < anchorTick + span &&
+            note.startTick + note.durationTicks > anchorTick,
+        )
+        .map((note) => note.id);
+      if (occupying.length > 0) get().dispatchCommand(deleteEventsCommand(occupying));
+    }
+
     get().dispatchCommand(
       pasteEventsCommand(clipboard.events, { trackId, voiceIndex: 0, anchorTick }),
     );

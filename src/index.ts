@@ -26,6 +26,7 @@ export * from './domain/commands/history.js';
 export * from './domain/commands/snapshot.js';
 export * from './domain/commands/reflow.js';
 export * from './domain/commands/note-commands.js';
+export * from './domain/commands/ripple-commands.js';
 export * from './domain/commands/structure-commands.js';
 export * from './domain/commands/edit-commands.js';
 export * from './domain/commands/region-commands.js';
@@ -51,6 +52,7 @@ export * from './domain/time/durations.js';
 export * from './domain/instruments/gm.js';
 export * from './domain/instruments/gm-icon.js';
 export * from './domain/instruments/gm-range.js';
+export * from './domain/instruments/gm-polyphony.js';
 export * from './domain/instruments/icon-art.js';
 
 // domain/pitch
@@ -100,6 +102,7 @@ export * from './services/regeneration/controller.js';
 export * from './store/context.js';
 export * from './services/prefs.js';
 export * from './templates/index.js';
+export * from './store/slices/ui-slice.js';
 export * from './store/useAppStore.js';
 export * from './store/selectors.js';
 

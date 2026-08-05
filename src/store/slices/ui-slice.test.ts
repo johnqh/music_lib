@@ -8,6 +8,7 @@ describe('ui-slice', () => {
     const state = store.getState();
     expect(state.activeTrackId).toBeNull();
     expect(state.visibleTrackIds).toBeNull();
+    expect(state.editMode).toBe('replace');
     expect(state.themeMode).toBe('system');
     expect(state.zoom).toBe(1);
     expect(state.snapGrid).toBe('quarter');
@@ -121,5 +122,47 @@ describe('activeTrackId', () => {
     store.getState().setActiveTrack('track-1');
     store.getState().setActiveTrack(null);
     expect(store.getState().activeTrackId).toBeNull();
+  });
+
+  describe('edit mode', () => {
+    it('defaults to replace, which is what the editor already did', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      expect(store.getState().editMode).toBe('replace');
+    });
+
+    it('sets each mode', () => {
+      const store = createAppStore({ context: testStoreContext() });
+      for (const mode of ['insert', 'stack', 'replace'] as const) {
+        store.getState().setEditMode(mode);
+        expect(store.getState().editMode).toBe(mode);
+      }
+    });
+
+    it('does not mark the project dirty', () => {
+      // A mode is how you are editing, not part of the music. Persisting it
+      // would queue a save on every toggle.
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setEditMode('insert');
+      expect(store.getState().dirty).toBe(false);
+    });
+  });
+});
+
+describe('active voice', () => {
+  it('defaults to the first voice', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    expect(store.getState().activeVoiceIndex).toBe(0);
+  });
+
+  it('sets the voice', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setActiveVoice(1);
+    expect(store.getState().activeVoiceIndex).toBe(1);
+  });
+
+  it('clamps a negative index rather than writing into a voice that is not one', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setActiveVoice(-3);
+    expect(store.getState().activeVoiceIndex).toBe(0);
   });
 });

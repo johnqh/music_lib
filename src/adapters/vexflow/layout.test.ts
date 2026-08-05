@@ -172,11 +172,25 @@ describe('density-aware measure widths', () => {
     }
   });
 
-  it('keeps sparse scores at the base measure width (no shrink, no growth)', () => {
+  it('never shrinks a sparse measure below the base width', () => {
+    // Justification grows measures to reach the margin, so they are no longer
+    // exactly BASE_MEASURE_WIDTH — but nothing may ever come out narrower than
+    // the base, which is what keeps a sparse bar readable.
     const plan = computeLayout(twinkleScore(), options()); // <=4 events per measure
     const nonFirst = plan.trackLayouts[0].measures.filter((l) => !l.isFirstInSystem);
     expect(nonFirst.length).toBeGreaterThan(0);
-    for (const layout of nonFirst) expect(layout.box.width).toBe(200);
+    for (const layout of nonFirst) expect(layout.box.width).toBeGreaterThanOrEqual(200);
+  });
+
+  it('keeps the last system unjustified, so its measures stay at the base width', () => {
+    // The final line is the one place natural widths survive, which is also
+    // what makes it the honest check that nothing inflates measures by itself.
+    const plan = computeLayout(twinkleScore(), options());
+    const lastSystem = plan.systems[plan.systems.length - 1];
+    const onLast = plan.trackLayouts[0].measures.filter(
+      (l) => lastSystem.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem,
+    );
+    for (const layout of onLast) expect(layout.box.width).toBe(200);
   });
 });
 
@@ -278,5 +292,97 @@ describe('page mode fits the viewport width', () => {
     });
     expect(plan.totalWidth).toBeGreaterThan(900);
     expect(plan.systems).toHaveLength(1);
+  });
+});
+
+describe('showTrackInfo', () => {
+  it('reserves the gutter column by default', () => {
+    const plan = computeLayout(twoTrackScore(), options());
+    expect(plan.systems[0].xLeft).toBeGreaterThanOrEqual(TRACK_INFO_WIDTH);
+  });
+
+  it('gives the gutter column back to the music when off', () => {
+    // 220px is a fifth of a page; printing has no track names or mute buttons
+    // to put there.
+    const score = twoTrackScore();
+    const withGutter = computeLayout(score, options());
+    const without = computeLayout(score, options({ showTrackInfo: false }));
+
+    expect(without.systems[0].xLeft).toBeLessThan(withGutter.systems[0].xLeft);
+    expect(withGutter.systems[0].xLeft - without.systems[0].xLeft).toBe(TRACK_INFO_WIDTH);
+  });
+
+  it('fits at least as much music per system without the gutter', () => {
+    const score = twinkleScore();
+    const withGutter = computeLayout(score, options());
+    const without = computeLayout(score, options({ showTrackInfo: false }));
+    expect(without.systems.length).toBeLessThanOrEqual(withGutter.systems.length);
+  });
+
+  it('still keeps the layout inside the available width', () => {
+    // The packing budget derives from leftMargin, so shrinking the margin must
+    // not let totalWidth run past the viewport.
+    const without = computeLayout(stressScore(3, 24), options({ showTrackInfo: false, width: 700 }));
+    expect(without.totalWidth).toBeLessThanOrEqual(700);
+  });
+});
+
+describe('system justification', () => {
+  const rightEdgeOf = (plan: ReturnType<typeof computeLayout>, systemIndex: number) => {
+    const boxes = plan.trackLayouts[0].measures.filter((m) =>
+      plan.systems[systemIndex].measureIndices.includes(m.measureIndex),
+    );
+    return Math.max(...boxes.map((m) => m.box.x + m.box.width));
+  };
+
+  it('stretches a full system out to the margin', () => {
+    // Engraved music justifies every full system. Leaving a third of the width
+    // blank is what made the printed page look broken, and it looked no better
+    // on screen.
+    const plan = computeLayout(twinkleScore(), options({ width: 1000 }));
+    const right = rightEdgeOf(plan, 0);
+    expect(right).toBeGreaterThan(1000 - 60);
+    expect(right).toBeLessThanOrEqual(1000);
+  });
+
+  it('leaves the last system alone', () => {
+    // A final line of two bars stretched across the page looks worse than a
+    // short one, which is why engravers do not justify it.
+    const plan = computeLayout(twinkleScore(), options({ width: 1000 }));
+    const last = plan.systems.length - 1;
+    expect(rightEdgeOf(plan, last)).toBeLessThan(rightEdgeOf(plan, 0));
+  });
+
+  it('never runs past the available width', () => {
+    for (const width of [700, 900, 1200]) {
+      const plan = computeLayout(stressScore(2, 20), options({ width }));
+      expect(plan.totalWidth, `width ${width}`).toBeLessThanOrEqual(width);
+      expect(rightEdgeOf(plan, 0), `width ${width}`).toBeLessThanOrEqual(width);
+    }
+  });
+
+  it('keeps every measure in a system adjacent, without gaps or overlap', () => {
+    // Hit-testing and the caret read these boxes; a gap between them would be
+    // a band of staff that resolves to no measure.
+    const plan = computeLayout(twinkleScore(), options({ width: 1000 }));
+    const first = plan.trackLayouts[0].measures
+      .filter((m) => plan.systems[0].measureIndices.includes(m.measureIndex))
+      .sort((a, b) => a.box.x - b.box.x);
+    for (let i = 1; i < first.length; i++) {
+      expect(first[i].box.x).toBeCloseTo(first[i - 1].box.x + first[i - 1].box.width, 5);
+    }
+  });
+
+  it('keeps each track\'s measures aligned across the system', () => {
+    // The shared barline grid: track 2's bar 3 must start where track 1's does.
+    const plan = computeLayout(twoTrackScore(), options({ width: 1000 }));
+    for (const measure of plan.trackLayouts[0].measures) {
+      const other = plan.trackLayouts[1].measures.find(
+        (m) => m.measureIndex === measure.measureIndex,
+      );
+      if (!other) continue;
+      expect(other.box.x).toBeCloseTo(measure.box.x, 5);
+      expect(other.box.width).toBeCloseTo(measure.box.width, 5);
+    }
   });
 });

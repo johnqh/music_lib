@@ -43,6 +43,16 @@ const DEFAULT_DEV_SETTINGS: DevSettings = {
   enableValidationWarnings: true,
 };
 
+/**
+ * What happens to music already at the caret when a new note is written.
+ *
+ * `insert` shifts the active track's later notes out of the way, `replace`
+ * overwrites them, `stack` joins them as a chord. Deliberately NOT about
+ * whether one gesture makes a chord — keys held together are one chord in
+ * every mode, because that is what playing them means.
+ */
+export type EditMode = 'insert' | 'replace' | 'stack';
+
 export type UiSlice = {
   /**
    * The track the caret, the piano roll, and the notation's active-stave
@@ -73,6 +83,31 @@ export type UiSlice = {
   themeMode: ThemeMode;
   zoom: number;
   snapGrid: DurationName;
+
+  /**
+   * What writing a note does to music already at the caret.
+   *
+   * Lives here rather than in the editor because everything that writes notes
+   * — the toolbar, the piano keyboard, paste — sits in different subtrees and
+   * must agree.
+   *
+   * Not persisted: it is how you are editing right now, not a property of the
+   * piece, and saving it would queue a write on every toggle.
+   */
+  editMode: EditMode;
+
+  /**
+   * Which voice new notes are written into, 0-based.
+   *
+   * Two voices on one stave is how a part carries independent lines — a melody
+   * over a held bass, stems up against stems down. The model has always
+   * supported it (`ensureVoiceAtIndex` creates the voice on demand, and the
+   * renderer formats each voice group separately); nothing could choose one.
+   *
+   * Not persisted, and not per-track: it is where you are writing right now.
+   */
+  activeVoiceIndex: number;
+
   developerMode: boolean;
   devSettings: DevSettings;
   dialogs: Record<string, boolean>;
@@ -94,6 +129,8 @@ export type UiSlice = {
   setThemeMode: (mode: ThemeMode) => void;
   setZoom: (zoom: number) => void;
   setSnapGrid: (grid: DurationName) => void;
+  setEditMode: (mode: EditMode) => void;
+  setActiveVoice: (voiceIndex: number) => void;
   setDeveloperMode: (enabled: boolean) => void;
   /** Merges `patch` into `devSettings`. */
   setDevSettings: (patch: Partial<DevSettings>) => void;
@@ -114,6 +151,8 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   themeMode: 'system',
   zoom: 1,
   snapGrid: 'quarter',
+  editMode: 'replace',
+  activeVoiceIndex: 0,
   developerMode: false,
   devSettings: DEFAULT_DEV_SETTINGS,
   dialogs: {},
@@ -153,6 +192,18 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
   setSnapGrid: (grid) => {
     set((state) => {
       state.snapGrid = grid;
+    });
+  },
+  setEditMode: (mode) => {
+    set((state) => {
+      state.editMode = mode;
+    });
+  },
+  setActiveVoice: (voiceIndex) => {
+    // Clamped rather than trusted: a negative index would silently write into
+    // `voices[-1]`, which is not a voice and not an error either.
+    set((state) => {
+      state.activeVoiceIndex = Math.max(0, Math.floor(voiceIndex));
     });
   },
   setDeveloperMode: (enabled) => {

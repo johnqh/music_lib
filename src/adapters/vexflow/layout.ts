@@ -165,7 +165,11 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const staveHeight = STAVE_HEIGHT;
   const trackGap = TRACK_GAP;
   const systemGap = SYSTEM_GAP;
-  const leftMargin = LEFT_MARGIN + TRACK_INFO_WIDTH;
+  // The gutter's reserved column is part of the left margin, so turning the
+  // gutter off has to shrink the margin too — otherwise the space stays blank
+  // and the music is simply indented for no reason.
+  const showTrackInfo = options.showTrackInfo ?? true;
+  const leftMargin = LEFT_MARGIN + (showTrackInfo ? TRACK_INFO_WIDTH : 0);
   // Trailing margin is the plain page margin, NOT `leftMargin`: that one
   // carries the track-info gutter's reserved column, and mirroring it on the
   // right padded every page-mode layout with a phantom TRACK_INFO_WIDTH of
@@ -226,10 +230,44 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
     const yTop = topMargin + systemIndex * (trackRowHeight + systemGap);
     const yBottom = yTop + trackRowHeight;
 
+    /**
+     * Extra width spread across this system's measures so it reaches the
+     * margin — what engravers call justification.
+     *
+     * Without it a system stops wherever the next measure would not have fit,
+     * leaving up to a whole measure's width blank at the right. That reads as
+     * a mistake on paper and no better on screen.
+     *
+     * The last system is deliberately left at its natural width: a final line
+     * of two bars stretched across the page looks worse than a short one.
+     * Continuous mode is never justified — it has no right margin to reach.
+     */
+    const naturalWidth = measureIndices.reduce(
+      (sum, index, position) => sum + widthOf(index, position === 0),
+      0,
+    );
+    const isLastSystem = systemIndex === systemsOfIndices.length - 1;
+    const justifiable =
+      options.layoutMode === 'page' && !isLastSystem && naturalWidth > 0;
+    const slack = justifiable
+      ? Math.max(0, logicalAvailableWidth - leftMargin - rightMargin - naturalWidth)
+      : 0;
+    // Shared out in proportion to what each measure already occupies, so a
+    // dense bar keeps its extra room rather than a sparse one being padded to
+    // match it.
+    const stretch = naturalWidth > 0 ? slack / naturalWidth : 0;
+
     let cursorX = leftMargin;
     measureIndices.forEach((measureIndex, positionInSystem) => {
       const isFirstInSystem = positionInSystem === 0;
-      const width = widthOf(measureIndex, isFirstInSystem);
+      const naturalMeasureWidth = widthOf(measureIndex, isFirstInSystem);
+      // Rounded to whole units, then the last measure absorbs whatever the
+      // rounding lost — otherwise the system lands a pixel or two short and
+      // the final barline never quite meets the margin.
+      const isLastInSystem = positionInSystem === measureIndices.length - 1;
+      const width = isLastInSystem
+        ? leftMargin + naturalWidth + slack - cursorX
+        : naturalMeasureWidth + naturalMeasureWidth * stretch;
 
       tracks.forEach((track, trackIndex) => {
         if (measureIndex >= track.measures.length) return;

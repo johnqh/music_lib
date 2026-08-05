@@ -3,6 +3,7 @@ import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 import { emptySelection } from '../../domain/selection/types.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import { allNotes } from '../../domain/score/queries.js';
 
 describe('selection-slice', () => {
   describe('setSelection / clearSelection', () => {
@@ -203,5 +204,144 @@ describe('selectionRegenerated', () => {
     store.setState({ selectionRegenerated: true });
     store.getState().selectTrack('t1');
     expect(store.getState().selectionRegenerated).toBe(false);
+  });
+
+  describe('paste honours the edit mode', () => {
+    /** Copies the first treble note, then targets the treble track itself. */
+    function storeWithClipboard() {
+      const store = createAppStore({ context: testStoreContext() });
+      const score = twoTrackScore();
+      store.getState().setScore(score);
+      const trackId = score.tracks[0].id;
+      const noteId = score.tracks[0].measures[0].voices[0].events[0].id;
+      store.getState().setSelection({ eventIds: [noteId], measureIds: [], trackIds: [] });
+      store.getState().copySelection();
+      store.getState().setSelection({ eventIds: [], measureIds: [], trackIds: [trackId] });
+      return { store, trackId };
+    }
+
+    const notesOn = (store: ReturnType<typeof createAppStore>, trackId: string) =>
+      allNotes(store.getState().score!)
+        .filter((n) => n.trackId === trackId)
+        .sort((a, b) => a.startTick - b.startTick);
+
+    it('insert mode keeps everything that was there', () => {
+      const { store, trackId } = storeWithClipboard();
+      store.getState().setEditMode('insert');
+      const before = notesOn(store, trackId).map((n) => n.id);
+
+      store.getState().paste(0);
+
+      const afterIds = new Set(notesOn(store, trackId).map((n) => n.id));
+      for (const id of before) expect(afterIds.has(id), `note ${id} survived`).toBe(true);
+    });
+
+    it('replace mode clears the span it pastes into', () => {
+      const { store, trackId } = storeWithClipboard();
+      store.getState().setEditMode('replace');
+      const displaced = notesOn(store, trackId)[0].id;
+
+      store.getState().paste(0);
+
+      expect(notesOn(store, trackId).some((n) => n.id === displaced)).toBe(false);
+    });
+
+    it('stack mode leaves the existing notes in place', () => {
+      const { store, trackId } = storeWithClipboard();
+      store.getState().setEditMode('stack');
+      const before = notesOn(store, trackId).length;
+
+      store.getState().paste(0);
+
+      expect(notesOn(store, trackId).length).toBeGreaterThanOrEqual(before);
+    });
+  });
+});
+
+describe('cut can close the gap it leaves', () => {
+  function storeWithMelody() {
+    const store = createAppStore({ context: testStoreContext() });
+    const score = twoTrackScore();
+    store.getState().setScore(score);
+    return { store, trackId: score.tracks[0].id };
+  }
+
+  const notesOn = (store: ReturnType<typeof createAppStore>, trackId: string) =>
+    allNotes(store.getState().score!)
+      .filter((n) => n.trackId === trackId)
+      .sort((a, b) => a.startTick - b.startTick);
+
+  it('leaves silence by default', () => {
+    const { store, trackId } = storeWithMelody();
+    const notes = notesOn(store, trackId);
+    const second = notes[1];
+    const thirdStart = notes[2].startTick;
+    store.getState().setSelection({ eventIds: [second.id], measureIds: [], trackIds: [] });
+
+    store.getState().cutSelection();
+
+    // The note after the cut has not moved: the time it left is now rest.
+    expect(notesOn(store, trackId).find((n) => n.id === notes[2].id)!.startTick).toBe(thirdStart);
+  });
+
+  it('slides the rest of the track up when asked', () => {
+    const { store, trackId } = storeWithMelody();
+    const notes = notesOn(store, trackId);
+    const second = notes[1];
+    const gap = second.durationTicks;
+    const thirdStart = notes[2].startTick;
+    store.getState().setSelection({ eventIds: [second.id], measureIds: [], trackIds: [] });
+
+    store.getState().cutSelection({ closeGap: true });
+
+    expect(notesOn(store, trackId).find((n) => n.id === notes[2].id)!.startTick).toBe(
+      thirdStart - gap,
+    );
+  });
+
+  it('leaves the other track alone when closing a gap', () => {
+    const { store, trackId } = storeWithMelody();
+    const otherId = store.getState().score!.tracks[1].id;
+    const before = notesOn(store, otherId).map((n) => n.startTick);
+    const second = notesOn(store, trackId)[1];
+    store.getState().setSelection({ eventIds: [second.id], measureIds: [], trackIds: [] });
+
+    store.getState().cutSelection({ closeGap: true });
+
+    expect(notesOn(store, otherId).map((n) => n.startTick)).toEqual(before);
+  });
+
+  it('still puts the cut notes on the clipboard', () => {
+    const { store, trackId } = storeWithMelody();
+    const second = notesOn(store, trackId)[1];
+    store.getState().setSelection({ eventIds: [second.id], measureIds: [], trackIds: [] });
+
+    store.getState().cutSelection({ closeGap: true });
+
+    expect(store.getState().clipboard?.events.length).toBe(1);
+  });
+});
+
+describe('paste takes an explicit scope', () => {
+  it('an explicit scope overrides the edit mode', () => {
+    // The dialog asks the user; their answer must win over whatever mode the
+    // toolbar happens to be in.
+    const store = createAppStore({ context: testStoreContext() });
+    const score = twoTrackScore();
+    store.getState().setScore(score);
+    const trackId = score.tracks[0].id;
+    const noteId = score.tracks[0].measures[0].voices[0].events[0].id;
+    store.getState().setSelection({ eventIds: [noteId], measureIds: [], trackIds: [] });
+    store.getState().copySelection();
+    store.getState().setSelection({ eventIds: [], measureIds: [], trackIds: [trackId] });
+    store.getState().setEditMode('replace');
+
+    const before = allNotes(store.getState().score!).filter((n) => n.trackId === trackId).length;
+    store.getState().paste(0, { scope: 'insert' });
+
+    // Insert keeps everything; replace would have cleared the span.
+    expect(
+      allNotes(store.getState().score!).filter((n) => n.trackId === trackId).length,
+    ).toBeGreaterThan(before);
   });
 });

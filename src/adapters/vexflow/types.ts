@@ -58,6 +58,14 @@ export type RenderOptions = {
   activeTrackId?: string | null;
   /** Measure ids whose gutter cell is tinted as selected — measure selection's only visual feedback, now that notes carry their own color. */
   selectedMeasureIds?: ReadonlySet<string>;
+  /**
+   * Whether to reserve and draw the left track-info gutter (name, instrument,
+   * mute/solo). Default `true`.
+   *
+   * Off for print: paper has no buttons to press, and the 220px the gutter
+   * reserves is a fifth of a page width the music can use instead.
+   */
+  showTrackInfo?: boolean;
   theme: RenderTheme;
 };
 
