@@ -31,6 +31,7 @@ export * from './domain/commands/snapshot.js';
 export * from './domain/commands/reflow.js';
 export * from './domain/commands/note-commands.js';
 export * from './domain/commands/ripple-commands.js';
+export * from './domain/commands/relocate-commands.js';
 export * from './domain/commands/structure-commands.js';
 export * from './domain/commands/edit-commands.js';
 export * from './domain/commands/region-commands.js';
