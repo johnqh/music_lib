@@ -45,7 +45,7 @@ export function deleteMeasureCommand(measureIndex: number): ScoreCommand {
 // ---- addTrackCommand / deleteTrackCommand --------------------------------------
 
 /** Builds a fully-rested measure matching an existing measure's position/signatures, for a newly added track. */
-function restMeasureLike(reference: Measure, trackId: UUID): Measure {
+export function restMeasureLike(reference: Measure, trackId: UUID): Measure {
   const voiceId = createId();
   return {
     id: createId(),
