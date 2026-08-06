@@ -30,6 +30,9 @@ import type { MeasureLayout } from './layout.js';
  */
 export const CUE_GLYPH_SCALE = 26;
 
+/** Cue labels are small italic by convention, and must not crowd the bar number. */
+export const CUE_LABEL_FONT_SIZE = 9;
+
 function sameTimeSignature(a: TimeSignature, b: TimeSignature): boolean {
   return a.numerator === b.numerator && a.denominator === b.denominator;
 }
@@ -100,6 +103,18 @@ export function buildMeasureContent(
   if (measure.cue !== undefined) {
     stave.setText(measure.cue.label, StaveModifierPosition.ABOVE, {
       justification: TextJustification.LEFT,
+    });
+
+    // Small italic, the engraving convention for a cue label — and small
+    // enough not to crowd the measure number sitting just above it.
+    // `setText` returns the stave, not the modifier, so the StaveText has to
+    // be fetched back off the stave to restyle it.
+    const staveTexts = stave.getModifiers().filter((m) => m.getCategory() === 'StaveText');
+    staveTexts[staveTexts.length - 1]?.setFont({
+      family: 'serif',
+      size: CUE_LABEL_FONT_SIZE,
+      weight: 'normal',
+      style: 'italic',
     });
 
     const { notes } = buildVoiceContent(measure.cue.events, ppq, CUE_GLYPH_SCALE);
