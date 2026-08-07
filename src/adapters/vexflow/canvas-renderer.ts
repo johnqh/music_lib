@@ -60,11 +60,15 @@ const BARLINE_CLEARANCE = 12;
 
 /** Measure-number type, and where it sits inside the gutter band. */
 const GUTTER_FONT = '11px sans-serif';
+const GUTTER_FONT_SELECTED = 'bold 11px sans-serif';
 const GUTTER_TEXT_INSET = 3;
 /** Distance from the band's bottom edge up to the text baseline, so numbers sit just above the stave. */
 const GUTTER_TEXT_BASELINE_INSET = 5;
 /** Selected-measure tint opacity: enough to read as "selected", light enough to keep the number legible over it. */
-const GUTTER_TINT_ALPHA = 0.18;
+/** Thickness of the rule marking a selected measure's span. */
+const GUTTER_RULE_HEIGHT = 2;
+/** Gap between that rule and the baseline of the number above it. */
+const GUTTER_RULE_GAP = 3;
 
 /** Track-info gutter type and insets. */
 const TRACK_INFO_NAME_FONT = 'bold 12px sans-serif';
@@ -526,9 +530,14 @@ export class CanvasScoreRenderer {
   }
 
   /**
-   * Measure numbers in the band above the system's top stave, plus a tint
-   * behind any measure in `selectedMeasureIds` — measure selection's only
-   * visual feedback, since notes carry their own color now.
+   * Measure numbers in the band above the system's top stave, with any
+   * measure in `selectedMeasureIds` marked by colouring its number and ruling
+   * a line along its width.
+   *
+   * Colour carries the state and the rule carries the *extent* — a selection
+   * usually spans several bars, and a coloured number alone cannot show where
+   * one stops. No fill: notes gave up their highlight rectangle when
+   * `paintHighlights` was deleted, and this was the last one left.
    *
    * Drawn straight to the 2D context: there is no VexFlow object for "the
    * space above a stave", and a number plus a rect needs none. Measure
@@ -557,15 +566,22 @@ export class CanvasScoreRenderer {
       if (!placement || !measure) continue;
       const box = placement.box;
 
-      if (options.selectedMeasureIds?.has(measure.id)) {
+      const selected = options.selectedMeasureIds?.has(measure.id) ?? false;
+
+      if (selected) {
+        // Full width and abutting the next bar's rule, so a multi-measure
+        // selection reads as one continuous span rather than dashes.
         ctx.fillStyle = options.theme.noteSelected;
-        ctx.globalAlpha = GUTTER_TINT_ALPHA;
-        ctx.fillRect(box.x, system.gutterTop, box.width, MEASURE_HEADER_HEIGHT);
-        ctx.globalAlpha = 1;
+        ctx.fillRect(
+          box.x,
+          baselineY + GUTTER_RULE_GAP,
+          box.width,
+          GUTTER_RULE_HEIGHT,
+        );
       }
 
-      ctx.fillStyle = options.theme.foreground;
-      ctx.font = GUTTER_FONT;
+      ctx.fillStyle = selected ? options.theme.noteSelected : options.theme.foreground;
+      ctx.font = selected ? GUTTER_FONT_SELECTED : GUTTER_FONT;
       // `measure.index` is 0-based; measure numbers are 1-based.
       ctx.fillText(String(measure.index + 1), box.x + GUTTER_TEXT_INSET, baselineY);
     }
