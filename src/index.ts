@@ -87,6 +87,11 @@ export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/note-color.js';
 
 
+// adapters/mod
+export * from './adapters/mod/types.js';
+export * from './adapters/mod/timing.js';
+export * from './adapters/mod/import.js';
+
 // adapters/midi
 export * from './adapters/midi/analyze.js';
 export * from './adapters/midi/import.js';
