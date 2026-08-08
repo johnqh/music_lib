@@ -122,8 +122,8 @@ describe('analyzeMidi: detected quantization grid', () => {
   });
 });
 
-describe('analyzeMidi: percussion does not choose the grid', () => {
-  it('ignores a channel-10 track laid on a finer grid than the music', () => {
+describe('analyzeMidi: percussion counts toward the grid', () => {
+  it('picks a grid fine enough for the drums, not just the melody', () => {
     const { Midi } = midiLib;
     const midi = new Midi();
     midi.header.setTempo(120);
@@ -133,14 +133,14 @@ describe('analyzeMidi: percussion does not choose the grid', () => {
     for (let i = 0; i < 16; i++)
       melody.addNote({ midi: 60, ticks: i * ppq, durationTicks: ppq });
 
-    // A hi-hat on thirty-seconds: musically subordinate, and it used to drag
-    // the whole file onto its grid.
+    // A hi-hat on thirty-seconds. The grid is applied to every track, so one
+    // chosen from the melody alone would snap the whole kit onto the beat.
     const drums = midi.addTrack();
     drums.channel = 9;
     for (let i = 0; i < 128; i++)
       drums.addNote({ midi: 42, ticks: Math.round(i * ppq / 8), durationTicks: 10 });
 
     const summary = analyzeMidi(midi.toArray().buffer as ArrayBuffer, codec);
-    expect(summary.detectedGrid).toEqual({ grid: 'quarter', triplet: false });
+    expect(summary.detectedGrid).toEqual({ grid: 'thirtysecond', triplet: false });
   });
 });

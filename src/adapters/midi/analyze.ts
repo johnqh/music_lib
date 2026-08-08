@@ -64,13 +64,23 @@ function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
  * surface them, per spec §28).
  */
 export function analyzeMidiFile(midi: MidiFile): MidiSummary {
-  // Percussion is excluded from detection: a hi-hat track is often laid on a
-  // finer grid than the music, and would drag the whole file onto it.
-  // Note ends go in alongside onsets because the detected grid quantizes
-  // durations too — see `detectGrid`.
-  const positions = midi.tracks
-    .filter((track) => track.channel !== 9)
-    .flatMap((track) => track.notes.flatMap((note) => [note.ticks, note.ticks + note.durationTicks]));
+  // Every track counts, percussion included. Excluding the drums was a
+  // mistake: the grid chosen here is applied to *all* of them, so leaving a
+  // hi-hat laid on thirty-seconds out of the decision let the melody pick a
+  // quarter-note grid and then collapsed the whole kit onto the beat. Erring
+  // toward a finer grid costs only some tidiness in the notation; erring
+  // toward a coarser one destroys the groove.
+  //
+  // Note ends go in alongside onsets because the chosen grid quantizes
+  // durations too — see `detectGrid`. Percussion contributes onsets only: a
+  // drum hit's length is an artefact of how it was recorded, not something
+  // anyone plays or reads, and those arbitrary note-offs fit no grid at all,
+  // so counting them would send every file with drums to the fallback.
+  const positions = midi.tracks.flatMap((track) =>
+    track.notes.flatMap((note) =>
+      track.channel === 9 ? [note.ticks] : [note.ticks, note.ticks + note.durationTicks],
+    ),
+  );
 
   return {
     ppq: midi.header.ppq,
