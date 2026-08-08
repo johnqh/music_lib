@@ -12,7 +12,7 @@
       "devDependencies": {
         "@eslint/js": "^9.38.0",
         "@sudobility/music_client": "^0.4.7",
-        "@sudobility/music_io": "^0.6.11",
+        "@sudobility/music_io": "^0.6.12",
         "@sudobility/music_types": "^0.11.5",
         "@tanstack/react-query": "^5.0.0",
         "@types/node": "^26.1.2",
@@ -144,7 +144,7 @@
 
     "@sudobility/music_client": ["@sudobility/music_client@0.4.7", "", { "dependencies": { "@sudobility/music_types": "^0.11.5" }, "peerDependencies": { "@sudobility/di": "^1.5.59", "@sudobility/types": "^1.9.64", "@tanstack/react-query": ">=5", "react": ">=18" } }, "sha512-tbejCErch+XfJ/8kCPJ6xLIXPqunKz9gTi9MjV65lVOudh2dewwOLpo5fy/Z0dqx2dpy5fMBqKVrOLauSaLZeA=="],
 
-    "@sudobility/music_io": ["@sudobility/music_io@0.6.11", "", { "dependencies": { "@breezystack/lamejs": "^1.2.7" }, "peerDependencies": { "@sudobility/music_lib": "^1.7.9", "@sudobility/music_types": "^0.11.5", "@tonejs/midi": "^2.0.28", "fast-xml-parser": "", "react-native-audio-api": ">=0.13.0", "react-native-fs": ">=2.20.0", "react-native-share": ">=10.0.0", "tone": "^15" }, "optionalPeers": ["fast-xml-parser", "react-native-audio-api", "react-native-fs", "react-native-share", "tone"] }, "sha512-B+nu/NhAnnbW8dlhiTDA4f3pNIpYfaK7MWF2jh7W7TPW3EoTi8GljTEmYW+7TNo//yfL073XDBHbXZvF+5sU3Q=="],
+    "@sudobility/music_io": ["@sudobility/music_io@0.6.12", "", { "dependencies": { "@breezystack/lamejs": "^1.2.7" }, "peerDependencies": { "@sudobility/music_lib": "^1.7.10", "@sudobility/music_types": "^0.11.5", "@tonejs/midi": "^2.0.28", "fast-xml-parser": "", "react-native-audio-api": ">=0.13.0", "react-native-fs": ">=2.20.0", "react-native-share": ">=10.0.0", "tone": "^15" }, "optionalPeers": ["fast-xml-parser", "react-native-audio-api", "react-native-fs", "react-native-share", "tone"] }, "sha512-sDbELO+gStUTBrBdRU2hLWxEWgN8r6b5MZYI567+yEbq0y5lMH3bdMpcSTZJRf774vPrOvz3EZ/c+0kguy/p0Q=="],
 
     "@sudobility/music_lib": ["@sudobility/music_lib@0.11.1", "", { "dependencies": { "@tonejs/midi": "^2.0.28", "dexie": "^4.0.0", "immer": "^10.0.0 || ^11.0.0", "tone": "^15.0.0", "vexflow": "^4.2.5", "zod": "^4.0.0" }, "peerDependencies": { "@sudobility/music_client": "^0.1.1", "@sudobility/music_types": "^0.1.0", "@tanstack/react-query": ">=5", "react": ">=18", "zustand": ">=5" } }, "sha512-atp4cQhk4V7/9wk8+gRQuvOoIBpYe4Z6OxLjVVYM5WC4uXW9TW78UNpYumRG2nejB6s8MrlOfkeu4nNkH8sDTQ=="],
 

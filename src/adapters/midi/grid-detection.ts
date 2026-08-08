@@ -69,13 +69,21 @@ function fits(onsetBeats: number[], gridBeats: number): boolean {
 }
 
 /**
- * The coarsest grid `onsetTicks` already sits on, or `FALLBACK_GRID` when none
- * does. `ppq` is the file's own resolution — onsets are compared in beats, so
- * a 960-ppq file and a 480-ppq one holding the same music detect alike.
+ * The coarsest grid `positions` already sit on, or `FALLBACK_GRID` when none
+ * does. `ppq` is the file's own resolution — positions are compared in beats,
+ * so a 960-ppq file and a 480-ppq one holding the same music detect alike.
+ *
+ * Callers pass note *ends* as well as onsets. The chosen grid quantizes
+ * durations too, so a grid picked from onsets alone can still be too coarse to
+ * express the file: a piece played in staccato quarters has quarter-note
+ * onsets but eighth-note ends, and snapping those ends up to the quarter grid
+ * would smear every note into the next and make the whole thing sound
+ * sluggish. Feeding ends in makes the detector reject a grid that cannot hold
+ * them.
  */
-export function detectGrid(onsetTicks: number[], ppq: number): DetectedGrid {
-  if (onsetTicks.length === 0 || ppq <= 0) return FALLBACK_GRID;
-  const onsetBeats = onsetTicks.map((tick) => tick / ppq);
+export function detectGrid(positions: number[], ppq: number): DetectedGrid {
+  if (positions.length === 0 || ppq <= 0) return FALLBACK_GRID;
+  const onsetBeats = positions.map((tick) => tick / ppq);
   const match = CANDIDATES.find((candidate) => fits(onsetBeats, candidate.beats));
   return match ? { grid: match.grid, triplet: match.triplet } : FALLBACK_GRID;
 }

@@ -751,3 +751,85 @@ describe('PlaybackController: auditioning', () => {
     controller.dispose();
   });
 });
+
+describe('PlaybackController: hidden tracks are silent', () => {
+  /** Every `setTrackMute(id, muted)` the engine was told, as a map of the final value per track. */
+  function muteState(engine: PlaybackEngine): Record<string, boolean> {
+    const calls = (engine.setTrackMute as ReturnType<typeof vi.fn>).mock.calls;
+    const out: Record<string, boolean> = {};
+    for (const [trackId, muted] of calls) out[trackId as string] = muted as boolean;
+    return out;
+  }
+
+  it('mutes a track that is hidden and leaves a visible one alone', async () => {
+    // Visibility reached the notation and the print sheet but never the audio,
+    // so a hidden track went on playing.
+    const store = makeStore();
+    store.getState().setScore(twoTrackScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await flushAsync();
+
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setVisibleTracks([first.id]);
+    await flushAsync();
+
+    expect(muteState(engine)[second.id]).toBe(true);
+    expect(muteState(engine)[first.id]).toBe(false);
+  });
+
+  it('unmutes a track when it is shown again', async () => {
+    const store = makeStore();
+    store.getState().setScore(twoTrackScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await flushAsync();
+
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setVisibleTracks([first.id]);
+    await flushAsync();
+    store.getState().setVisibleTracks([first.id, second.id]);
+    await flushAsync();
+
+    expect(muteState(engine)[second.id]).toBe(false);
+  });
+
+  it('re-applies visibility after a score change, which reseeds mute from the score', async () => {
+    // `loadScore` seeds each channel's mute from `Track.muted`, so without a
+    // re-apply the next edit would let a hidden track start sounding again.
+    const store = makeStore();
+    store.getState().setScore(twoTrackScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await flushAsync();
+
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setVisibleTracks([first.id]);
+    await flushAsync();
+
+    (engine.setTrackMute as ReturnType<typeof vi.fn>).mockClear();
+    store.getState().setScore({ ...store.getState().score! }); // new identity = an edit
+    await flushAsync();
+
+    expect(muteState(engine)[second.id]).toBe(true);
+  });
+
+  it('keeps an explicit mute muted after the track is hidden and shown again', async () => {
+    // Visibility must not overwrite what the user asked for; the two combine.
+    const store = makeStore();
+    const base = twoTrackScore();
+    const muted = { ...base, tracks: [base.tracks[0], { ...base.tracks[1], muted: true }] };
+    store.getState().setScore(muted);
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await flushAsync();
+
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setVisibleTracks([first.id]);
+    await flushAsync();
+    store.getState().setVisibleTracks([first.id, second.id]);
+    await flushAsync();
+
+    expect(muteState(engine)[second.id]).toBe(true);
+  });
+});

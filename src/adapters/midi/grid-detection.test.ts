@@ -77,3 +77,15 @@ describe('detectGrid', () => {
     expect(detectGrid([0, 240], 0)).toEqual(FALLBACK_GRID);
   });
 });
+
+describe('detectGrid accounts for note ends, not just onsets', () => {
+  it('refuses a grid too coarse to hold the note durations', () => {
+    // Staccato quarters: onsets on the quarter grid, ends on the eighth grid.
+    // Choosing "quarter" here would stretch every note to fill the beat and
+    // make the piece sound sluggish and slurred.
+    const onsets = [0, 1, 2, 3, 4, 5, 6, 7];
+    const ends = onsets.map((b) => b + 0.5);
+    const positions = [...onsets, ...ends].map((b) => Math.round(b * PPQ));
+    expect(detectGrid(positions, PPQ)).toEqual({ grid: 'eighth', triplet: false });
+  });
+});

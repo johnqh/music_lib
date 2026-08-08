@@ -66,13 +66,15 @@ function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
 export function analyzeMidiFile(midi: MidiFile): MidiSummary {
   // Percussion is excluded from detection: a hi-hat track is often laid on a
   // finer grid than the music, and would drag the whole file onto it.
-  const onsets = midi.tracks
+  // Note ends go in alongside onsets because the detected grid quantizes
+  // durations too — see `detectGrid`.
+  const positions = midi.tracks
     .filter((track) => track.channel !== 9)
-    .flatMap((track) => track.notes.map((note) => note.ticks));
+    .flatMap((track) => track.notes.flatMap((note) => [note.ticks, note.ticks + note.durationTicks]));
 
   return {
     ppq: midi.header.ppq,
-    detectedGrid: detectGrid(onsets, midi.header.ppq),
+    detectedGrid: detectGrid(positions, midi.header.ppq),
     durationSeconds: midi.duration,
     tracks: midi.tracks.map(summarizeTrack),
     tempoEvents: midi.header.tempos.map((t) => ({ tick: t.ticks, bpm: t.bpm })),

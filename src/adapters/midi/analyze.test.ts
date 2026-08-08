@@ -5,6 +5,7 @@ import { createEmptyScore } from '../../domain/score/factory.js';
 import { createId } from '../../domain/score/ids.js';
 import { chordScore, twoTrackScore } from '../../test/fixtures.js';
 import { createMusicIo } from '@sudobility/music_io/mocks';
+import * as midiLib from '@tonejs/midi';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
 // and the mocks entry -- unlike music_io/web -- does not import music_lib.
@@ -86,5 +87,60 @@ describe('analyzeMidi', () => {
     // only noteCount/averageMidi are meaningful here.
     expect(empty?.noteCount).toBe(0);
     expect(empty?.averageMidi).toBeNull();
+  });
+});
+
+describe('analyzeMidi: detected quantization grid', () => {
+  /** A one-track file at `ppq`, with a note at each of `onsets` lasting `lengthBeats`. */
+  function fileWith(onsets: number[], lengthBeats: number): ArrayBuffer {
+    const { Midi } = midiLib;
+    const midi = new Midi();
+    midi.header.setTempo(120);
+    const ppq = midi.header.ppq;
+    const track = midi.addTrack();
+    for (const beat of onsets) {
+      track.addNote({
+        midi: 60,
+        ticks: Math.round(beat * ppq),
+        durationTicks: Math.round(lengthBeats * ppq),
+      });
+    }
+    return midi.toArray().buffer as ArrayBuffer;
+  }
+
+  it('reports the triplet grid for a file written in triplets', () => {
+    const onsets = [0, 1 / 3, 2 / 3, 1, 4 / 3, 5 / 3, 2, 7 / 3, 8 / 3];
+    const summary = analyzeMidi(fileWith(onsets, 1 / 3), codec);
+    expect(summary.detectedGrid).toEqual({ grid: 'eighth', triplet: true });
+  });
+
+  it('takes note ends into account, not just onsets', () => {
+    // Staccato quarters: quarter onsets, eighth-note ends. Reporting "quarter"
+    // would stretch every note to fill its beat.
+    const summary = analyzeMidi(fileWith([0, 1, 2, 3, 4, 5, 6, 7], 0.5), codec);
+    expect(summary.detectedGrid).toEqual({ grid: 'eighth', triplet: false });
+  });
+});
+
+describe('analyzeMidi: percussion does not choose the grid', () => {
+  it('ignores a channel-10 track laid on a finer grid than the music', () => {
+    const { Midi } = midiLib;
+    const midi = new Midi();
+    midi.header.setTempo(120);
+    const ppq = midi.header.ppq;
+
+    const melody = midi.addTrack();
+    for (let i = 0; i < 16; i++)
+      melody.addNote({ midi: 60, ticks: i * ppq, durationTicks: ppq });
+
+    // A hi-hat on thirty-seconds: musically subordinate, and it used to drag
+    // the whole file onto its grid.
+    const drums = midi.addTrack();
+    drums.channel = 9;
+    for (let i = 0; i < 128; i++)
+      drums.addNote({ midi: 42, ticks: Math.round(i * ppq / 8), durationTicks: 10 });
+
+    const summary = analyzeMidi(midi.toArray().buffer as ArrayBuffer, codec);
+    expect(summary.detectedGrid).toEqual({ grid: 'quarter', triplet: false });
   });
 });

@@ -20,6 +20,7 @@ import { selectionToRange } from '../../domain/selection/selection.js';
 import type { ScoreRange } from '../../domain/selection/types.js';
 import type { Score } from '@sudobility/music_types';
 import { getMusicPlatform } from '../../platform/registry.js';
+import { selectVisibleTrackIds } from '../../store/selectors.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 
@@ -119,6 +120,7 @@ export class PlaybackController {
       onStateChange: (state) => this.store.getState().setPlaybackState(state),
     });
 
+    let lastVisibleTrackIds: string[] | null = this.store.getState().visibleTrackIds;
     let lastScore: Score | null = this.store.getState().score;
     // Routed through the same guarded `handleScoreChange` path as every
     // later change (try/catch -> error toast on a rejected loadScore),
@@ -131,6 +133,14 @@ export class PlaybackController {
         lastScore = state.score;
         if (this.previewing) return; // a candidate preview owns the engine right now; stopPreview() resyncs to the committed score
         if (lastScore) void this.handleScoreChange(lastScore);
+        return;
+      }
+      // Hiding a track silences it. Pushed straight to the engine rather than
+      // reloading the score: muting is a per-channel gain decision, so it takes
+      // effect mid-playback without rescheduling a note.
+      if (state.visibleTrackIds !== lastVisibleTrackIds) {
+        lastVisibleTrackIds = state.visibleTrackIds;
+        this.applyTrackAudibility();
       }
     });
   }
@@ -381,6 +391,9 @@ export class PlaybackController {
       if (shouldResume) this.engine.stop();
       await this.engine.loadScore(score);
       if (generation !== this.scoreChangeGeneration) return; // superseded by a newer score change; that newer call (not this one) owns consuming pendingResume
+      // loadScore reseeds every channel's mute from `Track.muted`, so hidden
+      // tracks would start sounding again on the next edit without this.
+      this.applyTrackAudibility();
       if (this.pendingResume) {
         const { tick } = this.pendingResume;
         this.pendingResume = null;
@@ -396,6 +409,30 @@ export class PlaybackController {
         this.pendingResume = null;
       }
       this.reportError('Failed to load the score for playback', error);
+    }
+  }
+
+  /**
+   * Pushes per-track audibility to the engine: a track sounds only if it is
+   * visible *and* not muted.
+   *
+   * Visibility used to reach the notation and the print sheet but never the
+   * audio, so hiding a track removed it from view while it went on playing.
+   * Combining the two axes here rather than writing visibility into the
+   * channel's mute means an explicit mute survives being hidden and shown
+   * again — the score keeps the user's intent, and this only ever derives from
+   * it.
+   *
+   * Must run after every `loadScore`, which reseeds each channel's mute from
+   * `Track.muted` and so forgets anything visibility had to say.
+   */
+  private applyTrackAudibility(): void {
+    const state = this.store.getState();
+    const score = state.score;
+    if (!score) return;
+    const visible = new Set(selectVisibleTrackIds(state));
+    for (const track of score.tracks) {
+      this.engine.setTrackMute(track.id, track.muted || !visible.has(track.id));
     }
   }
 
