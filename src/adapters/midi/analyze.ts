@@ -4,6 +4,7 @@
  * time signatures, without importing anything into the score model yet.
  */
 import type { MidiCodec, MidiFile, MidiTrackData } from '@sudobility/music_types';
+import { detectGrid, type DetectedGrid } from './grid-detection.js';
 
 export type MidiTrackSummary = {
   index: number;
@@ -29,6 +30,13 @@ export type MidiSummary = {
   tracks: MidiTrackSummary[];
   tempoEvents: MidiTempoEventSummary[];
   timeSignatures: MidiTimeSignatureSummary[];
+  /**
+   * The grid the file's onsets already sit on, which the wizard opens
+   * pre-filled with. Detected rather than assumed so that importing a file
+   * written in triplets or swing does not snap it onto a straight grid — see
+   * `grid-detection.ts`.
+   */
+  detectedGrid: DetectedGrid;
 };
 
 function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
@@ -56,9 +64,15 @@ function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
  * surface them, per spec §28).
  */
 export function analyzeMidiFile(midi: MidiFile): MidiSummary {
+  // Percussion is excluded from detection: a hi-hat track is often laid on a
+  // finer grid than the music, and would drag the whole file onto it.
+  const onsets = midi.tracks
+    .filter((track) => track.channel !== 9)
+    .flatMap((track) => track.notes.map((note) => note.ticks));
 
   return {
     ppq: midi.header.ppq,
+    detectedGrid: detectGrid(onsets, midi.header.ppq),
     durationSeconds: midi.duration,
     tracks: midi.tracks.map(summarizeTrack),
     tempoEvents: midi.header.tempos.map((t) => ({ tick: t.ticks, bpm: t.bpm })),

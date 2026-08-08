@@ -17,8 +17,11 @@ function track(overrides: Partial<MidiTrackSummary>): MidiTrackSummary {
   };
 }
 
-function summary(tracks: MidiTrackSummary[]): MidiSummary {
-  return { ppq: 480, durationSeconds: 4, tracks, tempoEvents: [{ tick: 0, bpm: 120 }], timeSignatures: [] };
+function summary(
+  tracks: MidiTrackSummary[],
+  detectedGrid: MidiSummary['detectedGrid'] = { grid: 'sixteenth', triplet: false },
+): MidiSummary {
+  return { ppq: 480, durationSeconds: 4, tracks, tempoEvents: [{ tick: 0, bpm: 120 }], timeSignatures: [], detectedGrid };
 }
 
 describe('defaultMidiImportOptions', () => {
@@ -55,5 +58,17 @@ describe('defaultMidiImportOptions', () => {
     expect(options.pianoStaffSplit).toBe(false);
     expect(options.splitPointMidi).toBe(60);
     expect(options.detectKey).toBe(true);
+  });
+});
+
+describe('quantization defaults follow the file', () => {
+  it('opens the wizard on the grid the file was detected to be written on', () => {
+    // Not a fixed sixteenth: a triplet file quantized to sixteenths comes back
+    // audibly wrong. See grid-detection.ts.
+    const options = defaultMidiImportOptions(
+      summary([track({ index: 0, noteCount: 4 })], { grid: 'eighth', triplet: true }),
+    );
+    expect(options.quantizeGrid).toBe('eighth');
+    expect(options.tripletDetection).toBe(true);
   });
 });

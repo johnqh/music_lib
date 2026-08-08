@@ -1,0 +1,81 @@
+/**
+ * Choosing the quantization grid a MIDI file actually needs.
+ *
+ * Import used to snap every file to a fixed sixteenth grid. That is right for
+ * a human performance, whose onsets are meant to be tidied up, and actively
+ * destructive for the far more common case of a file that was sequenced on a
+ * grid already: an eighth-note triplet sits at 1/3 of a beat, the nearest
+ * sixteenth is 1/4 or 1/2, and the even triplet comes out as a limping
+ * dotted-sixteenth figure. Measured on a 120bpm triplet line, every second and
+ * third note of each group moved by 42ms. Swung eighths break the same way.
+ * The notes are all still there, which is why this reads as "the timing is
+ * wrong" rather than as anything missing.
+ *
+ * So: find the coarsest grid the file's own onsets already sit on, and use
+ * that — quantizing to a grid the music is on cannot move anything. If nothing
+ * fits, the file is a genuine performance and falls back to the sixteenth grid
+ * that has always been the default, so nothing regresses for that case.
+ */
+import type { DurationName } from '@sudobility/music_types';
+
+export type DetectedGrid = {
+  grid: DurationName;
+  /** Triplet subdivision of `grid` — 2/3 of it, matching `quantize`'s `tripletGrid`. */
+  triplet: boolean;
+};
+
+/**
+ * Candidates coarsest first, so the first fit wins: a file of straight eighths
+ * should be described as eighths, not as the thirtysecond grid that also
+ * happens to contain them. Both straight and triplet subdivisions are offered
+ * at each level; the finest entry (1/12 beat) is the grid that contains both
+ * sixteenths and eighth triplets, for files that use the two together.
+ */
+const CANDIDATES: Array<DetectedGrid & { beats: number }> = [
+  { grid: 'quarter', triplet: false, beats: 1 },
+  { grid: 'quarter', triplet: true, beats: 2 / 3 },
+  { grid: 'eighth', triplet: false, beats: 1 / 2 },
+  { grid: 'eighth', triplet: true, beats: 1 / 3 },
+  { grid: 'sixteenth', triplet: false, beats: 1 / 4 },
+  { grid: 'sixteenth', triplet: true, beats: 1 / 6 },
+  { grid: 'thirtysecond', triplet: false, beats: 1 / 8 },
+  { grid: 'thirtysecond', triplet: true, beats: 1 / 12 },
+];
+
+/** The grid assumed when the onsets fit nothing — a performance to be tidied. */
+export const FALLBACK_GRID: DetectedGrid = { grid: 'sixteenth', triplet: false };
+
+/**
+ * How far off a grid line an onset may sit and still count as on it, in beats.
+ * ~10ms at 120bpm: wide enough for the tick-level rounding a sequencer leaves
+ * behind, far too narrow to swallow played-by-hand timing.
+ */
+const TOLERANCE_BEATS = 0.02;
+
+/**
+ * The share of onsets that must fit. Not 100%: real files carry a few grace
+ * notes, flams and hand-nudged accents, and one of those should not force the
+ * whole file onto a finer grid than it is written on.
+ */
+const REQUIRED_FIT = 0.98;
+
+function fits(onsetBeats: number[], gridBeats: number): boolean {
+  let on = 0;
+  for (const beat of onsetBeats) {
+    const offset = Math.abs(beat / gridBeats - Math.round(beat / gridBeats)) * gridBeats;
+    if (offset <= TOLERANCE_BEATS) on += 1;
+  }
+  return on / onsetBeats.length >= REQUIRED_FIT;
+}
+
+/**
+ * The coarsest grid `onsetTicks` already sits on, or `FALLBACK_GRID` when none
+ * does. `ppq` is the file's own resolution — onsets are compared in beats, so
+ * a 960-ppq file and a 480-ppq one holding the same music detect alike.
+ */
+export function detectGrid(onsetTicks: number[], ppq: number): DetectedGrid {
+  if (onsetTicks.length === 0 || ppq <= 0) return FALLBACK_GRID;
+  const onsetBeats = onsetTicks.map((tick) => tick / ppq);
+  const match = CANDIDATES.find((candidate) => fits(onsetBeats, candidate.beats));
+  return match ? { grid: match.grid, triplet: match.triplet } : FALLBACK_GRID;
+}

@@ -95,6 +95,7 @@ export * from './adapters/mod/import.js';
 
 // adapters/midi
 export * from './adapters/midi/analyze.js';
+export * from './adapters/midi/grid-detection.js';
 export * from './adapters/midi/import.js';
 export * from './adapters/midi/import-options.js';
 export * from './adapters/midi/export.js';

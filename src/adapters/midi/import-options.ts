@@ -51,7 +51,9 @@ function defaultClefFor(track: MidiTrackSummary): Clef {
 /**
  * `MidiImportOptions` with defaults pre-filled from `summary`: every
  * non-empty track included, clef guessed per `defaultClefFor`, quantized to
- * the nearest sixteenth note, notes shorter than half a thirty-second note
+ * the grid the file itself is written on (`summary.detectedGrid` — a fixed
+ * sixteenth grid used to be assumed here, which bent every triplet and every
+ * swung eighth out of shape), notes shorter than half a thirty-second note
  * (at 480 ppq) dropped, sustain pedal extension honored, no near-duplicate
  * merging or piano staff split, and key detection on.
  */
@@ -63,8 +65,8 @@ export function defaultMidiImportOptions(summary: MidiSummary): MidiImportOption
       clef: defaultClefFor(track),
       name: track.name,
     })),
-    quantizeGrid: 'sixteenth',
-    tripletDetection: false,
+    quantizeGrid: summary.detectedGrid.grid,
+    tripletDetection: summary.detectedGrid.triplet,
     minDurationTicks: Math.round(ticksFor('thirtysecond', SCORE_PPQ) / 2),
     mergeNearDuplicates: false,
     sustainPedal: 'extend',
