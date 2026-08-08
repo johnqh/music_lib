@@ -140,6 +140,15 @@ export class FakeMusicClient {
     await this.cancelProjectGeneration(job.projectId, _token);
   }
 
+  async getProjectStatus(
+    id: string,
+    _token: string
+  ): Promise<{ status: ProjectRecord['status']; updatedAt: string }> {
+    const record = this.records.get(id);
+    if (!record) throw new Error(`Project not found: ${id}`);
+    return { status: record.status, updatedAt: record.updatedAt };
+  }
+
   async cancelProjectGeneration(projectId: string, _token: string): Promise<void> {
     const record = this.records.get(projectId);
     if (!record) throw new Error(`Project not found: ${projectId}`);
