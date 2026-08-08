@@ -16,6 +16,7 @@ export * from './domain/score/extract-part.js';
 export * from './domain/score/rehearsal-marks.js';
 export * from './domain/score/cue-notes.js';
 export * from './domain/score/written-pitch.js';
+export * from './domain/generation/replacement-region.js';
 export * from './domain/score/ties.js';
 export * from './domain/score/fragment.js';
 export * from './domain/score/ids.js';
