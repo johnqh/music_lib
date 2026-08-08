@@ -29,8 +29,8 @@
         "zustand": "^5.0.0",
       },
       "peerDependencies": {
-        "@sudobility/music_client": "^0.4.5",
-        "@sudobility/music_types": "^0.11.3",
+        "@sudobility/music_client": "^0.4.6",
+        "@sudobility/music_types": "^0.11.4",
         "@tanstack/react-query": ">=5",
         "react": ">=18",
         "zustand": ">=5",
