@@ -86,9 +86,10 @@ type UseAppStoreHook = {
  * hook (`useAppStore(selector)`, `useAppStore.getState()`).
  */
 export const useAppStore: UseAppStoreHook = Object.assign(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (<T>(selector?: (state: AppState) => T) =>
-    selector ? getAppStore()(selector) : getAppStore()()) as any,
+    selector ? getAppStore()(selector) : getAppStore()()) as
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    any,
   {
     getState: () => getAppStore().getState(),
     getInitialState: () => getAppStore().getInitialState(),
