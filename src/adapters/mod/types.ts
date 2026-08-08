@@ -1,18 +1,8 @@
 /**
- * The shape `music_io`'s `readMod` produces.
+ * The shape `music_io`'s `ModCodec.decode` produces.
  *
- * Declared here structurally rather than imported from music_types so the
- * score-building half does not wait on a publish cycle. The shapes are
- * identical and mutually assignable; when `ModFile` lands beside `MidiFile` in
- * music_types this becomes a re-export.
+ * Was declared structurally here so the score-building half did not wait on a
+ * publish cycle; now that `ModFile` lives beside `MidiFile` in music_types,
+ * this is the re-export it was always going to become.
  */
-export type ModSample = { index: number; name: string };
-export type ModCell = { sample: number; period: number; effect: number; param: number };
-export type ModFile = {
-  title: string;
-  channels: number;
-  samples: ModSample[];
-  order: number[];
-  /** `patterns[p][row][channel]`. */
-  patterns: ModCell[][][];
-};
+export type { ModCell, ModFile, ModSample } from '@sudobility/music_types';
