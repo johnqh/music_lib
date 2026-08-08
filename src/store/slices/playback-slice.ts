@@ -6,11 +6,11 @@
  * controller to call as playback advances. No Tone/VexFlow import belongs
  * anywhere in this file.
  */
-import type { StateCreator } from 'zustand';
-import type { ScoreRange } from '../../domain/selection/types.js';
-import type { AppState } from '../useAppStore.js';
+import type { StateCreator } from "zustand";
+import type { ScoreRange } from "../../domain/selection/types.js";
+import type { AppState } from "../useAppStore.js";
 
-export type TransportState = 'stopped' | 'playing' | 'paused';
+export type TransportState = "stopped" | "playing" | "paused";
 
 export type PlaybackSlice = {
   /** Named `state` (not `transportState`) to match the spec's exact field name for this property. */
@@ -33,11 +33,11 @@ export type PlaybackSlice = {
 
 export const createPlaybackSlice: StateCreator<
   AppState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   PlaybackSlice
 > = (set) => ({
-  state: 'stopped',
+  state: "stopped",
   positionTick: 0,
   activeNoteIds: [],
   loopRange: null,

@@ -7,15 +7,15 @@
  * There is no view mode: notation and the piano roll are shown at the same
  * time, so nothing switches between them.
  */
-import type { StateCreator } from 'zustand';
-import { createId } from '../../domain/score/ids.js';
-import type { DurationName, UUID } from '@sudobility/music_types';
-import type { AppState } from '../useAppStore.js';
+import type { StateCreator } from "zustand";
+import { createId } from "../../domain/score/ids.js";
+import type { DurationName, UUID } from "@sudobility/music_types";
+import type { AppState } from "../useAppStore.js";
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = "light" | "dark" | "system";
 
 /** Whether notation shows what the score sounds, or what each player reads. */
-export type PitchDisplay = 'concert' | 'written';
+export type PitchDisplay = "concert" | "written";
 
 export type DevSettings = {
   showIds: boolean;
@@ -30,10 +30,15 @@ export type DevSettings = {
   enableValidationWarnings: boolean;
 };
 
-export type ToastSeverity = 'info' | 'success' | 'warning' | 'error';
+export type ToastSeverity = "info" | "success" | "warning" | "error";
 /** An optional action button (spec §28: "retry actions where appropriate"), e.g. "Retry" on a failed import/save toast. */
 export type ToastAction = { label: string; onClick: () => void };
-export type Toast = { id: string; message: string; severity: ToastSeverity; action?: ToastAction };
+export type Toast = {
+  id: string;
+  message: string;
+  severity: ToastSeverity;
+  action?: ToastAction;
+};
 
 const DEFAULT_DEV_SETTINGS: DevSettings = {
   // Shares registry.ts's DEFAULT_MOCK_SEED (rather than a locally hardcoded
@@ -54,7 +59,7 @@ const DEFAULT_DEV_SETTINGS: DevSettings = {
  * whether one gesture makes a chord — keys held together are one chord in
  * every mode, because that is what playing them means.
  */
-export type EditMode = 'insert' | 'replace' | 'stack';
+export type EditMode = "insert" | "replace" | "stack";
 
 export type UiSlice = {
   /**
@@ -153,21 +158,27 @@ export type UiSlice = {
   closeDialog: (id: string) => void;
   toggleDialog: (id: string) => void;
   /** Enqueues a toast and returns its generated id (so a caller can `dismissToast` it early, e.g. on an "undo" action inside the toast itself). */
-  pushToast: (toast: { message: string; severity?: ToastSeverity; action?: ToastAction }) => string;
+  pushToast: (toast: {
+    message: string;
+    severity?: ToastSeverity;
+    action?: ToastAction;
+  }) => string;
   dismissToast: (id: string) => void;
 };
 
-export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [], UiSlice> = (
-  set,
-  get,
-) => ({
+export const createUiSlice: StateCreator<
+  AppState,
+  [["zustand/immer", never]],
+  [],
+  UiSlice
+> = (set, get) => ({
   activeTrackId: null,
   visibleTrackIds: null,
-  themeMode: 'system',
+  themeMode: "system",
   zoom: 1,
-  snapGrid: 'quarter',
-  pitchDisplay: 'concert',
-  editMode: 'replace',
+  snapGrid: "quarter",
+  pitchDisplay: "concert",
+  editMode: "replace",
   activeVoiceIndex: 0,
   developerMode: false,
   devSettings: DEFAULT_DEV_SETTINGS,
@@ -180,7 +191,11 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
       state.activeTrackId = trackId;
       // Choosing a track you cannot see and having nothing happen is not a
       // defensible outcome, so selecting reveals.
-      if (trackId && state.visibleTrackIds && !state.visibleTrackIds.includes(trackId)) {
+      if (
+        trackId &&
+        state.visibleTrackIds &&
+        !state.visibleTrackIds.includes(trackId)
+      ) {
         state.visibleTrackIds = [...state.visibleTrackIds, trackId];
         revealed = true;
       }
@@ -258,7 +273,7 @@ export const createUiSlice: StateCreator<AppState, [['zustand/immer', never]], [
       state.toasts.push({
         id,
         message: toast.message,
-        severity: toast.severity ?? 'info',
+        severity: toast.severity ?? "info",
         ...(toast.action ? { action: toast.action } : {}),
       });
     });

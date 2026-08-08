@@ -14,13 +14,13 @@
  * avoid. One store is created for the running app (`useAppStore.ts`), so
  * in practice this is still "the one history manager" spec §37.7 asks for.
  */
-import { HistoryManager } from '../../domain/commands/history.js';
-import type { ScoreCommand } from '../../domain/commands/types.js';
-import type { Score } from '@sudobility/music_types';
-import { validateScore } from '../../domain/validation/validator.js';
-import type { ValidationIssue } from '../../domain/validation/issues.js';
-import type { StateCreator } from 'zustand';
-import type { AppState } from '../useAppStore.js';
+import { HistoryManager } from "../../domain/commands/history.js";
+import type { ScoreCommand } from "../../domain/commands/types.js";
+import type { Score } from "@sudobility/music_types";
+import { validateScore } from "../../domain/validation/validator.js";
+import type { ValidationIssue } from "../../domain/validation/issues.js";
+import type { StateCreator } from "zustand";
+import type { AppState } from "../useAppStore.js";
 
 export type SetScoreOptions = {
   /** Defaults to `true`: loading/replacing the whole score (open project, accept a fresh AI generation, import) starts a clean undo/redo stack. Pass `false` only when the caller has its own reason to keep history spanning the swap. */
@@ -45,7 +45,7 @@ export type ScoreSlice = {
 
 export const createScoreSlice: StateCreator<
   AppState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   ScoreSlice
 > = (set, get) => {

@@ -8,15 +8,15 @@
  * notifies the autosaver; the autosaver's save PUTs the current score (and
  * name) to `/projects/:id`.
  */
-import type { StateCreator } from 'zustand';
-import { createEmptyScore } from '../../domain/score/factory.js';
-import type { ProjectRecord, Score } from '@sudobility/music_types';
-import { createAutosaver } from '../../services/persistence/autosave.js';
-import type { Autosaver } from '../../services/persistence/autosave.js';
-import { requireToken, type StoreContext } from '../context.js';
-import type { AppState } from '../useAppStore.js';
+import type { StateCreator } from "zustand";
+import { createEmptyScore } from "../../domain/score/factory.js";
+import type { ProjectRecord, Score } from "@sudobility/music_types";
+import { createAutosaver } from "../../services/persistence/autosave.js";
+import type { Autosaver } from "../../services/persistence/autosave.js";
+import { requireToken, type StoreContext } from "../context.js";
+import type { AppState } from "../useAppStore.js";
 
-export type SaveState = 'saved' | 'saving' | 'unsaved';
+export type SaveState = "saved" | "saving" | "unsaved";
 
 export type NewProjectInput = { name: string; score?: Score };
 
@@ -39,8 +39,8 @@ export type ProjectSlice = {
 };
 
 export function createProjectSlice(
-  context: StoreContext
-): StateCreator<AppState, [['zustand/immer', never]], [], ProjectSlice> {
+  context: StoreContext,
+): StateCreator<AppState, [["zustand/immer", never]], [], ProjectSlice> {
   return (set, get) => {
     let currentRecord: ProjectRecord | null = null;
     let autosaver: Autosaver | null = null;
@@ -52,7 +52,7 @@ export function createProjectSlice(
         const score = get().score;
         if (!record || !score) return;
         set((state) => {
-          state.saveState = 'saving';
+          state.saveState = "saving";
         });
         try {
           const token = await requireToken(context);
@@ -71,21 +71,22 @@ export function createProjectSlice(
                 ...(visibleTrackIds ? { visibleTrackIds } : {}),
               },
             },
-            token
+            token,
           );
           currentRecord = saved;
           set((state) => {
-            state.saveState = 'saved';
+            state.saveState = "saved";
             state.dirty = false;
           });
         } catch (err) {
           // Keep the dirty flag so the next change/flush retries; surface via toast.
           set((state) => {
-            state.saveState = 'unsaved';
+            state.saveState = "unsaved";
           });
           get().pushToast({
-            severity: 'error',
-            message: 'Saving to the server failed. Your changes are kept locally — retry with Save.',
+            severity: "error",
+            message:
+              "Saving to the server failed. Your changes are kept locally — retry with Save.",
           });
           throw err;
         }
@@ -119,7 +120,7 @@ export function createProjectSlice(
         state.projectId = record.id;
         state.projectName = record.name;
         state.dirty = false;
-        state.saveState = 'saved';
+        state.saveState = "saved";
         // Reset, not merge: a track id means nothing outside the project it
         // came from, so carrying the outgoing project's hidden set into the
         // incoming one would hide arbitrary tracks.
@@ -131,14 +132,17 @@ export function createProjectSlice(
 
     return {
       projectId: null,
-      projectName: '',
+      projectName: "",
       dirty: false,
-      saveState: 'saved',
+      saveState: "saved",
 
       newProject: async (input) => {
         const score = input.score ?? createEmptyScore({ title: input.name });
         const token = await requireToken(context);
-        const record = await context.client.createProject({ name: input.name, score }, token);
+        const record = await context.client.createProject(
+          { name: input.name, score },
+          token,
+        );
         await adopt(record);
       },
 
@@ -156,7 +160,7 @@ export function createProjectSlice(
       markDirty: () => {
         set((state) => {
           state.dirty = true;
-          state.saveState = 'unsaved';
+          state.saveState = "unsaved";
         });
         autosaver?.notifyChange();
       },

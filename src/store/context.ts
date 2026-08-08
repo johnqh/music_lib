@@ -6,19 +6,24 @@
  * StorageService — declared structurally here so music_lib needs no di
  * import and tests can pass a plain in-memory object).
  */
-import type { MusicClient } from '@sudobility/music_client';
+import type { MusicClient } from "@sudobility/music_client";
 import type {
   GenerateScoreRequest,
   GenerateScoreResult,
   MusicGenerationProvider,
   RegenerateRegionRequest,
   RegenerateRegionResult,
-} from '@sudobility/music_types';
-import { parseGenerateScoreResult, parseRegenerateRegionResult } from '@sudobility/music_types';
+} from "@sudobility/music_types";
+import {
+  parseGenerateScoreResult,
+  parseRegenerateRegionResult,
+} from "@sudobility/music_types";
 
 /** Structural subset of @sudobility/di's StorageService used for device prefs. */
 export type PrefsStorage = {
-  getItem(key: string): Promise<string | null | undefined> | string | null | undefined;
+  getItem(
+    key: string,
+  ): Promise<string | null | undefined> | string | null | undefined;
   setItem(key: string, value: string): Promise<void> | void;
 };
 
@@ -35,8 +40,8 @@ export type StoreContext = {
 /** Thrown when an authenticated call is attempted while signed out. */
 export class AuthRequiredError extends Error {
   constructor() {
-    super('You must be signed in to do this.');
-    this.name = 'AuthRequiredError';
+    super("You must be signed in to do this.");
+    this.name = "AuthRequiredError";
   }
 }
 
@@ -53,8 +58,8 @@ export async function requireToken(context: StoreContext): Promise<string> {
  * misbehaving proxy can never inject malformed structures into the store.
  */
 export class ApiGenerationProvider implements MusicGenerationProvider {
-  readonly id = 'music-api-openai';
-  readonly name = 'ScoreSmith AI';
+  readonly id = "music-api-openai";
+  readonly name = "ScoreSmith AI";
   private readonly context: StoreContext;
 
   constructor(context: StoreContext) {
@@ -63,19 +68,27 @@ export class ApiGenerationProvider implements MusicGenerationProvider {
 
   async generateScore(
     request: GenerateScoreRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<GenerateScoreResult> {
     const token = await requireToken(this.context);
-    const result = await this.context.client.generateScore(request, token, signal);
+    const result = await this.context.client.generateScore(
+      request,
+      token,
+      signal,
+    );
     return parseGenerateScoreResult(result);
   }
 
   async regenerateRegion(
     request: RegenerateRegionRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<RegenerateRegionResult> {
     const token = await requireToken(this.context);
-    const result = await this.context.client.regenerateRegion(request, token, signal);
+    const result = await this.context.client.regenerateRegion(
+      request,
+      token,
+      signal,
+    );
     return parseRegenerateRegionResult(result);
   }
 }

@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { testStoreContext } from '../../test/store-context.js';
-import { createAppStore } from '../useAppStore.js';
+import { describe, expect, it } from "vitest";
+import { testStoreContext } from "../../test/store-context.js";
+import { createAppStore } from "../useAppStore.js";
 
-describe('playback-slice', () => {
-  it('starts stopped, at tick 0, with no active notes/loop, unit tempo, metronome off, full volume', () => {
+describe("playback-slice", () => {
+  it("starts stopped, at tick 0, with no active notes/loop, unit tempo, metronome off, full volume", () => {
     const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
-    expect(state.state).toBe('stopped');
+    expect(state.state).toBe("stopped");
     expect(state.positionTick).toBe(0);
     expect(state.activeNoteIds).toEqual([]);
     expect(state.loopRange).toBeNull();
@@ -15,19 +15,19 @@ describe('playback-slice', () => {
     expect(state.masterVolume).toBe(1);
   });
 
-  it('every setter writes exactly its own field', () => {
+  it("every setter writes exactly its own field", () => {
     const store = createAppStore({ context: testStoreContext() });
 
-    store.getState().setPlaybackState('playing');
-    expect(store.getState().state).toBe('playing');
+    store.getState().setPlaybackState("playing");
+    expect(store.getState().state).toBe("playing");
 
     store.getState().setPositionTick(1920);
     expect(store.getState().positionTick).toBe(1920);
 
-    store.getState().setActiveNoteIds(['n1', 'n2']);
-    expect(store.getState().activeNoteIds).toEqual(['n1', 'n2']);
+    store.getState().setActiveNoteIds(["n1", "n2"]);
+    expect(store.getState().activeNoteIds).toEqual(["n1", "n2"]);
 
-    const loop = { startTick: 0, endTick: 1920, trackIds: ['t1'] };
+    const loop = { startTick: 0, endTick: 1920, trackIds: ["t1"] };
     store.getState().setLoopRange(loop);
     expect(store.getState().loopRange).toEqual(loop);
     store.getState().setLoopRange(null);

@@ -8,21 +8,21 @@
  * once at bootstrap, after which the `useAppStore` hook (and its
  * `getState`/`setState`/`subscribe` statics) delegate to that instance.
  */
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import type { StoreContext } from './context.js';
-import { createScoreSlice } from './slices/score-slice.js';
-import type { ScoreSlice } from './slices/score-slice.js';
-import { createSelectionSlice } from './slices/selection-slice.js';
-import type { SelectionSlice } from './slices/selection-slice.js';
-import { createPlaybackSlice } from './slices/playback-slice.js';
-import type { PlaybackSlice } from './slices/playback-slice.js';
-import { createGenerationSlice } from './slices/generation-slice.js';
-import type { GenerationSlice } from './slices/generation-slice.js';
-import { createProjectSlice } from './slices/project-slice.js';
-import type { ProjectSlice } from './slices/project-slice.js';
-import { createUiSlice } from './slices/ui-slice.js';
-import type { UiSlice } from './slices/ui-slice.js';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import type { StoreContext } from "./context.js";
+import { createScoreSlice } from "./slices/score-slice.js";
+import type { ScoreSlice } from "./slices/score-slice.js";
+import { createSelectionSlice } from "./slices/selection-slice.js";
+import type { SelectionSlice } from "./slices/selection-slice.js";
+import { createPlaybackSlice } from "./slices/playback-slice.js";
+import type { PlaybackSlice } from "./slices/playback-slice.js";
+import { createGenerationSlice } from "./slices/generation-slice.js";
+import type { GenerationSlice } from "./slices/generation-slice.js";
+import { createProjectSlice } from "./slices/project-slice.js";
+import type { ProjectSlice } from "./slices/project-slice.js";
+import { createUiSlice } from "./slices/ui-slice.js";
+import type { UiSlice } from "./slices/ui-slice.js";
 
 export type AppState = ScoreSlice &
   SelectionSlice &
@@ -50,7 +50,7 @@ export function createAppStore(options: CreateAppStoreOptions) {
       ...createGenerationSlice(context)(set, get, api),
       ...createProjectSlice(context)(set, get, api),
       ...createUiSlice(set, get, api),
-    }))
+    })),
   );
 }
 
@@ -64,7 +64,9 @@ export function initializeAppStore(context: StoreContext): AppStore {
 
 export function getAppStore(): AppStore {
   if (!appStore) {
-    throw new Error('App store not initialized - call initializeAppStore(context) at bootstrap.');
+    throw new Error(
+      "App store not initialized - call initializeAppStore(context) at bootstrap.",
+    );
   }
   return appStore;
 }
@@ -74,8 +76,8 @@ type UseAppStoreHook = {
   <T>(selector: (state: AppState) => T): T;
   getState: () => AppState;
   getInitialState: () => AppState;
-  setState: AppStore['setState'];
-  subscribe: AppStore['subscribe'];
+  setState: AppStore["setState"];
+  subscribe: AppStore["subscribe"];
 };
 
 /**
@@ -85,13 +87,14 @@ type UseAppStoreHook = {
  */
 export const useAppStore: UseAppStoreHook = Object.assign(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (<T,>(selector?: (state: AppState) => T) => (selector ? getAppStore()(selector) : getAppStore()())) as any,
+  (<T>(selector?: (state: AppState) => T) =>
+    selector ? getAppStore()(selector) : getAppStore()()) as any,
   {
     getState: () => getAppStore().getState(),
-  getInitialState: () => getAppStore().getInitialState(),
-    setState: ((...args: Parameters<AppStore['setState']>) =>
-      getAppStore().setState(...args)) as AppStore['setState'],
-    subscribe: ((...args: Parameters<AppStore['subscribe']>) =>
-      getAppStore().subscribe(...args)) as AppStore['subscribe'],
-  }
+    getInitialState: () => getAppStore().getInitialState(),
+    setState: ((...args: Parameters<AppStore["setState"]>) =>
+      getAppStore().setState(...args)) as AppStore["setState"],
+    subscribe: ((...args: Parameters<AppStore["subscribe"]>) =>
+      getAppStore().subscribe(...args)) as AppStore["subscribe"],
+  },
 );

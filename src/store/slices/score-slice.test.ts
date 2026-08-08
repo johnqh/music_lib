@@ -1,14 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { testStoreContext } from '../../test/store-context.js';
-import { createAppStore } from '../useAppStore.js';
-import { changeMetadataCommand } from '../../domain/commands/structure-commands.js';
-import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
-import { validateScore } from '../../domain/validation/validator.js';
-import { twinkleScore } from '../../test/fixtures.js';
+import { describe, expect, it } from "vitest";
+import { testStoreContext } from "../../test/store-context.js";
+import { createAppStore } from "../useAppStore.js";
+import { changeMetadataCommand } from "../../domain/commands/structure-commands.js";
+import { deleteEventsCommand } from "../../domain/commands/note-commands.js";
+import { validateScore } from "../../domain/validation/validator.js";
+import { twinkleScore } from "../../test/fixtures.js";
 
-describe('score-slice', () => {
-  describe('setScore', () => {
-    it('adopts the score, recomputes validationIssues, and resets history by default', () => {
+describe("score-slice", () => {
+  describe("setScore", () => {
+    it("adopts the score, recomputes validationIssues, and resets history by default", () => {
       const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
 
@@ -23,20 +23,24 @@ describe('score-slice', () => {
       expect(state.redoLabel).toBeNull();
     });
 
-    it('clears any prior undo/redo history when resetHistory is not false', () => {
+    it("clears any prior undo/redo history when resetHistory is not false", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'Renamed' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "Renamed" }));
       expect(store.getState().canUndo).toBe(true);
 
       store.getState().setScore(twinkleScore());
       expect(store.getState().canUndo).toBe(false);
     });
 
-    it('keeps existing history when resetHistory is false', () => {
+    it("keeps existing history when resetHistory is false", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'Renamed' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "Renamed" }));
       expect(store.getState().canUndo).toBe(true);
 
       store.getState().setScore(twinkleScore(), { resetHistory: false });
@@ -44,29 +48,33 @@ describe('score-slice', () => {
     });
   });
 
-  describe('dispatchCommand', () => {
-    it('runs the command, updates score/validationIssues, mirrors undo/redo state, and marks the project dirty', () => {
+  describe("dispatchCommand", () => {
+    it("runs the command, updates score/validationIssues, mirrors undo/redo state, and marks the project dirty", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
 
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "New Title" }));
 
       const state = store.getState();
-      expect(state.score?.metadata.title).toBe('New Title');
+      expect(state.score?.metadata.title).toBe("New Title");
       expect(state.canUndo).toBe(true);
-      expect(state.undoLabel).toBe('Change metadata');
+      expect(state.undoLabel).toBe("Change metadata");
       expect(state.canRedo).toBe(false);
       expect(state.dirty).toBe(true);
-      expect(state.saveState).toBe('unsaved');
+      expect(state.saveState).toBe("unsaved");
     });
 
-    it('is a no-op when there is no score loaded', () => {
+    it("is a no-op when there is no score loaded", () => {
       const store = createAppStore({ context: testStoreContext() });
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "New Title" }));
       expect(store.getState().score).toBeNull();
     });
 
-    it('recomputes validationIssues after a mutation that changes the score', () => {
+    it("recomputes validationIssues after a mutation that changes the score", () => {
       const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
       store.getState().setScore(score);
@@ -80,36 +88,40 @@ describe('score-slice', () => {
     });
   });
 
-  describe('undo/redo', () => {
-    it('undo reverts the most recent command and updates the undo/redo mirrors', () => {
+  describe("undo/redo", () => {
+    it("undo reverts the most recent command and updates the undo/redo mirrors", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "New Title" }));
 
       store.getState().undo();
 
       const state = store.getState();
-      expect(state.score?.metadata.title).toBe('Twinkle Twinkle Little Star');
+      expect(state.score?.metadata.title).toBe("Twinkle Twinkle Little Star");
       expect(state.canUndo).toBe(false);
       expect(state.canRedo).toBe(true);
-      expect(state.redoLabel).toBe('Change metadata');
+      expect(state.redoLabel).toBe("Change metadata");
     });
 
-    it('redo re-applies an undone command', () => {
+    it("redo re-applies an undone command", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "New Title" }));
       store.getState().undo();
 
       store.getState().redo();
 
       const state = store.getState();
-      expect(state.score?.metadata.title).toBe('New Title');
+      expect(state.score?.metadata.title).toBe("New Title");
       expect(state.canUndo).toBe(true);
       expect(state.canRedo).toBe(false);
     });
 
-    it('undo/redo are no-ops when there is nothing to undo/redo', () => {
+    it("undo/redo are no-ops when there is nothing to undo/redo", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
       const before = store.getState().score;
@@ -120,13 +132,15 @@ describe('score-slice', () => {
       expect(store.getState().score).toBe(before);
     });
 
-    it('marks the project dirty on undo and redo', () => {
+    it("marks the project dirty on undo and redo", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().dispatchCommand(changeMetadataCommand({ title: 'New Title' }));
+      store
+        .getState()
+        .dispatchCommand(changeMetadataCommand({ title: "New Title" }));
       store.setState((state) => {
         state.dirty = false;
-        state.saveState = 'saved';
+        state.saveState = "saved";
       });
 
       store.getState().undo();
@@ -134,7 +148,7 @@ describe('score-slice', () => {
 
       store.setState((state) => {
         state.dirty = false;
-        state.saveState = 'saved';
+        state.saveState = "saved";
       });
       store.getState().redo();
       expect(store.getState().dirty).toBe(true);

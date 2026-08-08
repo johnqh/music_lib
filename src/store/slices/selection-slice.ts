@@ -6,18 +6,18 @@
  * selected" and "what's on the clipboard" are tightly coupled (paste needs
  * to know where the current selection implies content should land).
  */
-import type { StateCreator } from 'zustand';
-import { allNotes, findEvent } from '../../domain/score/queries.js';
-import { selectionToRange } from '../../domain/selection/selection.js';
-import { emptySelection } from '../../domain/selection/types.js';
-import type { ScoreSelection } from '../../domain/selection/types.js';
-import type { NoteEvent, Score, UUID } from '@sudobility/music_types';
-import { isNoteEvent } from '@sudobility/music_types';
-import { pasteEventsCommand } from '../../domain/commands/edit-commands.js';
-import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
-import { closeGap, makeRoom } from '../../domain/commands/ripple-commands.js';
-import { transformCommand } from '../../domain/commands/snapshot.js';
-import type { AppState } from '../useAppStore.js';
+import type { StateCreator } from "zustand";
+import { allNotes, findEvent } from "../../domain/score/queries.js";
+import { selectionToRange } from "../../domain/selection/selection.js";
+import { emptySelection } from "../../domain/selection/types.js";
+import type { ScoreSelection } from "../../domain/selection/types.js";
+import type { NoteEvent, Score, UUID } from "@sudobility/music_types";
+import { isNoteEvent } from "@sudobility/music_types";
+import { pasteEventsCommand } from "../../domain/commands/edit-commands.js";
+import { deleteEventsCommand } from "../../domain/commands/note-commands.js";
+import { closeGap, makeRoom } from "../../domain/commands/ripple-commands.js";
+import { transformCommand } from "../../domain/commands/snapshot.js";
+import type { AppState } from "../useAppStore.js";
 
 export type ClipboardData = { events: NoteEvent[]; anchorTick: number };
 
@@ -34,10 +34,20 @@ export type SelectionSlice = {
    * hold without any other code knowing about the flag. Set only by
    * `generation-slice.acceptCandidate`.
    */
+  /**
+   * Whether the current selection is material a generation just produced, so
+   * the editor can colour it distinctly.
+   *
+   * Written only by `selectRegenerated`; every ordinary selection change
+   * clears it. Its previous writer was the candidate-accept workflow, which
+   * generation-as-a-job replaced.
+   */
   selectionRegenerated: boolean;
   clipboard: ClipboardData | null;
 
   setSelection: (selection: ScoreSelection) => void;
+  /** Selects notes a generation just wrote, marking them `selectionRegenerated`. */
+  selectRegenerated: (eventIds: readonly string[]) => void;
   /** Adds `eventId` to the selection if absent, removes it if present; leaves `measureIds`/`trackIds`/`range` untouched. */
   toggleEvent: (eventId: UUID) => void;
   /** Replaces the selection with a fresh measure-based selection (e.g. clicking a measure header, or the acceptance-criteria "select measures 3 and 4" for regeneration). */
@@ -67,11 +77,17 @@ export type SelectionSlice = {
    * a caller that has already asked the user can pass their answer, and one
    * that has not still behaves consistently with note entry.
    */
-  paste: (atTick?: number, options?: { scope?: 'replace' | 'insert' | 'stack' }) => void;
+  paste: (
+    atTick?: number,
+    options?: { scope?: "replace" | "insert" | "stack" },
+  ) => void;
 };
 
 /** The track a paste should target: the current selection's own track scope if it has one, else the track of a selected event, else the score's first track. */
-function resolvePasteTrackId(score: Score, selection: ScoreSelection): UUID | null {
+function resolvePasteTrackId(
+  score: Score,
+  selection: ScoreSelection,
+): UUID | null {
   if (selection.trackIds.length > 0) return selection.trackIds[0];
   for (const eventId of selection.eventIds) {
     const event = findEvent(score, eventId);
@@ -84,13 +100,25 @@ function resolvePasteTrackId(score: Score, selection: ScoreSelection): UUID | nu
 
 export const createSelectionSlice: StateCreator<
   AppState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   SelectionSlice
 > = (set, get) => ({
   selection: emptySelection(),
   selectionRegenerated: false,
   clipboard: null,
+
+  /** Selects notes a generation just wrote, and marks them as such. */
+  selectRegenerated: (eventIds) => {
+    set((state) => {
+      state.selection = {
+        eventIds: [...eventIds],
+        measureIds: [],
+        trackIds: [],
+      };
+      state.selectionRegenerated = eventIds.length > 0;
+    });
+  },
 
   setSelection: (selection) => {
     set((state) => {
@@ -128,7 +156,9 @@ export const createSelectionSlice: StateCreator<
     if (!score) return;
     const events = selection.eventIds
       .map((id) => findEvent(score, id))
-      .filter((event): event is NoteEvent => event !== null && isNoteEvent(event));
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event),
+      );
     if (events.length === 0) return;
     const anchorTick = Math.min(...events.map((e) => e.startTick));
     set((state) => {
@@ -142,7 +172,9 @@ export const createSelectionSlice: StateCreator<
 
     const cutNotes = selection.eventIds
       .map((id) => findEvent(score, id))
-      .filter((event): event is NoteEvent => event !== null && isNoteEvent(event));
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event),
+      );
     if (cutNotes.length === 0) return;
 
     const noteIds = cutNotes.map((note) => note.id);
@@ -151,7 +183,9 @@ export const createSelectionSlice: StateCreator<
     const trackId = cutNotes[0].trackId;
     const sameTrack = cutNotes.every((note) => note.trackId === trackId);
     const fromTick = Math.min(...cutNotes.map((note) => note.startTick));
-    const toTick = Math.max(...cutNotes.map((note) => note.startTick + note.durationTicks));
+    const toTick = Math.max(
+      ...cutNotes.map((note) => note.startTick + note.durationTicks),
+    );
 
     get().copySelection();
     get().dispatchCommand(deleteEventsCommand(noteIds));
@@ -161,7 +195,7 @@ export const createSelectionSlice: StateCreator<
     // doing it to several tracks at once by accident would be worse.
     if (options?.closeGap && sameTrack) {
       get().dispatchCommand(
-        transformCommand('Close gap', (current) =>
+        transformCommand("Close gap", (current) =>
           closeGap(current, trackId, fromTick, toTick - fromTick),
         ),
       );
@@ -180,20 +214,22 @@ export const createSelectionSlice: StateCreator<
     // How much time the clipboard occupies, measured from its own earliest
     // start — the same span the paste will cover once anchored.
     const clipStart = Math.min(...clipboard.events.map((e) => e.startTick));
-    const clipEnd = Math.max(...clipboard.events.map((e) => e.startTick + e.durationTicks));
+    const clipEnd = Math.max(
+      ...clipboard.events.map((e) => e.startTick + e.durationTicks),
+    );
     const span = clipEnd - clipStart;
 
     // Paste obeys the edit mode for the same reason entry does: pasting on top
     // of existing music is the same question as playing on top of it, and
     // answering it differently in the two places would be arbitrary.
     const scope = options?.scope ?? editMode;
-    if (scope === 'insert') {
+    if (scope === "insert") {
       get().dispatchCommand(
-        transformCommand('Make room for paste', (current) =>
+        transformCommand("Make room for paste", (current) =>
           makeRoom(current, trackId, anchorTick, span),
         ),
       );
-    } else if (scope === 'replace') {
+    } else if (scope === "replace") {
       // Cleared explicitly, because reflow clusters same-span notes into a
       // chord rather than replacing them — so leaving it implicit would make
       // replace behave as stack whenever the lengths happened to match.
@@ -205,11 +241,16 @@ export const createSelectionSlice: StateCreator<
             note.startTick + note.durationTicks > anchorTick,
         )
         .map((note) => note.id);
-      if (occupying.length > 0) get().dispatchCommand(deleteEventsCommand(occupying));
+      if (occupying.length > 0)
+        get().dispatchCommand(deleteEventsCommand(occupying));
     }
 
     get().dispatchCommand(
-      pasteEventsCommand(clipboard.events, { trackId, voiceIndex: 0, anchorTick }),
+      pasteEventsCommand(clipboard.events, {
+        trackId,
+        voiceIndex: 0,
+        anchorTick,
+      }),
     );
   },
 });

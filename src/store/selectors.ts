@@ -17,13 +17,13 @@
  * store update (even ones that didn't touch selection/score) and
  * re-render every time.
  */
-import { findEvent } from '../domain/score/queries.js';
-import { selectionToRange } from '../domain/selection/selection.js';
-import type { ScoreRange } from '../domain/selection/types.js';
-import type { NoteEvent } from '@sudobility/music_types';
-import { isNoteEvent } from '@sudobility/music_types';
-import { beatDurationTicks } from '../domain/time/ticks.js';
-import type { AppState } from './useAppStore.js';
+import { findEvent } from "../domain/score/queries.js";
+import { selectionToRange } from "../domain/selection/selection.js";
+import type { ScoreRange } from "../domain/selection/types.js";
+import type { NoteEvent } from "@sudobility/music_types";
+import { isNoteEvent } from "@sudobility/music_types";
+import { beatDurationTicks } from "../domain/time/ticks.js";
+import type { AppState } from "./useAppStore.js";
 
 /**
  * Builds a selector that recomputes only when either of its two tracked
@@ -65,7 +65,9 @@ export const selectSelectedNotes = memoize2(
     if (!score) return [];
     return eventIds
       .map((id) => findEvent(score, id))
-      .filter((event): event is NoteEvent => event !== null && isNoteEvent(event));
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event),
+      );
   },
 );
 
@@ -104,7 +106,9 @@ export const selectCurrentMeasureBeat = memoize2(
 
     const measure =
       track.measures.find(
-        (m) => positionTick >= m.startTick && positionTick < m.startTick + m.durationTicks,
+        (m) =>
+          positionTick >= m.startTick &&
+          positionTick < m.startTick + m.durationTicks,
       ) ?? track.measures[track.measures.length - 1];
 
     const beatTicks = beatDurationTicks(measure.timeSignature, score.ppq);
@@ -156,7 +160,8 @@ export const selectActiveTrackId = memoize2(
   (state) => state.activeTrackId,
   (visibleIds, activeTrackId): string | null => {
     if (visibleIds.length === 0) return null;
-    if (activeTrackId && visibleIds.includes(activeTrackId)) return activeTrackId;
+    if (activeTrackId && visibleIds.includes(activeTrackId))
+      return activeTrackId;
     return visibleIds[0];
   },
 );
