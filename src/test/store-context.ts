@@ -14,6 +14,7 @@ import {
   type ProjectCreateRequest,
   type ProjectListQuery,
   type ProjectRecord,
+  type GenerationJob,
   type ProjectSummary,
   type ProjectUpdateRequest,
   type RegenerateRegionRequest,
@@ -25,6 +26,8 @@ import type { PrefsStorage, StoreContext } from '../store/context.js';
 
 export class FakeMusicClient {
   private readonly records = new Map<string, ProjectRecord>();
+  private readonly jobs = new Map<string, GenerationJob>();
+  private jobCounter = 0;
   private nextId = 0;
   /** Set to make the next N calls reject (network-failure simulation). */
   failNextSaves = 0;
@@ -101,9 +104,57 @@ export class FakeMusicClient {
     return true;
   }
 
+  // -- Generation jobs -------------------------------------------------------
+
+  async createJob(
+    req: { projectId: string; kind: string; request: unknown },
+    _token: string
+  ): Promise<GenerationJob> {
+    const record = this.records.get(req.projectId);
+    if (!record) throw new Error(`Project not found: ${req.projectId}`);
+    this.records.set(req.projectId, { ...record, status: 'generating' });
+    this.jobCounter += 1;
+    const job: GenerationJob = {
+      id: `job-${this.jobCounter}`,
+      projectId: req.projectId,
+      kind: req.kind as GenerationJob['kind'],
+      status: 'running',
+      createdAt: new Date(2026, 0, 1).toISOString(),
+      finishedAt: null,
+      error: null,
+    };
+    this.jobs.set(job.id, job);
+    return structuredClone(job);
+  }
+
+  async getJob(id: string, _token: string): Promise<GenerationJob> {
+    const job = this.jobs.get(id);
+    if (!job) throw new Error(`Job not found: ${id}`);
+    return structuredClone(job);
+  }
+
+  async cancelJob(id: string, _token: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job) throw new Error(`Job not found: ${id}`);
+    this.jobs.set(id, { ...job, status: 'cancelled' });
+    await this.cancelProjectGeneration(job.projectId, _token);
+  }
+
+  async cancelProjectGeneration(projectId: string, _token: string): Promise<void> {
+    const record = this.records.get(projectId);
+    if (!record) throw new Error(`Project not found: ${projectId}`);
+    this.records.set(projectId, { ...record, status: 'ready' });
+  }
+
   /** Test-inspection helper. */
   storedRecord(id: string): ProjectRecord | undefined {
     return this.records.get(id);
+  }
+
+  /** Test helper: put a project into `generating` without going through a job. */
+  setProjectStatus(id: string, status: ProjectRecord['status']): void {
+    const record = this.records.get(id);
+    if (record) this.records.set(id, { ...record, status });
   }
 }
 
