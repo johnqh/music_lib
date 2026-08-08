@@ -14,12 +14,26 @@ import { replaceRegionCommand } from '../../domain/commands/region-commands.js';
 import type { ScoreCommand } from '../../domain/commands/types.js';
 import type { RegenerateRegionRequest, RegenerationCandidate, RegenerationConstraints } from '@sudobility/music_types';
 
-const DEFAULT_CANDIDATE_COUNT = 3;
+/**
+ * One, always. Generation is a background job now: nobody is present to pick
+ * between alternatives when it lands, so a result that needed choosing would
+ * leave the project in limbo.
+ */
+const CANDIDATE_COUNT = 1;
 const CONTEXT_MEASURE_LIMIT = 2;
 
 export type PrepareRegenerationOptions = {
-  candidateCount?: number;
   constraints?: Partial<Omit<RegenerationConstraints, 'preserveMeasureCount' | 'preserveTimeSignatures' | 'preserveTempoEvents'>>;
+  /** Same three dials whole-score generation has; the prompt builder emits them identically. */
+  style?: string;
+  mood?: string;
+  complexity?: 'simple' | 'moderate' | 'complex';
+  /**
+   * Whether `range` sits on measure boundaries. Drives `preserveMeasureCount`,
+   * which says nothing about a sub-measure span and only muddies the prompt.
+   * Defaults true because every caller except Replace Notes is aligned.
+   */
+  measureAligned?: boolean;
 };
 
 /**
@@ -141,12 +155,42 @@ export function prepareRegenerationRequest(
   const raw = rawTickExtent(score, selection);
   const expandedToFullMeasures = raw !== null && (raw.start !== alignedRange.startTick || raw.end !== alignedRange.endTick);
 
-  const selectedFragment = extractFragment(score, alignedRange);
-  const precedingContext = extractFragment(score, precedingContextRange(score, alignedRange, CONTEXT_MEASURE_LIMIT));
-  const followingContext = extractFragment(score, followingContextRange(score, alignedRange, CONTEXT_MEASURE_LIMIT));
+  // `selectionToRange` has already aligned, so the region below is aligned by
+  // construction — hence the explicit `true` rather than trusting the default.
+  return {
+    ...prepareRegenerationRequestForRange(score, alignedRange, instruction, {
+      ...options,
+      measureAligned: true,
+    }),
+    expandedToFullMeasures,
+  };
+}
+
+/**
+ * Builds a request for an explicit tick range, used **verbatim**.
+ *
+ * This is the entry point Replace Notes needs. `prepareRegenerationRequest`
+ * snaps its selection out to whole measures, which is exactly what "replace
+ * only these notes" forbids; the snapping policy lives there alone so it
+ * cannot be half-applied here.
+ *
+ * `expandedToFullMeasures` is always false: nothing was expanded, because
+ * nothing was derived — the caller said what it meant.
+ */
+export function prepareRegenerationRequestForRange(
+  score: Score,
+  range: ScoreRange,
+  instruction: string,
+  options: PrepareRegenerationOptions = {},
+): PreparedRegenerationRequest {
+  const selectedFragment = extractFragment(score, range);
+  const precedingContext = extractFragment(score, precedingContextRange(score, range, CONTEXT_MEASURE_LIMIT));
+  const followingContext = extractFragment(score, followingContextRange(score, range, CONTEXT_MEASURE_LIMIT));
 
   const constraints: RegenerationConstraints = {
-    preserveMeasureCount: true,
+    // Omitted, not false, when the region does not sit on barlines: there is
+    // no measure count to preserve, and asserting one confuses the prompt.
+    ...((options.measureAligned ?? true) ? { preserveMeasureCount: true as const } : {}),
     preserveTimeSignatures: true,
     preserveTempoEvents: true,
     ...options.constraints,
@@ -155,13 +199,16 @@ export function prepareRegenerationRequest(
   return {
     scoreId: score.id,
     instruction,
-    range: alignedRange,
+    range,
     precedingContext,
     selectedFragment,
     followingContext,
     constraints,
-    candidateCount: options.candidateCount ?? DEFAULT_CANDIDATE_COUNT,
-    expandedToFullMeasures,
+    candidateCount: CANDIDATE_COUNT,
+    ...(options.style ? { style: options.style } : {}),
+    ...(options.mood ? { mood: options.mood } : {}),
+    ...(options.complexity ? { complexity: options.complexity } : {}),
+    expandedToFullMeasures: false,
   };
 }
 

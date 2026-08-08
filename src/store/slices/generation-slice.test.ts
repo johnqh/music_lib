@@ -278,12 +278,16 @@ describe('generation-slice', () => {
 
     it('selectCandidate switches the active candidate/preview, and null clears it', async () => {
       const store = await seedCandidates();
-      const candidates = store.getState().candidates;
-      expect(candidates.length).toBeGreaterThan(1);
+      // Requests now pin candidateCount: 1, so a second candidate can no
+      // longer arrive from a provider — but the slice action still accepts a
+      // list, so it is still seeded directly here rather than left untested.
+      const [first] = store.getState().candidates;
+      const second = { ...first, id: `${first.id}-b`, label: 'Second' };
+      store.setState({ candidates: [first, second] });
 
-      store.getState().selectCandidate(candidates[1].id);
-      expect(store.getState().activeCandidateId).toBe(candidates[1].id);
-      expect(store.getState().previewFragment).toEqual(candidates[1].fragment);
+      store.getState().selectCandidate(second.id);
+      expect(store.getState().activeCandidateId).toBe(second.id);
+      expect(store.getState().previewFragment).toEqual(second.fragment);
 
       store.getState().selectCandidate(null);
       expect(store.getState().activeCandidateId).toBeNull();
