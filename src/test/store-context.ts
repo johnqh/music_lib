@@ -62,6 +62,7 @@ export class FakeMusicClient {
       schemaVersion: 1,
       // A freshly created project is editable; only a generation job moves it.
       status: 'ready',
+      lastGenerationError: null,
       score: structuredClone(req.score),
       ...(req.uiPrefs ? { uiPrefs: req.uiPrefs } : {}),
     };
