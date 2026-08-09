@@ -126,6 +126,54 @@ describe("project-slice (server-backed)", () => {
     expect(store.getState().saveState).toBe("saved");
   });
 
+  describe("serverUpdatedAt", () => {
+    it("tracks the server's version through open and save", async () => {
+      // A poller compares this with what the server reports. If a save left it
+      // behind, the client's own write would read as somebody else's and the
+      // editor would re-download the project it had just uploaded.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: "S" });
+      const afterCreate = store.getState().serverUpdatedAt;
+      expect(afterCreate).not.toBeNull();
+
+      store.getState().dispatchCommand(addMeasureCommand());
+      await store.getState().saveNow();
+
+      const stored = context.fakeClient.storedRecord(
+        store.getState().projectId!,
+      )!;
+      expect(store.getState().serverUpdatedAt).toBe(stored.updatedAt);
+      expect(store.getState().serverUpdatedAt).not.toBe(afterCreate);
+    });
+
+    it("is left behind by a failed save, so the next poll re-reads", async () => {
+      // The one case where the server may have moved without this client
+      // knowing what it says.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: "S" });
+      const before = store.getState().serverUpdatedAt;
+
+      context.fakeClient.failNextSaves = 1;
+      store.getState().dispatchCommand(addMeasureCommand());
+      await expect(store.getState().saveNow()).rejects.toThrow();
+
+      expect(store.getState().serverUpdatedAt).toBe(before);
+    });
+
+    it("noteServerVersion records a write made outside the autosaver", async () => {
+      // Opening or creating a snapshot changes the project row through a route
+      // of its own; the editor is up to date all the same and must say so.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store.getState().newProject({ name: "S" });
+
+      store.getState().noteServerVersion("2030-01-01T00:00:00.000Z");
+      expect(store.getState().serverUpdatedAt).toBe("2030-01-01T00:00:00.000Z");
+    });
+  });
+
   it("markDirty without an open project is a safe no-op for the autosaver", async () => {
     const context = testStoreContext();
     const store = createAppStore({ context });
@@ -167,6 +215,61 @@ describe("project-slice (server-backed)", () => {
       );
       expect(record!.uiPrefs?.visibleTrackIds).toBeUndefined();
       expect(record!.uiPrefs?.zoom).toBe(1);
+    });
+
+    it("saves a visibility change without shipping the score", async () => {
+      // The score is by far the largest thing this app owns, and hiding a
+      // track does not touch it. Sending it to persist a list of track ids
+      // made a toggle cost the same as a full save.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store
+        .getState()
+        .newProject({ name: "V", score: threeTrackScore() });
+      const trackId = store.getState().score!.tracks[0].id;
+
+      store.getState().setVisibleTracks([trackId]);
+      await store.getState().saveNow();
+
+      const body = context.fakeClient.updateBodies.at(-1)!;
+      expect(body.score).toBeUndefined();
+      expect(body.uiPrefs?.visibleTrackIds).toEqual([trackId]);
+      // Still stored, which is what makes leaving it out safe.
+      expect(
+        context.fakeClient.storedRecord(store.getState().projectId!)!.uiPrefs
+          ?.visibleTrackIds,
+      ).toEqual([trackId]);
+    });
+
+    it("still ships the score when the score itself changed", async () => {
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store
+        .getState()
+        .newProject({ name: "V", score: threeTrackScore() });
+
+      store.getState().dispatchCommand(addMeasureCommand());
+      await store.getState().saveNow();
+
+      expect(context.fakeClient.updateBodies.at(-1)!.score).toBeDefined();
+    });
+
+    it("omits the score again on the save after a score change", async () => {
+      // The identity check has to be against the *last saved* score, not the
+      // one loaded at open, or a second visibility toggle would re-send the
+      // edit that was already stored.
+      const context = testStoreContext();
+      const store = createAppStore({ context });
+      await store
+        .getState()
+        .newProject({ name: "V", score: threeTrackScore() });
+      store.getState().dispatchCommand(addMeasureCommand());
+      await store.getState().saveNow();
+
+      store.getState().setVisibleTracks([store.getState().score!.tracks[1].id]);
+      await store.getState().saveNow();
+
+      expect(context.fakeClient.updateBodies.at(-1)!.score).toBeUndefined();
     });
 
     it("hydrates visibleTrackIds when opening a project", async () => {

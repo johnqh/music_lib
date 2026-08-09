@@ -39,6 +39,21 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Gotchas
 
+- **The autosave omits the score when the score has not changed.**
+  `project-slice` keeps the last-saved score by *identity* — every mutation
+  goes through a command that returns a new object, so an unchanged reference
+  is an unchanged score — and a save that exists only to persist
+  `visibleTrackIds` or `zoom` sends `{name, uiPrefs}`. Hiding a track used to
+  ship the entire score to record a list of track ids. A write returns
+  `ProjectSaveResult`, not a record: the score travels in one direction per
+  save, and `adopt` therefore takes the score as its own argument (for a
+  create, the copy the caller just sent).
+- **`serverUpdatedAt` exists so a client can recognise its own writes.** It
+  records where the last read or write left the server. A poller comparing
+  only against *its own* last observation reads every autosave as a foreign
+  change — which made the editor re-download the project it had just uploaded
+  and reset the undo history seconds after every edit. A write that goes
+  around the autosaver must call `noteServerVersion`.
 - **This package is platform-free, and three guard tests keep it that way**
   (`src/platform/no-platform-imports.test.ts`): no `tone`/`@tonejs/midi` import,
   no platform runtime dependency, no DOM global outside the canvas renderer.

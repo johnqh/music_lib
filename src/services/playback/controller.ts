@@ -343,9 +343,12 @@ export class PlaybackController {
    * is not transport playback, so it must not move the caret, set the
    * playing/paused state, or appear in the active-note highlighting that
    * follows the score.
+   *
+   * `isPercussion` must be passed for a percussion-clef track, or the tap
+   * sounds a pitched instrument while the same note plays back as a drum.
    */
-  noteOn(midi: number, program: number): void {
-    this.engine.noteOn(midi, program);
+  noteOn(midi: number, program: number, isPercussion = false): void {
+    this.engine.noteOn(midi, program, isPercussion);
   }
 
   noteOff(midi: number): void {

@@ -12,9 +12,12 @@ import {
   type GenerateScoreResult,
   type MusicGenerationProvider,
   type ProjectCreateRequest,
+  type ProjectDuplicateRequest,
   type ProjectListQuery,
   type ProjectRecord,
   type GenerationJob,
+  type ProjectSaveResult,
+  type ProjectStatusResult,
   type ProjectSummary,
   type ProjectUpdateRequest,
   type RegenerateRegionRequest,
@@ -24,6 +27,26 @@ import {
 import { createEmptyScore } from '../domain/score/factory.js';
 import type { PrefsStorage, StoreContext } from '../store/context.js';
 
+/**
+ * What a write returns: the record minus the score the caller already holds.
+ *
+ * Built field by field like the server's own, so a column added to the record
+ * later cannot arrive in a write response by accident.
+ */
+function saveResult(record: ProjectRecord): ProjectSaveResult {
+  return {
+    id: record.id,
+    name: record.name,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    schemaVersion: record.schemaVersion,
+    status: record.status,
+    lastGenerationError: record.lastGenerationError,
+    ...(record.uiPrefs ? { uiPrefs: structuredClone(record.uiPrefs) } : {}),
+    parentSnapshotId: record.parentSnapshotId ?? null,
+  };
+}
+
 export class FakeMusicClient {
   private readonly records = new Map<string, ProjectRecord>();
   private readonly jobs = new Map<string, GenerationJob>();
@@ -32,6 +55,13 @@ export class FakeMusicClient {
   /** Set to make the next N calls reject (network-failure simulation). */
   failNextSaves = 0;
   updateCalls = 0;
+  /**
+   * Every update body received, in order.
+   *
+   * Kept so a test can assert what a save *did not* send: a prefs-only save
+   * omits the score, and only the request itself shows that.
+   */
+  updateBodies: ProjectUpdateRequest[] = [];
 
   async listProjects(_token: string, query?: ProjectListQuery): Promise<ProjectSummary[]> {
     let list = [...this.records.values()].map(({ score: _s, uiPrefs: _u, ...summary }) => summary);
@@ -51,7 +81,14 @@ export class FakeMusicClient {
     return structuredClone(record);
   }
 
-  async createProject(req: ProjectCreateRequest, _token: string): Promise<ProjectRecord> {
+  /**
+   * Returns a save result, not a record — exactly as the server does.
+   *
+   * The fake withholds the score deliberately: a caller that reads `.score`
+   * off a write response is reading something that is not there in production
+   * either, and the fake is the only place a unit test can catch it.
+   */
+  async createProject(req: ProjectCreateRequest, _token: string): Promise<ProjectSaveResult> {
     this.nextId += 1;
     const now = new Date(2026, 0, 1, 0, 0, this.nextId).toISOString();
     const record: ProjectRecord = {
@@ -67,11 +104,16 @@ export class FakeMusicClient {
       ...(req.uiPrefs ? { uiPrefs: req.uiPrefs } : {}),
     };
     this.records.set(record.id, record);
-    return structuredClone(record);
+    return saveResult(record);
   }
 
-  async updateProject(id: string, req: ProjectUpdateRequest, _token: string): Promise<ProjectRecord> {
+  async updateProject(
+    id: string,
+    req: ProjectUpdateRequest,
+    _token: string
+  ): Promise<ProjectSaveResult> {
     this.updateCalls += 1;
+    this.updateBodies.push(structuredClone(req));
     if (this.failNextSaves > 0) {
       this.failNextSaves -= 1;
       throw new Error('Simulated save failure');
@@ -86,7 +128,28 @@ export class FakeMusicClient {
       updatedAt: new Date(2026, 0, 2, 0, 0, (this.nextId += 1)).toISOString(),
     };
     this.records.set(id, updated);
-    return structuredClone(updated);
+    return saveResult(updated);
+  }
+
+  /** Copies within the fake's own store, as the server copies within the database. */
+  async duplicateProject(
+    id: string,
+    req: ProjectDuplicateRequest,
+    _token: string
+  ): Promise<ProjectSaveResult> {
+    const source = this.records.get(id);
+    if (!source) throw new Error(`Project not found: ${id}`);
+    this.nextId += 1;
+    const now = new Date(2026, 0, 1, 0, 0, this.nextId).toISOString();
+    const copy: ProjectRecord = {
+      ...structuredClone(source),
+      id: `proj-${this.nextId}`,
+      name: req.name ?? `${source.name} (copy)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.records.set(copy.id, copy);
+    return saveResult(copy);
   }
 
   async deleteProject(id: string, _token: string): Promise<void> {
@@ -141,13 +204,15 @@ export class FakeMusicClient {
     await this.cancelProjectGeneration(job.projectId, _token);
   }
 
-  async getProjectStatus(
-    id: string,
-    _token: string
-  ): Promise<{ status: ProjectRecord['status']; updatedAt: string }> {
+  async getProjectStatus(id: string, _token: string): Promise<ProjectStatusResult> {
     const record = this.records.get(id);
     if (!record) throw new Error(`Project not found: ${id}`);
-    return { status: record.status, updatedAt: record.updatedAt };
+    return {
+      status: record.status,
+      updatedAt: record.updatedAt,
+      lastGenerationError: record.lastGenerationError,
+      parentSnapshotId: record.parentSnapshotId ?? null,
+    };
   }
 
   async cancelProjectGeneration(projectId: string, _token: string): Promise<void> {

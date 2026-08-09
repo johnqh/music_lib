@@ -744,10 +744,23 @@ describe('PlaybackController: auditioning', () => {
     controller.noteOn(60, 0);
     controller.noteOff(60);
 
-    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, 0);
+    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, 0, false);
     expect(vi.mocked(engine.noteOff)).toHaveBeenCalledWith(60);
     expect(store.getState().state).toBe(before);
     expect(store.getState().positionTick).toBe(0);
+    controller.dispose();
+  });
+
+  it('forwards the percussion flag, so a drum track auditions on the kit', () => {
+    // Without it the tap sounded a pitched instrument while the same note
+    // played back as a drum.
+    const engine = createFakeEngine();
+    const store = createAppStore({ context: testStoreContext() });
+    const controller = createPlaybackController(engine, store);
+
+    controller.noteOn(38, 0, true);
+
+    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(38, 0, true);
     controller.dispose();
   });
 });
