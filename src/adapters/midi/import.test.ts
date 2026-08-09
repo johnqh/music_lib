@@ -122,7 +122,7 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = defaultMidiImportOptions(summary);
+    const options = { ...defaultMidiImportOptions(summary), minDurationTicks: 30 };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     expect(allNotes(score).filter(isNoteEvent)).toHaveLength(1);
@@ -165,14 +165,16 @@ describe('importMidi', () => {
     expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
   });
 
-  it('trims an overlapping note and warns, without misattributing it to a short-note drop', () => {
+  it('preserves overlapping different-pitch notes for voice allocation and playback', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Overlap', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({ name: 'Polyphony', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
     const track = midi.addTrack();
     track.name = 'Piano';
-    // The C4 runs 20 ticks past the D4's onset - overlap resolution should trim it back to 480,
-    // not remove it (and definitely not blame it on minDurationTicks).
-    track.addNote({ midi: 60, ticks: 0, durationTicks: 500, velocity: 0.8 });
+    // A held C4 with an entering D4 is valid polyphony. The importer used to
+    // place every raw note in one temporary voice and trim C4 to D4's onset
+    // before voice allocation, so playback lost the sustain even though the
+    // allocator can represent these as independent voices.
+    track.addNote({ midi: 60, ticks: 0, durationTicks: 960, velocity: 0.8 });
     track.addNote({ midi: 62, ticks: 480, durationTicks: 480, velocity: 0.8 });
 
     const buffer = toArrayBuffer(midi.toArray());
@@ -183,12 +185,89 @@ describe('importMidi', () => {
     const notes = allNotes(score)
       .filter(isNoteEvent)
       .sort((a, b) => a.startTick - b.startTick);
-    expect(notes).toHaveLength(2); // trimming shortens a note, it never removes one
-    expect(notes[0].durationTicks).toBe(480); // trimmed from 500
+    expect(notes).toHaveLength(2);
+    expect(notes[0].durationTicks).toBe(960);
+    expect(notes[1].durationTicks).toBe(480);
 
-    expect(warnings.some((w) => w.includes('trimmed') && w.includes('overlapping'))).toBe(true);
+    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
     expect(warnings.some((w) => w.includes('dropped'))).toBe(false);
     expect(warnings.some((w) => w.includes('merged'))).toBe(false);
+  });
+
+  it('preserves raw overlapping repeated pitches when timing cleanup is off', () => {
+    const midi = new Midi();
+    midi.header.fromJSON({ name: 'Raw Repeated Pitch Overlap', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    const track = midi.addTrack();
+    track.name = 'Piano';
+    track.addNote({ midi: 60, ticks: 0, durationTicks: 500, velocity: 0.8 });
+    track.addNote({ midi: 60, ticks: 480, durationTicks: 480, velocity: 0.8 });
+
+    const buffer = toArrayBuffer(midi.toArray());
+    const summary = analyzeMidi(buffer, codec);
+    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, minDurationTicks: 1 };
+    const { score, warnings } = importMidi(buffer, options, codec);
+
+    const notes = allNotes(score)
+      .filter(isNoteEvent)
+      .sort((a, b) => a.startTick - b.startTick);
+    expect(notes.map((note) => [pitchToMidi(note.pitch), note.startTick, note.durationTicks])).toEqual([
+      [60, 0, 500],
+      [60, 480, 480],
+    ]);
+    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
+  });
+
+  it('trims overlapping repeated pitches and warns without touching independent pitches', () => {
+    const midi = new Midi();
+    midi.header.fromJSON({ name: 'Repeated Pitch Overlap', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    const track = midi.addTrack();
+    track.name = 'Piano';
+    // Coarse quantization can create a residual same-pitch overlap even when
+    // the raw MIDI did not overlap. That repeated C4 should be trimmed, but
+    // the overlapping E4 must keep its full duration as independent polyphony.
+    track.addNote({ midi: 60, ticks: 490, durationTicks: 1440, velocity: 0.8 });
+    track.addNote({ midi: 64, ticks: 720, durationTicks: 960, velocity: 0.8 });
+    track.addNote({ midi: 60, ticks: 1930, durationTicks: 480, velocity: 0.8 });
+
+    const buffer = toArrayBuffer(midi.toArray());
+    const summary = analyzeMidi(buffer, codec);
+    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: 'half' as const, minDurationTicks: 1 };
+    const { score, warnings } = importMidi(buffer, options, codec);
+
+    const notes = allNotes(score)
+      .filter(isNoteEvent)
+      .sort((a, b) => a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch));
+    expect(notes).toHaveLength(3);
+    expect(notes.map((n) => [pitchToMidi(n.pitch), n.startTick, n.durationTicks])).toEqual([
+      [60, 960, 960],
+      [64, 960, 960],
+      [60, 1920, 960],
+    ]);
+    expect(warnings.some((w) => w.includes('trimmed') && w.includes('overlapping'))).toBe(true);
+  });
+
+  it('clamps only sustain-created same-pitch overlap, not the raw note length', () => {
+    const midi = new Midi();
+    midi.header.fromJSON({ name: 'Sustain Repeated Pitch', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    const track = midi.addTrack();
+    track.name = 'Piano';
+    track.addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
+    track.addNote({ midi: 60, ticks: 720, durationTicks: 240, velocity: 0.8 });
+    track.addCC({ number: 64, ticks: 0, value: 1 });
+    track.addCC({ number: 64, ticks: 960, value: 0 });
+
+    const buffer = toArrayBuffer(midi.toArray());
+    const summary = analyzeMidi(buffer, codec);
+    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, minDurationTicks: 1 };
+    const { score } = importMidi(buffer, options, codec);
+
+    const notes = allNotes(score)
+      .filter(isNoteEvent)
+      .sort((a, b) => a.startTick - b.startTick);
+    expect(notes.map((note) => [pitchToMidi(note.pitch), note.startTick, note.durationTicks])).toEqual([
+      [60, 0, 720],
+      [60, 720, 240],
+    ]);
   });
 
   it('extends a note through a held sustain pedal when sustainPedal is "extend"', () => {

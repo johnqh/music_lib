@@ -52,7 +52,7 @@ describe('defaultMidiImportOptions', () => {
     const options = defaultMidiImportOptions(summary([track({})]));
     expect(options.quantizeGrid).toBe('sixteenth');
     expect(options.tripletDetection).toBe(false);
-    expect(options.minDurationTicks).toBeGreaterThan(0);
+    expect(options.minDurationTicks).toBe(1);
     expect(options.mergeNearDuplicates).toBe(false);
     expect(options.sustainPedal).toBe('extend');
     expect(options.pianoStaffSplit).toBe(false);
@@ -70,5 +70,13 @@ describe('quantization defaults follow the file', () => {
     );
     expect(options.quantizeGrid).toBe('eighth');
     expect(options.tripletDetection).toBe(true);
+  });
+
+  it('opens the wizard with quantization off when no grid was detected', () => {
+    const options = defaultMidiImportOptions(
+      summary([track({ index: 0, noteCount: 4 })], { grid: null, triplet: false }),
+    );
+    expect(options.quantizeGrid).toBeNull();
+    expect(options.tripletDetection).toBe(false);
   });
 });

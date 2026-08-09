@@ -46,42 +46,41 @@ export function splitNoteAcrossMeasures(note: NoteEvent, measureBoundaries: numb
 }
 
 /**
- * Merges runs of contiguous, same-pitch, tie-linked note events (a note
- * with `tieStart` immediately followed in the array by a same-pitch note
- * with `tieStop`) into single notes spanning the combined duration. Rests
- * and non-tied notes pass through unchanged. Assumes `events` are already
- * in ascending `startTick` order (e.g. one voice's events).
+ * Merges runs of contiguous, same-pitch, tie-linked note events into single
+ * notes spanning the combined duration. Partners are matched by
+ * `(startTick, pitch, tie flags)`, not raw array adjacency, so tied chord
+ * members can be joined even when another chord member sits between them.
+ * Rests and non-tied notes pass through unchanged. Assumes `events` are
+ * already in ascending `startTick` order (e.g. one voice's events).
  */
 export function joinTiedNotes(events: MusicalEvent[]): MusicalEvent[] {
   const result: MusicalEvent[] = [];
-  let i = 0;
+  const consumed = new Set<UUID>();
 
-  while (i < events.length) {
-    const event = events[i];
+  for (const event of events) {
+    if (consumed.has(event.id)) continue;
     if (!isNoteEvent(event) || !event.tieStart) {
       result.push(event);
-      i += 1;
       continue;
     }
 
     let merged: NoteEvent = event;
-    let j = i + 1;
-    while (j < events.length) {
-      const next = events[j];
-      if (
-        !isNoteEvent(next) ||
-        !next.tieStop ||
-        next.startTick !== merged.startTick + merged.durationTicks ||
-        !samePitch(next.pitch, merged.pitch)
-      ) {
-        break;
-      }
+    consumed.add(event.id);
+    while (merged.tieStart) {
+      const next = events.find(
+        (candidate): candidate is NoteEvent =>
+          !consumed.has(candidate.id) &&
+          isNoteEvent(candidate) &&
+          Boolean(candidate.tieStop) &&
+          candidate.startTick === merged.startTick + merged.durationTicks &&
+          samePitch(candidate.pitch, merged.pitch),
+      );
+      if (!next) break;
+      consumed.add(next.id);
       merged = { ...merged, durationTicks: merged.durationTicks + next.durationTicks, tieStart: next.tieStart };
-      j += 1;
     }
 
     result.push(merged);
-    i = j;
   }
 
   return result;

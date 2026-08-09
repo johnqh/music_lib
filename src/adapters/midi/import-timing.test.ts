@@ -69,4 +69,9 @@ describe('midi import timing', () => {
   it('keeps sixteenths and triplets together in one file', async () => {
     await expectPreserved([0, 0.25, 0.5, 0.75, 1, 4 / 3, 5 / 3, 2, 2.25, 2.5, 2.75, 3], 0.25);
   });
+
+  it('keeps performance timing when no grid fits', async () => {
+    const playedTicks = [0, 267, 494, 741, 941, 1207, 1445, 1668];
+    await expectPreserved(playedTicks.map((tick) => tick / 480), 0.25);
+  });
 });

@@ -7,7 +7,6 @@
  */
 import type { MidiSummary, MidiTrackSummary } from './analyze.js';
 import type { Clef, DurationName } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks.js';
 
 export type MidiTrackSelection = {
   sourceIndex: number;
@@ -22,7 +21,7 @@ export type MidiImportOptions = {
   quantizeGrid: DurationName | null;
   /** Use a triplet subdivision of `quantizeGrid` when quantizing. */
   tripletDetection: boolean;
-  /** Notes shorter than this (at 480 ppq) are dropped as accidental/ornamental noise. */
+  /** Notes shorter than this (at 480 ppq) are dropped as accidental/ornamental noise; `1` preserves every representable note. */
   minDurationTicks: number;
   /** Cluster near-simultaneous onsets within a small tolerance onto a shared start tick. */
   mergeNearDuplicates: boolean;
@@ -36,8 +35,6 @@ export type MidiImportOptions = {
   detectKey: boolean;
 };
 
-/** The score model's fixed internal PPQ (spec §4/§15: all imports are normalized to 480). */
-const SCORE_PPQ = 480;
 /** Middle C — the conventional grand-staff RH/LH split point. */
 const DEFAULT_SPLIT_POINT_MIDI = 60;
 
@@ -51,11 +48,11 @@ function defaultClefFor(track: MidiTrackSummary): Clef {
 /**
  * `MidiImportOptions` with defaults pre-filled from `summary`: every
  * non-empty track included, clef guessed per `defaultClefFor`, quantized to
- * the grid the file itself is written on (`summary.detectedGrid` — a fixed
- * sixteenth grid used to be assumed here, which bent every triplet and every
- * swung eighth out of shape), notes shorter than half a thirty-second note
- * (at 480 ppq) dropped, sustain pedal extension honored, no near-duplicate
- * merging or piano staff split, and key detection on.
+ * the grid the file itself is written on (`summary.detectedGrid`), or no
+ * quantization when no grid was confidently detected. Notes are preserved by
+ * default (`minDurationTicks: 1`); users can opt into cleanup from the wizard.
+ * Sustain pedal extension is honored, with no near-duplicate merging or piano
+ * staff split, and key detection on.
  */
 export function defaultMidiImportOptions(summary: MidiSummary): MidiImportOptions {
   return {
@@ -67,7 +64,7 @@ export function defaultMidiImportOptions(summary: MidiSummary): MidiImportOption
     })),
     quantizeGrid: summary.detectedGrid.grid,
     tripletDetection: summary.detectedGrid.triplet,
-    minDurationTicks: Math.round(ticksFor('thirtysecond', SCORE_PPQ) / 2),
+    minDurationTicks: 1,
     mergeNearDuplicates: false,
     sustainPedal: 'extend',
     pianoStaffSplit: false,

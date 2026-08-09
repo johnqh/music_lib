@@ -60,7 +60,7 @@ describe('detectGrid', () => {
     });
   });
 
-  it('falls back to the sixteenth grid for a played performance, which is there to be tidied', () => {
+  it('falls back to no grid for a played performance, preserving timing by default', () => {
     // Eighths pushed and dragged by 30-60ms at 120bpm — on no grid at all.
     const played = [0, 267, 494, 741, 941, 1207, 1445, 1668];
     expect(detectGrid(played, PPQ)).toEqual(FALLBACK_GRID);

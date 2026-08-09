@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from './factory.js';
 import { joinTiedNotes, splitNoteAcrossMeasures, tieChainFor } from './ties.js';
 import type { MusicalEvent, NoteEvent, Score } from '@sudobility/music_types';
+import { isNoteEvent } from '@sudobility/music_types';
 
 function note(overrides: Partial<NoteEvent> & Pick<NoteEvent, 'id' | 'startTick' | 'durationTicks'>): NoteEvent {
   return {
@@ -101,6 +102,31 @@ describe('joinTiedNotes', () => {
     const joined = joinTiedNotes([a, b, c]);
     expect(joined).toHaveLength(1);
     expect((joined[0] as NoteEvent).durationTicks).toBe(720);
+  });
+
+  it('joins tied chord members by pitch even when another chord member sits between them', () => {
+    const c1 = note({ id: 'c1', startTick: 0, durationTicks: 240, tieStart: true });
+    const e1 = note({
+      id: 'e1',
+      startTick: 0,
+      durationTicks: 240,
+      tieStart: true,
+      pitch: { step: 'E', accidental: 0, octave: 4 },
+    });
+    const c2 = note({ id: 'c2', startTick: 240, durationTicks: 240, tieStop: true });
+    const e2 = note({
+      id: 'e2',
+      startTick: 240,
+      durationTicks: 240,
+      tieStop: true,
+      pitch: { step: 'E', accidental: 0, octave: 4 },
+    });
+
+    const joined = joinTiedNotes([c1, e1, c2, e2]).filter(isNoteEvent);
+    expect(joined.map((n) => [n.id, n.durationTicks])).toEqual([
+      ['c1', 480],
+      ['e1', 480],
+    ]);
   });
 });
 

@@ -41,9 +41,8 @@ const PERCUSSION_CHANNEL = 9;
  * as accidental duplicate triggers (not a deliberate ornament/grace note) by
  * `mergeNearDuplicates`. Deliberately independent of `quantizeGrid` — this
  * is about performance-timing noise, not the notation grid — roughly a
- * 128th note at 480 ppq (half of `import-options.ts`'s default
- * `minDurationTicks`, a 64th note, since a near-duplicate this close is
- * almost always well inside whatever floor is configured).
+ * 128th note at 480 ppq. A near-duplicate this close is almost always a
+ * double trigger rather than an intentional repeated note.
  */
 const NEAR_DUPLICATE_TOLERANCE_TICKS = 15;
 
@@ -119,10 +118,10 @@ type RawNote = { midi: number; startTick: number; durationTicks: number; velocit
 /**
  * Converts a source track's notes to target-tick `RawNote`s, optionally
  * extending each note's end through a sustain-pedal-down interval it falls
- * in (`sustainPedal: "extend"`). A same-pitch note's sustain extension is
- * then clamped so it never overlaps the *next* onset of that same pitch
- * (extending into a genuinely different pitch is fine and expected — that's
- * exactly what a pedal is for).
+ * in (`sustainPedal: "extend"`). Sustain-created same-pitch extensions are
+ * clamped so they do not run into the next onset of that same pitch. Raw MIDI
+ * overlaps are left intact; preserving performance timing means not shortening
+ * source notes unless a cleanup stage explicitly asks for it.
  */
 function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPedal: MidiImportOptions['sustainPedal']): RawNote[] {
   const trackEndTick = Math.round(sourceTrack.durationTicks * ratio);
@@ -132,7 +131,7 @@ function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPed
     const startTick = Math.round(note.ticks * ratio);
     const rawEnd = Math.round((note.ticks + note.durationTicks) * ratio);
     const endTick = intervals.length > 0 ? extendThroughSustain(rawEnd, intervals) : rawEnd;
-    return { midi: note.midi, startTick, endTick, velocity: note.velocity };
+    return { midi: note.midi, startTick, rawEnd, endTick, velocity: note.velocity };
   });
 
   const byPitch = new Map<number, typeof spans>();
@@ -144,7 +143,7 @@ function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPed
   for (const bucket of byPitch.values()) {
     bucket.sort((a, b) => a.startTick - b.startTick);
     for (let i = 0; i < bucket.length - 1; i += 1) {
-      if (bucket[i].endTick > bucket[i + 1].startTick) {
+      if (bucket[i].rawEnd <= bucket[i + 1].startTick && bucket[i].endTick > bucket[i + 1].startTick) {
         bucket[i].endTick = bucket[i + 1].startTick;
       }
     }
@@ -215,17 +214,6 @@ function mergeNearDuplicateNotes(notes: NoteEvent[], toleranceTicks: number): { 
   return { notes: kept, mergedCount };
 }
 
-/** Number of `after` notes whose `durationTicks` differs from the `before` note sharing its id (i.e. was trimmed by overlap resolution). Ids not present in `before` (there are none, by construction) would not count. */
-function countDurationChanges(before: NoteEvent[], after: NoteEvent[]): number {
-  const beforeById = new Map(before.map((n) => [n.id, n]));
-  let count = 0;
-  for (const note of after) {
-    const prior = beforeById.get(note.id);
-    if (prior && prior.durationTicks !== note.durationTicks) count += 1;
-  }
-  return count;
-}
-
 // ---- Prepared per-selection data ----------------------------------------------
 
 type PreparedSelection = {
@@ -250,12 +238,46 @@ type PreparedNotes = { notes: NoteEvent[] } & PrepareStageCounts;
  *    stage can remove notes, so any count delta here is `droppedShort`.
  * 2. Merge near-duplicate same-pitch onsets (`mergeNearDuplicates`) via
  *    `mergeNearDuplicateNotes`. Any count delta here is `mergedDuplicates`.
- * 3. Resolve residual overlaps (always on) by trimming an overlapping
- *    note's duration down to the next note's start — this never changes
- *    note *count* (durations are floored at 1 tick, never dropped), so it's
- *    measured as `trimmedOverlaps`: how many notes had their duration
- *    shortened.
+ * 3. When an explicit cleanup stage can create residual same-pitch overlaps,
+ *    trim a repeated pitch down to the next same-pitch onset. Different-pitch
+ *    overlaps are real polyphony and must survive into voice allocation.
  */
+function trimSamePitchOverlaps(notes: NoteEvent[]): { notes: NoteEvent[]; trimmedCount: number } {
+  const byId = new Map(notes.map((note) => [note.id, note]));
+  const byPitch = new Map<number, NoteEvent[]>();
+  for (const note of notes) {
+    const midi = pitchToMidi(note.pitch);
+    const bucket = byPitch.get(midi);
+    if (bucket) bucket.push(note);
+    else byPitch.set(midi, [note]);
+  }
+
+  let trimmedCount = 0;
+  for (const bucket of byPitch.values()) {
+    const sorted = [...bucket].sort((a, b) => a.startTick - b.startTick || a.durationTicks - b.durationTicks);
+    for (let i = 0; i < sorted.length; i += 1) {
+      let nextIndex = i + 1;
+      while (nextIndex < sorted.length && sorted[nextIndex].startTick === sorted[i].startTick) {
+        nextIndex += 1;
+      }
+      const next = sorted[nextIndex];
+      if (!next) continue;
+
+      const current = byId.get(sorted[i].id)!;
+      const currentEnd = current.startTick + current.durationTicks;
+      if (currentEnd > next.startTick) {
+        const durationTicks = Math.max(1, next.startTick - current.startTick);
+        if (durationTicks !== current.durationTicks) {
+          byId.set(current.id, { ...current, durationTicks });
+          trimmedCount += 1;
+        }
+      }
+    }
+  }
+
+  return { notes: notes.map((note) => byId.get(note.id)!), trimmedCount };
+}
+
 function prepareSelectionNotes(raw: RawNote[], tempTrackId: string, options: MidiImportOptions): PreparedNotes {
   const initialEvents: NoteEvent[] = raw.map((n) => ({
     id: createId(),
@@ -283,9 +305,10 @@ function prepareSelectionNotes(raw: RawNote[], tempTrackId: string, options: Mid
     ? mergeNearDuplicateNotes(snapped, NEAR_DUPLICATE_TOLERANCE_TICKS)
     : { notes: snapped, mergedCount: 0 };
 
-  const overlapQuantizeOptions: QuantizeOptions = { grid: 1, quantizeStarts: false, quantizeDurations: false, resolveOverlaps: true };
-  const resolved = quantizeEvents(deduped, overlapQuantizeOptions).filter(isNoteEvent);
-  const trimmedOverlaps = countDurationChanges(deduped, resolved);
+  const shouldTrimSamePitchOverlaps = quantizing || options.mergeNearDuplicates;
+  const { notes: resolved, trimmedCount: trimmedOverlaps } = shouldTrimSamePitchOverlaps
+    ? trimSamePitchOverlaps(deduped)
+    : { notes: deduped, trimmedCount: 0 };
 
   return { notes: resolved, droppedShort, mergedDuplicates, trimmedOverlaps };
 }
@@ -418,7 +441,7 @@ export function importMidiFile(midi: MidiFile, options: MidiImportOptions): Midi
       warnings.push(`Track "${selection.name}": merged ${prepared.mergedDuplicates} near-duplicate note(s).`);
     }
     if (prepared.trimmedOverlaps > 0) {
-      warnings.push(`Track "${selection.name}": trimmed ${prepared.trimmedOverlaps} overlapping note(s) to resolve timing conflicts.`);
+      warnings.push(`Track "${selection.name}": trimmed ${prepared.trimmedOverlaps} overlapping repeated-pitch note(s).`);
     }
 
     preparedSelections.push({ selection, sourceTrack, notes: prepared.notes });
