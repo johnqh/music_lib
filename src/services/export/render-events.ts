@@ -11,37 +11,40 @@ import { isNoteEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { Score } from '@sudobility/music_types';
 
-export type RenderEvent = {
-  midi: number;
-  startSec: number;
-  durationSec: number;
-  /** 0..1, as the synth voices expect. */
-  velocity: number;
-  midiProgram: number;
-  isPercussion: boolean;
-};
+import type { RenderEvent, RenderPlan, RenderTrack } from '@sudobility/music_types';
+export type { RenderEvent, RenderPlan, RenderTrack } from '@sudobility/music_types';
 
-export type RenderPlan = {
-  events: RenderEvent[];
-  /** How long the rendered file must be, including the tail of the last note. */
-  durationSec: number;
-};
-
-/** MIDI channel 10 (index 9) is the percussion channel, by convention. */
-const PERCUSSION_CHANNEL = 9;
 /** Release tail, so the last note is not cut off mid-decay. */
 const TAIL_SEC = 1;
 
 /**
- * The events an export should sound.
+ * The plan an export should sound, matching live playback.
  *
  * **Mute and solo are respected**, because they are part of how the score
  * currently sounds, and an export that ignored them would not match what you
  * just heard. Solo wins: if anything is soloed, only soloed tracks sound.
+ *
+ * Every track appears in `tracks` regardless — silent, muted, soloed away —
+ * because the renderer sizes its mix headroom by how many channels exist, as
+ * playback does. Only a track's *notes* are dropped when it is silenced.
+ *
+ * `isPercussion` comes from the clef and not the MIDI channel, and the voice is
+ * left for the renderer to resolve from `midiProgram`/`instrumentName`: both
+ * are the signals live playback uses, and the export sounding different from
+ * the thing it is an export *of* is the bug being fixed here.
  */
 export function renderEvents(score: Score): RenderPlan {
   const tempoMap = new TempoMap(score.tempoMap, score.ppq);
   const anySolo = score.tracks.some((t) => t.solo);
+
+  const tracks: RenderTrack[] = score.tracks.map((track) => ({
+    id: track.id,
+    midiProgram: track.midiProgram,
+    instrumentName: track.instrumentName,
+    isPercussion: track.clef === 'percussion',
+    volume: track.volume,
+    pan: track.pan,
+  }));
 
   const events: RenderEvent[] = [];
   for (const track of score.tracks) {
@@ -54,13 +57,12 @@ export function renderEvents(score: Score): RenderPlan {
           const startSec = tempoMap.ticksToSeconds(event.startTick);
           const endSec = tempoMap.ticksToSeconds(event.startTick + event.durationTicks);
           events.push({
+            trackId: track.id,
             midi: pitchToMidi(event.pitch),
             startSec,
             // Never zero: a rounding error should not silence a note.
             durationSec: Math.max(0.01, endSec - startSec),
             velocity: event.velocity / 127,
-            midiProgram: track.midiProgram,
-            isPercussion: track.midiChannel === PERCUSSION_CHANNEL,
           });
         }
       }
@@ -69,5 +71,5 @@ export function renderEvents(score: Score): RenderPlan {
 
   events.sort((a, b) => a.startSec - b.startSec);
   const lastEnd = events.reduce((max, e) => Math.max(max, e.startSec + e.durationSec), 0);
-  return { events, durationSec: lastEnd + TAIL_SEC };
+  return { tracks, events, durationSec: lastEnd + TAIL_SEC };
 }

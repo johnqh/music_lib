@@ -35,6 +35,76 @@ function twoTrack(): Score {
   }).execute(withA);
 }
 
+describe('renderEvents: matching what playback does', () => {
+  // The export used to disagree with playback on three counts: it dropped
+  // `volume` and `pan` entirely, resolved the voice from `midiProgram` alone
+  // while playback preferred it only when set, and read percussion off the
+  // MIDI channel while playback reads the clef. A rendered file therefore had
+  // a different balance, and sometimes different instruments, from what the
+  // user had just listened to.
+
+  it('carries every track, so the renderer can size headroom as playback does', () => {
+    // One score, built once: `twoTrack()` mints fresh ids on every call.
+    const score = twoTrack();
+    const { tracks } = renderEvents(score);
+    expect(tracks).toHaveLength(2);
+    expect(tracks.map((t: { id: string }) => t.id)).toEqual(score.tracks.map((t) => t.id));
+  });
+
+  it('keeps muted and silent tracks in the track list, and only drops their notes', () => {
+    // Playback builds a channel for every track whatever its mute state, and
+    // its master trim is sized by that count. An export that listed only the
+    // audible ones would come out louder than what was heard.
+    const score = twoTrack();
+    const muted: Score = {
+      ...score,
+      tracks: [{ ...score.tracks[0], muted: true }, score.tracks[1]],
+    };
+    const { tracks, events } = renderEvents(muted);
+    expect(tracks).toHaveLength(2);
+    expect(events.every((e: { trackId: string }) => e.trackId === muted.tracks[1].id)).toBe(true);
+  });
+
+  it('passes each track its volume and pan', () => {
+    const score = twoTrack();
+    const mixed: Score = {
+      ...score,
+      tracks: [
+        { ...score.tracks[0], volume: 0.42, pan: -0.75 },
+        { ...score.tracks[1], volume: 0.9, pan: 0.5 },
+      ],
+    };
+    const { tracks } = renderEvents(mixed);
+    expect(tracks[0]).toMatchObject({ volume: 0.42, pan: -0.75 });
+    expect(tracks[1]).toMatchObject({ volume: 0.9, pan: 0.5 });
+  });
+
+  it('reads percussion off the clef, the same signal playback uses', () => {
+    // Not the MIDI channel: a percussion-clef track is the score stating
+    // outright that it is a kit, and a GM drum track's program and channel are
+    // not always what convention would suggest.
+    const score = twoTrack();
+    const drums: Score = {
+      ...score,
+      tracks: [{ ...score.tracks[0], clef: 'percussion', midiChannel: 0 }, score.tracks[1]],
+    };
+    const { tracks } = renderEvents(drums);
+    expect(tracks[0].isPercussion).toBe(true);
+    expect(tracks[1].isPercussion).toBe(false);
+  });
+
+  it('hands the renderer both program and name, so it can pick the voice playback would', () => {
+    const { tracks } = renderEvents(twoTrack());
+    expect(tracks[0]).toMatchObject({ midiProgram: expect.any(Number), instrumentName: expect.any(String) });
+  });
+
+  it('tags every event with the track it belongs to', () => {
+    const score = twoTrack();
+    const { events } = renderEvents(score);
+    expect(events.map((e: { trackId: string }) => e.trackId)).toEqual([score.tracks[0].id, score.tracks[1].id]);
+  });
+});
+
 describe('renderEvents', () => {
   it('turns every sounding note into a timed event', () => {
     const { events } = renderEvents(twoTrack());
