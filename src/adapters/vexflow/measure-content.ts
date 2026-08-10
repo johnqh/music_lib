@@ -80,7 +80,13 @@ export function buildMeasureContent(
   if (isFirstInSystem) {
     stave.addClef(track.clef);
   }
-  if (isFirstInSystem || !prevMeasure || !sameKeySignature(prevMeasure.keySignature, measure.keySignature)) {
+  // A drum staff has no key: its lines are instruments, not pitches, so a
+  // signature there is meaningless — and the sharps were being drawn against
+  // notes no accidental can apply to.
+  if (
+    !isPercussion &&
+    (isFirstInSystem || !prevMeasure || !sameKeySignature(prevMeasure.keySignature, measure.keySignature))
+  ) {
     stave.addKeySignature(keySignatureToVexSpec(measure.keySignature));
   }
   if (!prevMeasure || !sameTimeSignature(prevMeasure.timeSignature, measure.timeSignature)) {
