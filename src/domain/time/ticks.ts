@@ -51,6 +51,26 @@ export function ticksFor(duration: DurationName, ppq: number): number {
   return fractionToTicks(DURATIONS[duration], ppq);
 }
 
+/** Every duration name, in the order the table declares them. */
+const DURATION_NAMES = Object.keys(DURATIONS) as DurationName[];
+
+/**
+ * The name of a duration `ticks` long, or `null` when nothing is exactly that.
+ *
+ * The inverse of `ticksFor`, and deliberately exact: a note that is 500 ticks
+ * at 480 PPQ is not a quarter note, it is 500 ticks, and a control that
+ * rounded it to "quarter" would relabel music it cannot represent. Callers
+ * asking "what should the duration selector show" want `null` to mean "no
+ * single name fits", which is a different answer from any name at all.
+ *
+ * Plain search rather than a reverse map: PPQ varies per score, so the tick
+ * values are not constants and a cached map would have to be keyed by it for
+ * the sake of eighteen comparisons.
+ */
+export function durationNameForTicks(ticks: number, ppq: number): DurationName | null {
+  return DURATION_NAMES.find((name) => ticksFor(name, ppq) === ticks) ?? null;
+}
+
 /** Integer tick length of one full measure in the given time signature. */
 export function measureDurationTicks(ts: TimeSignature, ppq: number): number {
   return fractionToTicks(fraction(ts.numerator, ts.denominator), ppq);

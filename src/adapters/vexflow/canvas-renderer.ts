@@ -81,15 +81,57 @@ const MEASURE_SELECTION_ALPHA = 0.16;
  * has room for a label, and the instrument line in particular is something you
  * check while reading the staff beside it.
  */
-const TRACK_INFO_NAME_FONT = 'bold 14px sans-serif';
-const TRACK_INFO_DETAIL_FONT = '13px sans-serif';
+const TRACK_INFO_NAME_FONT = 'bold 17px sans-serif';
+const TRACK_INFO_DETAIL_FONT = '15px sans-serif';
 /** Side of the square the instrument's line art is drawn into. */
-const TRACK_INFO_ICON_SIZE = 16;
+const TRACK_INFO_ICON_SIZE = 20;
 /** Space the instrument icon occupies before its name. */
-const TRACK_INFO_ICON_WIDTH = 22;
+const TRACK_INFO_ICON_WIDTH = 28;
 const TRACK_INFO_INSET = 10;
-/** Gap between the gutter's three rows, name to instrument to state. */
-const TRACK_INFO_LINE_GAP = 18;
+/** Gap from the stave's top line up to the track name's baseline. */
+const TRACK_INFO_NAME_GAP = 9;
+/** Gap from the instrument row's baseline down to the mute/solo row's. */
+const TRACK_INFO_LINE_GAP = 20;
+/** Cap height as a fraction of font size, where the canvas cannot report it. */
+const FALLBACK_CAP_RATIO = 0.72;
+
+/**
+ * Where the instrument row's text and icon go, relative to the stave's top line.
+ *
+ * Two rules, and they fix everything else:
+ *
+ * - the **top of the instrument name** sits on the stave's top line, and
+ * - the **icon's centre** sits on the name's centre.
+ *
+ * "Top of the name" means the top of its capitals, not the top of the font's
+ * em box — the em box carries room for accents that nothing here draws, so
+ * aligning to it leaves a visible gap that reads as misalignment. Hence
+ * `capHeight`, measured from the canvas rather than assumed: a baseline placed
+ * by arithmetic put the icon on the line and the text five pixels under it.
+ *
+ * Pure, and exported, because this is the part worth pinning exactly — the
+ * drawing around it is not.
+ */
+export function trackInfoRowLayout(
+  staveTopLine: number,
+  capHeight: number,
+  iconSize: number,
+): { textBaseline: number; iconTop: number; rowCenter: number } {
+  // With an alphabetic baseline the capitals rise `capHeight` above it, so
+  // putting their top on the line means dropping the baseline by that much.
+  const textBaseline = staveTopLine + capHeight;
+  const rowCenter = staveTopLine + capHeight / 2;
+  return { textBaseline, rowCenter, iconTop: rowCenter - iconSize / 2 };
+}
+
+/** The height of a capital in the context's current font, from the canvas itself. */
+function capHeightOf(ctx: CanvasRenderingContext2D, fallbackFontSize: number): number {
+  // 'H' rather than the name itself: a per-string measurement moves the row
+  // whenever a track is renamed, and every instrument name starts with a capital.
+  const metrics = ctx.measureText('H') as TextMetrics | undefined;
+  const ascent = metrics?.actualBoundingBoxAscent ?? metrics?.fontBoundingBoxAscent;
+  return ascent && ascent > 0 ? ascent : fallbackFontSize * FALLBACK_CAP_RATIO;
+}
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
@@ -226,16 +268,17 @@ export class CanvasScoreRenderer {
         // headroom, so the pair reads downward into the music: whose staff this
         // is, then what it sounds like, then the staff itself.
         const staveTopLine = placement.box.y + STAVE_TOP_LINE_OFFSET;
-        // Baseline sits at the icon's foot, so glyph and text share a bottom
-        // edge and the row's *top* is the stave line.
-        const detailBaseline = staveTopLine + TRACK_INFO_ICON_SIZE - 1;
 
-        ctx.font = TRACK_INFO_NAME_FONT;
-        ctx.fillText(track.name, TRACK_INFO_INSET, detailBaseline - TRACK_INFO_LINE_GAP);
+        // The instrument row first: its own metrics decide where everything in
+        // this block sits, including the name above it.
+        ctx.font = TRACK_INFO_DETAIL_FONT;
+        const row = trackInfoRowLayout(staveTopLine, capHeightOf(ctx, 15), TRACK_INFO_ICON_SIZE);
 
         // Icon then instrument name, so the glyph reads as a label for the text
         // beside it rather than decoration floating on its own. The icon is
-        // stroked, so it takes the same active/inactive colour as the text.
+        // stroked, so it takes the same active/inactive colour as the text, and
+        // it is centred on the text rather than sharing an edge with it — a
+        // 20px square and a 15px capital share no edge that looks deliberate.
         ctx.strokeStyle = ctx.fillStyle;
         strokeInstrumentIcon(
           ctx,
@@ -243,22 +286,26 @@ export class CanvasScoreRenderer {
           // drum kit, so the melodic art at that number is the wrong picture.
           trackInstrumentIcon(track),
           TRACK_INFO_INSET,
-          staveTopLine,
+          row.iconTop,
           TRACK_INFO_ICON_SIZE,
         );
-
-        ctx.font = TRACK_INFO_DETAIL_FONT;
         ctx.fillText(
           track.instrumentName,
           TRACK_INFO_INSET + TRACK_INFO_ICON_WIDTH,
-          detailBaseline,
+          row.textBaseline,
         );
+
+        // The track name goes above that row, in the headroom VexFlow leaves
+        // over the staff and draws nothing in.
+        ctx.font = TRACK_INFO_NAME_FONT;
+        ctx.fillText(track.name, TRACK_INFO_INSET, staveTopLine - TRACK_INFO_NAME_GAP);
 
         // Mute/solo are the only state here that changes what you hear, so they
         // are worth showing without making the track active first.
-        const stateBaseline = detailBaseline + TRACK_INFO_LINE_GAP;
+        ctx.font = TRACK_INFO_DETAIL_FONT;
+        const stateBaseline = row.textBaseline + TRACK_INFO_LINE_GAP;
         if (track.muted) ctx.fillText('M', TRACK_INFO_INSET, stateBaseline);
-        if (track.solo) ctx.fillText('S', TRACK_INFO_INSET + 14, stateBaseline);
+        if (track.solo) ctx.fillText('S', TRACK_INFO_INSET + 16, stateBaseline);
       }
     }
 

@@ -3,6 +3,7 @@ import {
   DURATIONS,
   beatBoundaries,
   beatDurationTicks,
+  durationNameForTicks,
   measureDurationTicks,
   ticksFor,
 } from './ticks.js';
@@ -117,5 +118,31 @@ describe('beatBoundaries', () => {
 
   it('3/4 has 3 beat boundaries', () => {
     expect(beatBoundaries({ numerator: 3, denominator: 4 }, PPQ)).toEqual([0, 480, 960]);
+  });
+});
+
+describe('durationNameForTicks', () => {
+  it('is the exact inverse of ticksFor for every name', () => {
+    for (const ppq of [96, 480, 960]) {
+      for (const name of [
+        'whole',
+        'half',
+        'quarter',
+        'eighth',
+        'sixteenth',
+        'thirtysecond',
+        'dotted-quarter',
+        'triplet-eighth',
+      ] as const) {
+        expect(durationNameForTicks(ticksFor(name, ppq), ppq), `${name}@${ppq}`).toBe(name);
+      }
+    }
+  });
+
+  it('is null for a length no name covers, rather than the nearest one', () => {
+    // A note of 500 ticks at 480 PPQ is not a quarter note; a selector that
+    // rounded it to one would relabel music it cannot actually represent.
+    expect(durationNameForTicks(500, 480)).toBeNull();
+    expect(durationNameForTicks(0, 480)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Stave, StaveNote } from 'vexflow';
-import { CanvasScoreRenderer } from './canvas-renderer.js';
+import { CanvasScoreRenderer, trackInfoRowLayout } from './canvas-renderer.js';
 import { STAVE_TOP_LINE_OFFSET, TRACK_INFO_WIDTH, computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
@@ -492,13 +492,45 @@ describe('non-color state redundancy (spec §27)', () => {
   });
 });
 
+describe('trackInfoRowLayout', () => {
+  // The two rules the row is built from, stated as arithmetic so they cannot
+  // drift as the fonts and icon size are tuned.
+  it('drops the baseline by the cap height, so the capitals start on the line', () => {
+    expect(trackInfoRowLayout(100, 11, 20).textBaseline).toBe(111);
+  });
+
+  it('centres the icon on the middle of those capitals, not on their edge', () => {
+    const row = trackInfoRowLayout(100, 11, 20);
+    // Capitals run 100..111, so their centre is 105.5; a 20px icon centred
+    // there starts at 95.5 — above the line, which is the point: an icon
+    // sharing the text's top edge sits visibly low against it.
+    expect(row.rowCenter).toBe(105.5);
+    expect(row.iconTop).toBe(95.5);
+    expect(row.iconTop + 20 / 2).toBe(row.rowCenter);
+  });
+
+  it('keeps icon and text centred on each other at any size', () => {
+    for (const [cap, icon] of [
+      [8, 16],
+      [11, 20],
+      [14, 28],
+    ]) {
+      const row = trackInfoRowLayout(0, cap, icon);
+      expect(row.iconTop + icon / 2).toBeCloseTo(row.textBaseline - cap / 2, 10);
+    }
+  });
+});
+
 describe('track-info gutter drawing', () => {
   /** Captures fillText calls plus the fillStyle in force at each one. */
   function captureText(ctx: ReturnType<typeof createMock2DContext>) {
-    const calls: Array<{ text: string; x: number; y: number; style: unknown }> = [];
+    const calls: Array<{ text: string; x: number; y: number; style: unknown; baseline: unknown }> =
+      [];
     (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText =
-      function (this: { fillStyle: unknown }, text, x, y) {
-        calls.push({ text: String(text), x, y, style: this.fillStyle });
+      function (this: { fillStyle: unknown; textBaseline: unknown }, text, x, y) {
+        // `textBaseline` captured at call time: it decides whether `y` is the
+        // top of the text or its baseline, so the number alone means nothing.
+        calls.push({ text: String(text), x, y, style: this.fillStyle, baseline: this.textBaseline });
       };
     return calls;
   }
@@ -517,12 +549,11 @@ describe('track-info gutter drawing', () => {
     }
   });
 
-  it('aligns the instrument row to the stave top line, with the name above it', () => {
-    // The instrument is what you check while reading the staff beside it, so
-    // it starts where the music does. The track name goes in the headroom
-    // above — space VexFlow reserves and draws nothing in — so the pair reads
-    // downward into the score. Both used to hang off the top of the track's
-    // *box*, which is 40 units above the first line anyone can see.
+  it('puts the top of the instrument name on the stave top line', () => {
+    // Exactly, not approximately, and measured from the *capitals* rather than
+    // the font's em box — the em box reserves room for accents nothing draws,
+    // so aligning to it leaves a gap that reads as misalignment. An earlier
+    // attempt aligned the icon and left the text five pixels under the line.
     const score = twoTrackScore();
     const plan = computeLayout(score, OPTS);
     const ctx = createMock2DContext();
@@ -533,15 +564,58 @@ describe('track-info gutter drawing', () => {
     const box = plan.trackLayouts[0].measures[0].box;
     const staveTopLine = box.y + STAVE_TOP_LINE_OFFSET;
     const instrument = texts.find((t) => t.text === score.tracks[0].instrumentName)!;
-    const name = texts.find((t) => t.text === score.tracks[0].name)!;
+    const capHeight = ctx.measureText('H').actualBoundingBoxAscent;
 
-    // The instrument row's top is the stave line: its baseline sits one icon
-    // below, and text is drawn up from a baseline.
-    expect(instrument.y).toBeGreaterThan(staveTopLine);
-    expect(instrument.y).toBeLessThanOrEqual(staveTopLine + 20);
-    // And the name sits on the line above the instrument, not below it.
+    // Alphabetic baseline: the capitals rise `capHeight` above it, so their
+    // top lands on the line exactly when the baseline is that far below it.
+    expect(instrument.y).toBe(staveTopLine + capHeight);
+    expect(instrument.baseline).not.toBe('top');
+  });
+
+  it('puts the track name above the instrument row, in the stave headroom', () => {
+    const score = twoTrackScore();
+    const plan = computeLayout(score, OPTS);
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const box = plan.trackLayouts[0].measures[0].box;
+    const staveTopLine = box.y + STAVE_TOP_LINE_OFFSET;
+    const name = texts.find((t) => t.text === score.tracks[0].name)!;
+    const instrument = texts.find((t) => t.text === score.tracks[0].instrumentName)!;
+
     expect(name.y).toBeLessThan(instrument.y);
-    expect(name.y).toBeGreaterThan(box.y);
+    expect(name.y).toBeLessThanOrEqual(staveTopLine); // clear of the staff
+    expect(name.y).toBeGreaterThan(box.y); // and inside the track's own box
+  });
+
+  it('draws the gutter text big enough to read beside the staff it labels', () => {
+    // The column is 220px wide; this text used to be set at 11-12px, which
+    // reads as a caption rather than a label.
+    const ctx = createMock2DContext();
+    const fonts: string[] = [];
+    const realFillText = ctx.fillText.bind(ctx);
+    (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText = function (
+      this: { font: string },
+      text,
+      x,
+      y,
+    ) {
+      if (String(text) === 'Treble' || String(text) === 'Piano') fonts.push(this.font);
+      realFillText(text, x, y);
+    };
+
+    new CanvasScoreRenderer().render(twoTrackScore(), ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
+
+    expect(fonts.length).toBeGreaterThan(0);
+    for (const font of fonts) {
+      const size = Number(/(\d+)px/.exec(font)?.[1] ?? 0);
+      expect(size, font).toBeGreaterThanOrEqual(15);
+    }
   });
 
   it('repeats the gutter for every visible system', () => {
