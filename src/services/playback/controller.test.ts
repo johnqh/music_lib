@@ -846,3 +846,35 @@ describe('PlaybackController: hidden tracks are silent', () => {
     expect(muteState(engine)[second.id]).toBe(true);
   });
 });
+
+describe('PlaybackController: synth loading', () => {
+  it('puts the engine load state in the store, so the UI can show it', () => {
+    // The soundfont engine cannot make a sound for several seconds after the
+    // first press of Play. Nothing else tells the app that, and without it the
+    // transport simply looked broken for the whole load.
+    const store = makeStore();
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    const observer = observerOf(engine);
+
+    expect(store.getState().synthLoad).toEqual({ status: 'idle' });
+
+    observer.onLoadStateChange?.({ status: 'loading', fraction: 0.25 });
+    expect(store.getState().synthLoad).toEqual({ status: 'loading', fraction: 0.25 });
+
+    observer.onLoadStateChange?.({ status: 'ready' });
+    expect(store.getState().synthLoad).toEqual({ status: 'ready' });
+  });
+
+  it('carries a failure through, so silence can be explained', () => {
+    const store = makeStore();
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+
+    observerOf(engine).onLoadStateChange?.({ status: 'failed', message: 'Soundfont fetch failed: 404' });
+    expect(store.getState().synthLoad).toEqual({
+      status: 'failed',
+      message: 'Soundfont fetch failed: 404',
+    });
+  });
+});

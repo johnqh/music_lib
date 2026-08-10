@@ -118,6 +118,8 @@ export class PlaybackController {
       onPositionTick: (tick) => this.store.getState().setPositionTick(tick),
       onActiveNotes: (ids) => this.store.getState().setActiveNoteIds(ids),
       onStateChange: (state) => this.store.getState().setPlaybackState(state),
+      // Optional on the contract: an engine with nothing to load never calls it.
+      onLoadStateChange: (state) => this.store.getState().setSynthLoad(state),
     });
 
     let lastVisibleTrackIds: string[] | null = this.store.getState().visibleTrackIds;

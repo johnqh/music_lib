@@ -7,6 +7,7 @@
  * anywhere in this file.
  */
 import type { StateCreator } from "zustand";
+import type { PlaybackLoadState } from "@sudobility/music_types";
 import type { ScoreRange } from "../../domain/selection/types.js";
 import type { AppState } from "../useAppStore.js";
 
@@ -21,8 +22,17 @@ export type PlaybackSlice = {
   tempoMultiplier: number;
   metronome: boolean;
   masterVolume: number;
+  /**
+   * How far the engine is from being able to make a sound.
+   *
+   * The soundfont engine has tens of megabytes to fetch and several seconds of
+   * synth setup before the first note, all on the first press of Play. Without
+   * this in the store the transport just looks broken for that whole time.
+   */
+  synthLoad: PlaybackLoadState;
 
   setPlaybackState: (state: TransportState) => void;
+  setSynthLoad: (state: PlaybackLoadState) => void;
   setPositionTick: (tick: number) => void;
   setActiveNoteIds: (ids: string[]) => void;
   setLoopRange: (range: ScoreRange | null) => void;
@@ -43,11 +53,17 @@ export const createPlaybackSlice: StateCreator<
   loopRange: null,
   tempoMultiplier: 1,
   metronome: false,
+  synthLoad: { status: "idle" },
   masterVolume: 1,
 
   setPlaybackState: (state) => {
     set((draft) => {
       draft.state = state;
+    });
+  },
+  setSynthLoad: (state) => {
+    set((draft) => {
+      draft.synthLoad = state;
     });
   },
   setPositionTick: (tick) => {
