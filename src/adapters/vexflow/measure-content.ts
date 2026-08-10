@@ -20,6 +20,7 @@ import {
 import type { StaveNote } from 'vexflow';
 import type { KeySignature, Measure, TimeSignature, Track } from '@sudobility/music_types';
 import { buildVoiceContent, keySignatureToVexSpec, pitchToVexKey } from './convert.js';
+import { displayGroups } from './display-timing.js';
 import type { NoteMeta } from './convert.js';
 import type { MeasureLayout } from './layout.js';
 
@@ -117,7 +118,11 @@ export function buildMeasureContent(
       style: 'italic',
     });
 
-    const { notes } = buildVoiceContent(measure.cue.events, ppq, CUE_GLYPH_SCALE);
+    const { notes } = buildVoiceContent(
+      displayGroups(measure.cue.events, measure.startTick, measure.durationTicks, ppq),
+      ppq,
+      CUE_GLYPH_SCALE,
+    );
     if (notes.length === 0) return { stave, voices: [], beams: [] };
 
     const cueVoice = new Voice({
@@ -135,7 +140,10 @@ export function buildMeasureContent(
   const beams: Beam[] = [];
 
   measure.voices.forEach((domainVoice, voiceOrdinal) => {
-    const { notes, metas } = buildVoiceContent(domainVoice.events, ppq);
+    const { notes, metas } = buildVoiceContent(
+      displayGroups(domainVoice.events, measure.startTick, measure.durationTicks, ppq),
+      ppq,
+    );
     if (notes.length === 0) return;
 
     const vexVoice = new Voice({

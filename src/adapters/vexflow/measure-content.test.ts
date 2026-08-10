@@ -4,10 +4,26 @@ import type { StaveNote } from 'vexflow';
 import { CUE_GLYPH_SCALE, buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
 import type { MeasureLayout } from './layout.js';
-import { buildVoiceContent, keySignatureToVexSpec } from './convert.js';
+import { buildVoiceContent, groupSimultaneous, keySignatureToVexSpec } from './convert.js';
+import type { MusicalEvent } from '@sudobility/music_types';
+import type { DisplayGroup } from './display-timing.js';
 import type { NoteMeta } from './convert.js';
 import type { KeySignature, Measure, NoteEvent, Pitch, Track } from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
+
+/**
+ * The recorded timing of `events`, as display groups. These tests are about
+ * turning a duration into glyphs, not about deciding what that duration should
+ * be — `display-timing.test.ts` covers that — so each group keeps the duration
+ * it was written with.
+ */
+function recorded(events: MusicalEvent[]): DisplayGroup[] {
+  return groupSimultaneous(events).map((group) => ({
+    events: group,
+    durationTicks: group[0].durationTicks,
+  }));
+}
+
 
 function pitch(step: Pitch['step'], accidental: Pitch['accidental'], octave: number): Pitch {
   return { step, accidental, octave };
@@ -15,7 +31,7 @@ function pitch(step: Pitch['step'], accidental: Pitch['accidental'], octave: num
 
 /** A single-note (non-chord) channel entry, built the same way buildMeasureContent does. */
 function channelEntryFor(events: NoteEvent[]): { note: StaveNote; meta: NoteMeta } {
-  const { notes, metas } = buildVoiceContent(events, 480);
+  const { notes, metas } = buildVoiceContent(recorded(events), 480);
   return { note: notes[0], meta: metas[0] };
 }
 
@@ -81,7 +97,7 @@ describe('buildTies (finding 1: pitch-matched chord ties, not array adjacency)',
 describe('key-signature-aware accidentals (finding 3)', () => {
   /** Mirrors exactly what buildMeasureContent does: build notes, then let VexFlow decide accidental glyphs from the key signature. */
   function accidentalCategoriesFor(events: NoteEvent[], keySignature: KeySignature): string[][] {
-    const { notes } = buildVoiceContent(events, 480);
+    const { notes } = buildVoiceContent(recorded(events), 480);
     const voice = new Voice({ num_beats: 4, beat_value: 4 }).setMode(Voice.Mode.SOFT);
     voice.addTickables(notes);
     Accidental.applyAccidentals([voice], keySignatureToVexSpec(keySignature));

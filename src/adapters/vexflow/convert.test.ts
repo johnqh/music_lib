@@ -8,6 +8,21 @@ import {
   pitchToVexKey,
   ticksToVexDuration,
 } from './convert.js';
+import type { DisplayGroup } from './display-timing.js';
+
+/**
+ * The recorded timing of `events`, as display groups. These tests are about
+ * turning a duration into glyphs, not about deciding what that duration should
+ * be — `display-timing.test.ts` covers that — so each group keeps the duration
+ * it was written with.
+ */
+function recorded(events: MusicalEvent[]): DisplayGroup[] {
+  return groupSimultaneous(events).map((group) => ({
+    events: group,
+    durationTicks: group[0].durationTicks,
+  }));
+}
+
 
 const PPQ = 480;
 
@@ -105,7 +120,7 @@ describe('buildVoiceContent', () => {
       note({ id: 'n2', startTick: quarter, durationTicks: quarter, pitch: pitch('D', 0, 4) }),
     ];
 
-    const { notes, metas } = buildVoiceContent(events, PPQ);
+    const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes).toHaveLength(2);
     expect(metas).toHaveLength(2);
     expect(metas[0]).toMatchObject({ vexId: 'n1', eventIds: ['n1'], isRest: false });
@@ -122,7 +137,7 @@ describe('buildVoiceContent', () => {
       note({ id: 'c3', startTick: 0, durationTicks: half, pitch: pitch('G', 0, 4) }),
     ];
 
-    const { notes, metas } = buildVoiceContent(events, PPQ);
+    const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes).toHaveLength(1);
     expect(metas).toHaveLength(1);
     expect(metas[0].eventIds).toEqual(['c1', 'c2', 'c3']);
@@ -132,7 +147,7 @@ describe('buildVoiceContent', () => {
 
   it('renders rests using the rest type', () => {
     const events: RestEvent[] = [rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) })];
-    const { notes, metas } = buildVoiceContent(events, PPQ);
+    const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes).toHaveLength(1);
     expect(notes[0].isRest()).toBe(true);
     expect(metas[0].isRest).toBe(true);
@@ -146,7 +161,7 @@ describe('buildVoiceContent', () => {
     const ticks = 5 * ticksFor('sixteenth', PPQ);
     const events: NoteEvent[] = [note({ id: 'long', startTick: 0, durationTicks: ticks, pitch: pitch('C', 0, 4) })];
 
-    const { notes, metas } = buildVoiceContent(events, PPQ);
+    const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes.length).toBeGreaterThan(1);
     expect(metas.every((m) => m.eventIds[0] === 'long')).toBe(true);
     // First segment ties forward, last segment ties backward, ids are unique.
@@ -164,7 +179,7 @@ describe('buildVoiceContent', () => {
       note({ id: 'a', startTick: 0, durationTicks: quarter, pitch: pitch('C', 0, 4), tieStart: true }),
       note({ id: 'b', startTick: quarter, durationTicks: quarter, pitch: pitch('C', 0, 4), tieStop: true }),
     ];
-    const { metas } = buildVoiceContent(events, PPQ);
+    const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].tieStart).toBe(true);
     expect(metas[0].tieStop).toBe(false);
     expect(metas[1].tieStart).toBe(false);
@@ -181,7 +196,7 @@ describe('buildVoiceContent', () => {
         articulation: 'staccato',
       }),
     ];
-    const { notes } = buildVoiceContent(events, PPQ);
+    const { notes } = buildVoiceContent(recorded(events), PPQ);
     const modifierCategories = notes[0].getModifiers().map((m) => m.getCategory());
     expect(modifierCategories).not.toContain('Accidental');
     expect(modifierCategories).toContain('Articulation');
@@ -197,7 +212,7 @@ describe('buildVoiceContent', () => {
       note({ id: 'c2', startTick: 0, durationTicks: half, pitch: pitch('E', 0, 4) }),
       note({ id: 'c3', startTick: 0, durationTicks: half, pitch: pitch('G', 0, 4), tieStart: true }),
     ];
-    const { metas } = buildVoiceContent(events, PPQ);
+    const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].keyTies).toEqual([
       { pitch: pitch('C', 0, 4), tieStart: true, tieStop: false },
       { pitch: pitch('E', 0, 4), tieStart: false, tieStop: false },
@@ -210,7 +225,7 @@ describe('buildVoiceContent', () => {
 
   it('rests have no key ties', () => {
     const events: RestEvent[] = [rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) })];
-    const { metas } = buildVoiceContent(events, PPQ);
+    const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].keyTies).toEqual([]);
   });
 });

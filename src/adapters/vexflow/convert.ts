@@ -24,6 +24,7 @@ import type {
 import { isNoteEvent } from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 import { decomposeDuration } from '../../domain/time/durations.js';
+import type { DisplayGroup } from './display-timing.js';
 
 /** `Pitch.accidental` (-2..2) -> VexFlow accidental suffix/code (`''` for natural, no glyph drawn). */
 const ACCIDENTAL_SUFFIX: Record<DomainAccidental, string> = {
@@ -162,28 +163,34 @@ export type VoiceContent = { notes: StaveNote[]; metas: NoteMeta[] };
 const REST_KEY = 'b/4';
 
 /**
- * Builds VexFlow `StaveNote`s for one voice's worth of events (already in
- * ascending `startTick` order, e.g. `measure.voices[i].events`). Same
- * voice+start+duration events are grouped into one chord `StaveNote`
- * (multiple keys). A group whose duration isn't representable as a single
- * VexFlow duration is decomposed (`decomposeDuration`) into consecutive
- * `StaveNote`s tied together, mirroring the domain's own
- * `splitNoteAcrossMeasures` convention (first/middle/last tie flags).
+ * Builds VexFlow `StaveNote`s for one voice's worth of display groups, as
+ * decided by `displayGroups` — which is where a measure's timing is resolved
+ * into durations that can actually be drawn. Each group becomes one
+ * `StaveNote`, with several events in a group drawn as a chord.
+ *
+ * A group whose duration isn't representable as a single VexFlow duration is
+ * decomposed (`decomposeDuration`) into consecutive `StaveNote`s tied
+ * together, mirroring the domain's own `splitNoteAcrossMeasures` convention
+ * (first/middle/last tie flags).
  *
  * Returns `notes`/`metas` as parallel arrays (same length, same order).
  */
 export function buildVoiceContent(
-  events: MusicalEvent[],
+  groups: DisplayGroup[],
   ppq: number,
   glyphScale?: number,
 ): VoiceContent {
   const notes: StaveNote[] = [];
   const metas: NoteMeta[] = [];
 
-  for (const group of groupSimultaneous(events)) {
+  for (const { events: group, durationTicks } of groups) {
     const first = group[0];
     const isRest = !isNoteEvent(first);
-    const segments = decomposeDuration(first.durationTicks, ppq);
+    // The group's display duration, not the event's recorded one: a recorded
+    // duration is rarely a note value, and rounding each one independently is
+    // what put voices of the same bar on different timelines. See
+    // `display-timing.ts`.
+    const segments = decomposeDuration(durationTicks, ppq);
 
     segments.forEach((segmentTicks, segmentIndex) => {
       const isFirstSegment = segmentIndex === 0;
