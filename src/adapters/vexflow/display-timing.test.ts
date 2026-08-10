@@ -102,6 +102,31 @@ describe('displayGroups', () => {
     for (const g of groups) expect(g.durationTicks).toBeGreaterThan(0);
   });
 
+  it('folds a note recorded a few ticks before the barline into the last real onset', () => {
+    // The next bar's note, recorded early. Given its own step it opens a tick
+    // context one grid step from the barline, and VexFlow spends width on a
+    // context for existing rather than for lasting — that sliver took a fifth
+    // of the bar and squeezed the real notes into 80% of the width.
+    const sixteenths = Array.from({ length: 16 }, (_, i) => note(i * 120, 120));
+    const groups = displayGroups([...sixteenths, note(BAR - 5, 400)], 0, BAR, PPQ);
+    expect(groups).toHaveLength(16);
+    expect(groups.at(-1)!.events).toHaveLength(2);
+    expect(total(groups)).toBe(BAR);
+  });
+
+  it('keeps a genuine onset one grid step before the barline', () => {
+    // The rule must only catch onsets that round to the barline itself.
+    const groups = displayGroups([note(0, BAR - 60), note(BAR - 60, 60)], 0, BAR, PPQ);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.durationTicks)).toEqual([BAR - 60, 60]);
+  });
+
+  it('still draws a note that is the only thing in the voice, however late', () => {
+    const groups = displayGroups([note(BAR - 3, 200)], 0, BAR, PPQ);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].durationTicks).toBe(BAR);
+  });
+
   it('returns nothing for an empty voice', () => {
     expect(displayGroups([], 0, BAR, PPQ)).toEqual([]);
   });

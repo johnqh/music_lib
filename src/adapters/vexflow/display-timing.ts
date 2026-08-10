@@ -78,19 +78,40 @@ export function displayGroups(
   if (events.length === 0 || measureDurationTicks <= 0) return [];
 
   const grid = displayGridTicks(ppq);
-  // The last step a group may begin on: a group has to have room to last at
-  // least one step, or it would be a zero-length tickable.
-  const lastStart = Math.max(0, Math.floor((measureDurationTicks - 1) / grid) * grid);
+  const snap = (event: MusicalEvent): number =>
+    Math.max(0, Math.round((event.startTick - measureStartTick) / grid) * grid);
 
+  // An onset that rounds up to the barline is the next bar's note recorded a
+  // few ticks early, not an onset in this one. This score has such a note at
+  // tick 1915 of a 1920-tick bar. Giving it its own step would open a tick
+  // context one grid step before the barline, and VexFlow spends width on a
+  // context in proportion to it *being* one, not to how long it lasts: that
+  // sliver took a fifth of the bar, squeezing the sixteen real notes into 80%
+  // of the width and leaving what looked like a gap before the barline.
+  //
+  // So it joins the last real onset instead. Only onsets that round to the
+  // barline are touched — a genuine note a grid step before it rounds to its
+  // own step and keeps it.
+  const atBarline: MusicalEvent[] = [];
   const byStart = new Map<number, MusicalEvent[]>();
   for (const event of events) {
-    const snapped = Math.min(
-      lastStart,
-      Math.max(0, Math.round((event.startTick - measureStartTick) / grid) * grid),
-    );
+    const snapped = snap(event);
+    if (snapped >= measureDurationTicks) {
+      atBarline.push(event);
+      continue;
+    }
     const at = byStart.get(snapped);
     if (at) at.push(event);
     else byStart.set(snapped, [event]);
+  }
+
+  for (const event of atBarline) {
+    // The last onset that exists, or the bar's start when this event is all
+    // the voice has — never a new step.
+    const last = byStart.size > 0 ? Math.max(...byStart.keys()) : 0;
+    const at = byStart.get(last);
+    if (at) at.push(event);
+    else byStart.set(last, [event]);
   }
 
   const starts = [...byStart.keys()].sort((a, b) => a - b);
