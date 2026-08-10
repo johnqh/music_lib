@@ -16,10 +16,34 @@ const MAX_HZ = 1200;
 /** Below this the frame is treated as unvoiced by callers. */
 const THRESHOLD = 0.15;
 
-export function trackPitch(samples: Float32Array, sampleRate: number): PitchFrame[] {
+/**
+ * How often progress is reported, in frames.
+ *
+ * Every frame would be thousands of calls for a short clip — each one a
+ * `postMessage` when this runs in a worker — for a bar that cannot move by a
+ * visible amount between them. Every 32 frames is roughly a percent on a
+ * ten-second recording and far less work.
+ */
+const PROGRESS_EVERY = 32;
+
+export function trackPitch(
+  samples: Float32Array,
+  sampleRate: number,
+  /**
+   * Reports how much of the buffer has been analysed, 0..1.
+   *
+   * This loop is the whole cost of transcribing — O(frames x tau x window) —
+   * and on a real recording it runs for seconds. It cannot yield (a tight
+   * numeric loop is the point), so a caller that wants to *show* the progress
+   * has to run it off the main thread; see `workers/transcribe.worker.ts`.
+   */
+  onProgress?: (fraction: number) => void,
+): PitchFrame[] {
   const minTau = Math.max(2, Math.floor(sampleRate / MAX_HZ));
   const maxTau = Math.min(Math.floor(sampleRate / MIN_HZ), Math.floor(FRAME / 2));
   const frames: PitchFrame[] = [];
+  const lastStart = samples.length - FRAME;
+  const totalFrames = lastStart < 0 ? 0 : Math.floor(lastStart / HOP) + 1;
 
   for (let start = 0; start + FRAME <= samples.length; start += HOP) {
     const window = samples.subarray(start, start + FRAME);
@@ -69,7 +93,15 @@ export function trackPitch(samples: Float32Array, sampleRate: number): PitchFram
       hz: sampleRate / (best + shift),
       confidence: Math.max(0, Math.min(1, 1 - norm[best])),
     });
+
+    if (onProgress && frames.length % PROGRESS_EVERY === 0 && totalFrames > 0) {
+      onProgress(frames.length / totalFrames);
+    }
   }
 
+  // Always a final 1: the loop reports on a stride, so the last partial batch
+  // would otherwise leave the bar short of the end for the whole of the work
+  // that follows it.
+  onProgress?.(1);
   return frames;
 }

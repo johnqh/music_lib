@@ -120,6 +120,7 @@ export * from './services/persistence/autosave.js';
 export * from './services/playback/types.js';
 export * from './services/playback/controller.js';
 export * from './services/quantization/quantize-service.js';
+export * from './services/transcription/transcribe-service.js';
 export * from './services/regeneration/controller.js';
 
 // store

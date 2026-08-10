@@ -20,8 +20,20 @@ export type Transcription = { bpm: number; notes: TranscribedNote[] };
  * caller's step, using the quantiser music_lib already has — this file
  * deliberately does not grow a second implementation of "put it on a grid".
  */
-export function transcribe(audio: DecodedAudio, ppq: number): Transcription {
-  const detected = segmentNotes(trackPitch(audio.samples, audio.sampleRate));
+export function transcribe(
+  audio: DecodedAudio,
+  ppq: number,
+  /**
+   * Reports how far the analysis has got, 0..1.
+   *
+   * Effectively the pitch tracker's own progress: segmentation and tempo
+   * detection run over a few thousand frames rather than a few million
+   * samples, so weighting them into the fraction would be arithmetic in
+   * service of a number nobody could see move.
+   */
+  onProgress?: (fraction: number) => void,
+): Transcription {
+  const detected = segmentNotes(trackPitch(audio.samples, audio.sampleRate, onProgress));
   const bpm = detectTempo(detected.map((n) => n.startSec));
   const ticksPerSecond = (bpm / 60) * ppq;
 
