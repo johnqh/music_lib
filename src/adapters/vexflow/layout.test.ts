@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { MEASURE_HEADER_HEIGHT, TRACK_INFO_WIDTH, boxForMeasureIndex, computeLayout, measureAtXInSystem, systemAtY } from './layout.js';
+import {
+  BASE_MEASURE_WIDTH,
+  DENSE_MEASURE_PADDING,
+  MEASURE_HEADER_HEIGHT,
+  NOTE_SLOT_WIDTH,
+  SYSTEM_HEADER_WIDTH,
+  TRACK_INFO_WIDTH,
+  boxForMeasureIndex,
+  computeLayout,
+  measureAtXInSystem,
+  systemAtY,
+} from './layout.js';
 import type { RenderTheme } from './types.js';
 import { chordScore, denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 
@@ -179,7 +190,7 @@ describe('density-aware measure widths', () => {
     const plan = computeLayout(twinkleScore(), options()); // <=4 events per measure
     const nonFirst = plan.trackLayouts[0].measures.filter((l) => !l.isFirstInSystem);
     expect(nonFirst.length).toBeGreaterThan(0);
-    for (const layout of nonFirst) expect(layout.box.width).toBeGreaterThanOrEqual(200);
+    for (const layout of nonFirst) expect(layout.box.width).toBeGreaterThanOrEqual(BASE_MEASURE_WIDTH);
   });
 
   it('keeps the last system unjustified, so its measures stay at the base width', () => {
@@ -190,7 +201,7 @@ describe('density-aware measure widths', () => {
     const onLast = plan.trackLayouts[0].measures.filter(
       (l) => lastSystem.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem,
     );
-    for (const layout of onLast) expect(layout.box.width).toBe(200);
+    for (const layout of onLast) expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
   });
 });
 
@@ -413,5 +424,67 @@ describe('multi-measure rest width', () => {
   it('does not scale the width with the count', () => {
     // A 60-bar rest must not be thirty times wider than a 2-bar one.
     expect(withCount(60)).toBe(withCount(2));
+  });
+});
+
+describe('computeLayout: fitting the page', () => {
+  /** The right edge of the widest system, in logical units. */
+  const rightEdge = (plan: ReturnType<typeof computeLayout>) =>
+    Math.max(...plan.systems.map((s) => s.xRight));
+
+  it.each([
+    [1400, 1],
+    [900, 1],
+    [600, 1],
+    [520, 1],
+    [400, 1],
+    [1400, 2],
+    [1400, 3],
+  ])('keeps the music inside a %ipx viewport at zoom %i', (width, zoom) => {
+    // Page mode hides horizontal overflow, so anything past the viewport is not
+    // merely off-screen, it is unreachable. The layout used to stop shrinking
+    // below about 530 logical units and simply overflow — which a narrow window
+    // triggered, and so did zooming in, since that divides the same window by
+    // more.
+    const plan = computeLayout(twinkleScore(), { ...options(), width, zoom });
+    expect(rightEdge(plan)).toBeLessThanOrEqual(width / zoom);
+    expect(plan.totalWidth).toBeLessThanOrEqual(width / zoom + 0.5);
+  });
+
+  it('shrinks a measure too wide to fit on its own', () => {
+    // A dense bar can exceed the whole budget by itself — sixteen events give
+    // it 435 units, and 525 with the clef/key/time header. Packing then gives
+    // it a system of its own, and it still has to fit in it. Before, it kept
+    // its natural width and the surplus was clipped away.
+    const naturalFirstMeasure = 16 * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING + SYSTEM_HEADER_WIDTH;
+    const width = 600; // 360 of content once the gutter and margins are out
+    const plan = computeLayout(denseVsSparseScore(), { ...options(), width });
+    expect(rightEdge(plan)).toBeLessThanOrEqual(width);
+    expect(plan.trackLayouts[0].measures[0].box.width).toBeLessThan(naturalFirstMeasure);
+  });
+
+  it('still leaves the last system unstretched when it already fits', () => {
+    // Shrinking is unconditional; stretching is not, and must stay that way.
+    const plan = computeLayout(twinkleScore(), options());
+    const last = plan.systems[plan.systems.length - 1];
+    const onLast = plan.trackLayouts[0].measures.filter(
+      (l) => last.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem,
+    );
+    for (const layout of onLast) expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
+  });
+
+  it('charges the clef/key/time header to the first measure of a system only', () => {
+    // Room for a header plus two base measures, and not a unit more. Packing
+    // used to add the header to every measure in case it turned out to be
+    // first, which cost a bar per line for nothing.
+    const gutterAndMargins = TRACK_INFO_WIDTH + 20;
+    const width = gutterAndMargins + SYSTEM_HEADER_WIDTH + BASE_MEASURE_WIDTH * 2;
+    const plan = computeLayout(twinkleScore(), { ...options(), width });
+    expect(plan.systems[0].measureIndices).toHaveLength(2);
+  });
+
+  it('does not shrink continuous mode, which scrolls instead of wrapping', () => {
+    const plan = computeLayout(twinkleScore(), { ...options(), layoutMode: 'continuous', width: 400 });
+    expect(plan.totalWidth).toBeGreaterThan(400);
   });
 });

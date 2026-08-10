@@ -70,6 +70,25 @@ export type DisplayGroup = {
 };
 
 /**
+ * Where this voice's notes begin, snapped to the display grid.
+ *
+ * Exported for layout: the number of distinct onsets across a measure's tracks
+ * is the number of tick contexts VexFlow will build, and therefore what its
+ * minimum width is proportional to. Counting raw events instead over-allocated
+ * badly — a drum bar of 37 recorded hits draws as 16 tickables once
+ * near-simultaneous strikes are chorded, and it was being given width for 37.
+ */
+export function snappedOnsetTicks(
+  events: MusicalEvent[],
+  measureStartTick: number,
+  measureDurationTicks: number,
+  ppq: number,
+): number[] {
+  if (events.length === 0 || measureDurationTicks <= 0) return [];
+  return snappedOnsets(events, measureStartTick, measureDurationTicks, ppq).map((o) => o.start);
+}
+
+/**
  * The events of one voice, grouped onto snapped onsets and sorted.
  *
  * Shared by both layouts below so they cannot disagree about where a note

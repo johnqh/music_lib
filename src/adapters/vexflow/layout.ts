@@ -4,10 +4,10 @@
  * for every measure, for both "page" (wraps to `options.width`) and
  * "continuous" (everything in one system) layout modes.
  *
- * Heuristic by design (per spec §26, layout need only be "practical", not
- * exact): measure width is a fixed target, not derived from actual note
- * density/glyph widths. Good enough for MVP rendering; a denser formatter
- * could replace this later without touching the renderer's shape.
+ * Measure width is derived from how many onsets a bar actually draws, times a
+ * per-onset budget measured from VexFlow's own minimum — close enough that a
+ * dense bar is neither cramped nor half empty, without laying every glyph out
+ * twice to find out exactly.
  *
  * Units are LOGICAL (design-time) pixels, independent of `options.zoom`.
  * Zoom is applied once, uniformly, as a canvas transform scale in
@@ -21,6 +21,7 @@
  * `zoom` themselves.
  */
 import type { Score, Track } from '@sudobility/music_types';
+import { snappedOnsetTicks } from './display-timing.js';
 import type { RenderOptions } from './types.js';
 
 export type StaveBox = { x: number; y: number; width: number; height: number };
@@ -57,7 +58,7 @@ export type LayoutPlan = {
   totalHeight: number;
 };
 
-const BASE_MEASURE_WIDTH = 200;
+export const BASE_MEASURE_WIDTH = 160;
 
 /**
  * Width of a measure standing in for a run of silent ones.
@@ -68,20 +69,33 @@ const BASE_MEASURE_WIDTH = 200;
  */
 const MULTI_REST_MEASURE_WIDTH = 320;
 /**
- * Heuristic per-event width budget for a measure's densest voice. A measure
- * whose densest voice packs more events than the base width comfortably
- * holds grows proportionally (`max(BASE, events * SLOT + PADDING)`), so
- * VexFlow never has to overflow the stave into the next measure's space —
- * which would break the shared-barline timeline across tracks. Density is
- * taken as the max over every track's voices at that measure index, so all
- * tracks agree on the (shared) measure width. Heuristic by design, like the
- * base width itself (spec §26).
+ * Width budget per drawn onset.
+ *
+ * Measured, not guessed: `Formatter.preCalculateMinTotalWidth` asks 446 units
+ * for a bar of sixteen sixteenths, which is 27.9 each, and the same 27.9
+ * whether or not every one of them carries an accidental. Rounded up to 28, so
+ * a dense bar is given at least what VexFlow will ask for and never has to
+ * overflow into the next measure's space — which would break the shared
+ * barline across tracks.
+ *
+ * A measure with more onsets than the base width comfortably holds grows
+ * proportionally (`max(BASE, onsets * SLOT + PADDING)`), and the count is the
+ * union across every track, so all tracks agree on the shared width.
  */
-const NOTE_SLOT_WIDTH = 25;
+export const NOTE_SLOT_WIDTH = 28;
 /** Breathing room added to a density-derived measure width (start padding + last note's stem/flag overhang + barline clearance). */
-const DENSE_MEASURE_PADDING = 35;
+export const DENSE_MEASURE_PADDING = 35;
 /** Extra width reserved on a system's first measure for clef + key signature + time signature. */
-const SYSTEM_HEADER_WIDTH = 90;
+export const SYSTEM_HEADER_WIDTH = 90;
+/**
+ * The least room the music is ever given, whatever the window does.
+ *
+ * Only a guard against a zero or negative budget once the gutter and margins
+ * are taken out of a very narrow viewport. Music this cramped is unreadable,
+ * but it is *there* — better than the right-hand part of every bar being
+ * silently clipped away, which is what a larger floor used to cause.
+ */
+const MIN_CONTENT_WIDTH = 80;
 const STAVE_HEIGHT = 100;
 
 /**
@@ -137,21 +151,35 @@ function selectTracks(score: Score, options: RenderOptions): Track[] {
   return options.trackIds.map((id) => byId.get(id)).filter((t): t is Track => t !== undefined);
 }
 
-/** Greedily groups measure indices into systems (rows) so each row's total width fits `maxWidth`. */
-function groupIntoSystems(measureCount: number, measureWidth: (index: number) => number, maxWidth: number): number[][] {
+/**
+ * Greedily groups measure indices into systems (rows) so each row's total width
+ * fits `maxWidth`.
+ *
+ * `measureWidth` is asked for the width a measure would have *in the position
+ * being considered*, because only the first measure of a system carries the
+ * clef, key and time signature. Packing used to assume every measure might be
+ * that one and add the header to all of them — an upper bound that never
+ * overflowed but routinely left a system a bar short of what it could hold.
+ */
+function groupIntoSystems(
+  measureCount: number,
+  measureWidth: (index: number, isFirstInSystem: boolean) => number,
+  maxWidth: number,
+): number[][] {
   const systems: number[][] = [];
   let current: number[] = [];
   let currentWidth = 0;
 
   for (let i = 0; i < measureCount; i += 1) {
-    const width = measureWidth(i);
+    const width = measureWidth(i, current.length === 0);
     if (current.length > 0 && currentWidth + width > maxWidth) {
       systems.push(current);
       current = [];
-      currentWidth = 0;
+      currentWidth = measureWidth(i, true);
+    } else {
+      currentWidth += width;
     }
     current.push(i);
-    currentWidth += width;
   }
   if (current.length > 0) systems.push(current);
   return systems;
@@ -190,14 +218,25 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared
   // width per measure index across every track, from the densest voice.
   const contentWidths: number[] = Array.from({ length: measureCount }, (_, measureIndex) => {
-    let maxEvents = 0;
+    // Count the distinct onsets the measure will actually draw, across every
+    // track — that is one tick context each, and VexFlow's minimum width is
+    // proportional to how many there are.
+    //
+    // Not `voice.events.length`: recorded events and drawn tickables are not
+    // the same thing. A drum bar of 37 hits three ticks apart draws as 16 once
+    // they are chorded, and giving it width for 37 left it half empty and
+    // pushed every other bar onto its own line.
+    const onsets = new Set<number>();
     for (const track of tracks) {
       const measure = track.measures[measureIndex];
       if (!measure) continue;
       for (const voice of measure.voices) {
-        maxEvents = Math.max(maxEvents, voice.events.length);
+        for (const tick of snappedOnsetTicks(voice.events, measure.startTick, measure.durationTicks, score.ppq)) {
+          onsets.add(tick);
+        }
       }
     }
+    const maxEvents = onsets.size;
     // A collapsed measure's width comes from what it draws — one bar and a
     // number — not from the events it replaced, of which there are none.
     const collapsed = tracks.some(
@@ -215,24 +254,23 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   // logical-unit budget by dividing out zoom (a more zoomed-in view fits
   // fewer logical pixels in the same screen width) before packing systems.
   //
-  // A measure's width can't depend on system membership until we know system
-  // membership, so pack using each measure's "first-in-system" width as an
-  // upper bound (every measure could end up first); this only ever
-  // under-packs a system slightly versus a hypothetical perfect packer, never
-  // overflows the logical width budget.
-  const logicalAvailableWidth =
+  //
+  // Both margins come out of the budget, so a packed system's right edge lands
+  // at or inside the viewport and page mode's `totalWidth` below can be exactly
+  // that. What is left is what the music itself may occupy.
+  //
+  // This used to be floored at what one measure needs *with* its margins, which
+  // meant that below about 530 logical units the layout simply stopped
+  // shrinking — and since page mode hides horizontal overflow, everything past
+  // the viewport was permanently invisible. A narrow window clipped it, and so
+  // did zooming in, which divides the same window by more. The floor here is
+  // only a guard against a zero or negative budget; the per-system scaling
+  // below is what keeps the music inside it.
+  const contentBudget =
     options.layoutMode === 'continuous'
       ? Number.POSITIVE_INFINITY
-      : Math.max(options.width / zoom, leftMargin + rightMargin + BASE_MEASURE_WIDTH + headerWidth);
-  // Both margins come out of the budget, so a packed system's right edge lands
-  // at or inside `logicalAvailableWidth` and page mode's `totalWidth` below can
-  // be exactly the viewport. The floor above is what one measure needs *with*
-  // its margins, so this can never go negative.
-  const systemsOfIndices = groupIntoSystems(
-    measureCount,
-    (i) => widthOf(i, true),
-    logicalAvailableWidth - leftMargin - rightMargin,
-  );
+      : Math.max(MIN_CONTENT_WIDTH, options.width / zoom - leftMargin - rightMargin);
+  const systemsOfIndices = groupIntoSystems(measureCount, widthOf, contentBudget);
 
   const rowHeight = (count: number): number => (count > 0 ? count * staveHeight + Math.max(0, count - 1) * trackGap : 0);
   const trackRowHeight = rowHeight(tracks.length);
@@ -263,15 +301,21 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
       0,
     );
     const isLastSystem = systemIndex === systemsOfIndices.length - 1;
-    const justifiable =
-      options.layoutMode === 'page' && !isLastSystem && naturalWidth > 0;
-    const slack = justifiable
-      ? Math.max(0, logicalAvailableWidth - leftMargin - rightMargin - naturalWidth)
-      : 0;
+    // Where this system's right edge should land.
+    //
+    // Too wide always shrinks, whatever the mode and whichever system it is:
+    // page mode hides horizontal overflow, so a system that does not fit is not
+    // merely ugly, it is partly unreadable — which is what happened to a bar
+    // dense enough to exceed the budget on its own. Only *stretching* is
+    // optional, and stays as it was: page mode, and not the final system.
+    const target =
+      naturalWidth > contentBudget || (options.layoutMode === 'page' && !isLastSystem)
+        ? contentBudget
+        : naturalWidth;
     // Shared out in proportion to what each measure already occupies, so a
     // dense bar keeps its extra room rather than a sparse one being padded to
-    // match it.
-    const stretch = naturalWidth > 0 ? slack / naturalWidth : 0;
+    // match it — and, shrinking, gives up room in proportion too.
+    const scale = naturalWidth > 0 ? target / naturalWidth : 1;
 
     let cursorX = leftMargin;
     measureIndices.forEach((measureIndex, positionInSystem) => {
@@ -281,9 +325,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
       // rounding lost — otherwise the system lands a pixel or two short and
       // the final barline never quite meets the margin.
       const isLastInSystem = positionInSystem === measureIndices.length - 1;
-      const width = isLastInSystem
-        ? leftMargin + naturalWidth + slack - cursorX
-        : naturalMeasureWidth + naturalMeasureWidth * stretch;
+      const width = isLastInSystem ? leftMargin + target - cursorX : naturalMeasureWidth * scale;
 
       tracks.forEach((track, trackIndex) => {
         if (measureIndex >= track.measures.length) return;
