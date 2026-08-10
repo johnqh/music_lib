@@ -23,6 +23,33 @@ describe("score-slice", () => {
       expect(state.redoLabel).toBeNull();
     });
 
+    it("resolves a percussion track's program to a real kit on the way in", () => {
+      // A MIDI file sets whatever program it likes on channel 10, and until
+      // this the number was read as an instrument. Corrected inbound so the
+      // picker never has to show something the score does not say.
+      const store = createAppStore({ context: testStoreContext() });
+      const score = twinkleScore();
+      const drums = { ...score.tracks[0], clef: "percussion" as const, midiProgram: 45 };
+
+      store.getState().setScore({ ...score, tracks: [drums, ...score.tracks.slice(1)] });
+
+      expect(store.getState().score?.tracks[0].midiProgram).toBe(40); // Brush
+      expect(store.getState().score?.tracks[0].instrumentName).toBe("Brush Kit");
+    });
+
+    it("does not mark the project dirty for a correction the user did not make", () => {
+      // Opening a project must not upload an edit. The correction rides along
+      // with the user's next real one instead.
+      const store = createAppStore({ context: testStoreContext() });
+      const score = twinkleScore();
+      const drums = { ...score.tracks[0], clef: "percussion" as const, midiProgram: 45 };
+
+      store.getState().setScore({ ...score, tracks: [drums, ...score.tracks.slice(1)] });
+
+      expect(store.getState().dirty).toBe(false);
+      expect(store.getState().saveState).not.toBe("unsaved");
+    });
+
     it("clears any prior undo/redo history when resetHistory is not false", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());

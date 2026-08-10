@@ -321,6 +321,17 @@ const FAMILY_ICON: Record<GmFamily, InstrumentIconArt> = {
   'sound-effects': SPEAKER,
 };
 
+/**
+ * The art for a drum kit.
+ *
+ * Not reachable through `gmInstrumentIcon`: a kit is addressed by a program
+ * number that means something else entirely in the melodic table — Brush is 40,
+ * where the instrument art is a violin.
+ */
+export function gmKitIcon(): InstrumentIconArt {
+  return DRUM;
+}
+
 /** The hand-picked art for `program`, else its family's. */
 export function gmInstrumentIcon(program: number): InstrumentIconArt {
   const picked = PROGRAM_ICON[program];

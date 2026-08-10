@@ -11,9 +11,10 @@
  * spelled C# would become Db the first time somebody toggled the view twice.
  */
 import { gmWrittenTransposition } from '../instruments/gm-transposition.js';
+import { trackWrittenTransposition } from '../instruments/track-instrument.js';
 import { transposeKeySignature, transposePitch } from '../pitch/transpose.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { KeySignature, Measure, MusicalEvent, Pitch, Score } from '@sudobility/music_types';
+import type { KeySignature, Measure, MusicalEvent, Pitch, Score, Track } from '@sudobility/music_types';
 
 /** `events` with every pitch moved by `semitones`, respelled in `keySignature`. */
 export function transposeEvents(
@@ -70,14 +71,18 @@ export function transposeMeasure(measure: Measure, semitones: number): Measure {
  * VexFlow object on every frame — the exact cost the playback work avoids.
  */
 export function writtenScore(score: Score): Score {
-  if (!score.tracks.some((track) => gmWrittenTransposition(track.midiProgram) !== 0)) {
+  // Through `trackWrittenTransposition`, not the program-keyed table: a drum
+  // track's program is a kit, and kits 24 and 25 are guitar programs — which
+  // transpose by an octave. A TR-808 part was drawn an octave away from its own
+  // drums' staff positions.
+  if (!score.tracks.some((track) => trackWrittenTransposition(track) !== 0)) {
     return score;
   }
 
   return {
     ...score,
     tracks: score.tracks.map((track) => {
-      const semitones = gmWrittenTransposition(track.midiProgram);
+      const semitones = trackWrittenTransposition(track);
       return semitones === 0
         ? track
         : { ...track, measures: track.measures.map((m) => transposeMeasure(m, semitones)) };
@@ -98,5 +103,20 @@ export function soundingPitch(
   soundingKey: KeySignature,
 ): Pitch {
   const semitones = gmWrittenTransposition(midiProgram);
+  return semitones === 0 ? written : transposePitch(written, -semitones, soundingKey);
+}
+
+/**
+ * `soundingPitch` for a track, which is what a caller with one should use.
+ *
+ * A program number cannot answer this on its own: the same number is a kit on a
+ * percussion track, where nothing transposes at all.
+ */
+export function soundingPitchForTrack(
+  written: Pitch,
+  track: Pick<Track, 'clef' | 'midiProgram'>,
+  soundingKey: KeySignature,
+): Pitch {
+  const semitones = trackWrittenTransposition(track);
   return semitones === 0 ? written : transposePitch(written, -semitones, soundingKey);
 }

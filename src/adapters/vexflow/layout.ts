@@ -109,6 +109,19 @@ const STAVE_HEIGHT = 100;
  * given, padding included, not the ruled staff.
  */
 export const STAVE_POSITION_HEIGHT = 5;
+
+/**
+ * Distance from a track box's top edge down to the stave's **top line**.
+ *
+ * VexFlow reserves headroom above the ruled staff for anything that sits over
+ * it — `space_above_staff_ln: 4` line-spaces, at its 10-unit line distance — so
+ * the `y` a `Stave` is constructed with is not where the music starts. Exported
+ * because the track-info gutter aligns its instrument row to the first line the
+ * reader actually sees, and eyeballing that offset would drift the moment the
+ * stave's options changed.
+ */
+export const STAVE_TOP_LINE_OFFSET = 8 * STAVE_POSITION_HEIGHT;
+
 const TRACK_GAP = 20;
 const SYSTEM_GAP = 40;
 const LEFT_MARGIN = 10;

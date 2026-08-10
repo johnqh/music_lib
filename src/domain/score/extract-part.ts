@@ -10,7 +10,7 @@
  * rehearsal marks and cue notes, which is why part extraction lives in one
  * place rather than four.
  */
-import { gmWrittenTransposition } from '../instruments/gm-transposition.js';
+import { trackWrittenTransposition } from '../instruments/track-instrument.js';
 import { collapseRests } from './collapse-rests.js';
 import { applyRehearsalMarks, rehearsalMarks } from './rehearsal-marks.js';
 import { applyCues, measureCues } from './cue-notes.js';
@@ -32,7 +32,7 @@ export function extractPart(score: Score, trackId: string): Score | null {
   // then carried through the transposition below into the player's own key.
   const cued = applyCues(track.measures, measureCues(score, trackId));
 
-  const semitones = gmWrittenTransposition(track.midiProgram);
+  const semitones = trackWrittenTransposition(track);
   const written =
     semitones === 0 ? cued : cued.map((measure) => transposeMeasure(measure, semitones));
 

@@ -58,6 +58,9 @@ export * from './domain/time/durations.js';
 // domain/instruments
 export * from './domain/instruments/gm.js';
 export * from './domain/instruments/gm-icon.js';
+export * from './domain/instruments/gm-kit.js';
+export * from './domain/instruments/gm-percussion.js';
+export * from './domain/instruments/track-instrument.js';
 export * from './domain/instruments/gm-range.js';
 export * from './domain/instruments/gm-polyphony.js';
 export * from './domain/instruments/gm-transposition.js';

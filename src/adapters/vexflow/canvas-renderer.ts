@@ -17,12 +17,18 @@
 import { CanvasContext, Formatter, Stave, StaveConnector, MultiMeasureRest } from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
 import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
-import { gmInstrumentIcon } from '../../domain/instruments/gm-icon.js';
+import { trackInstrumentIcon } from '../../domain/instruments/track-instrument.js';
 import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
 import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
-import { MEASURE_HEADER_HEIGHT, TRACK_INFO_WIDTH, computeLayout, resolveZoom } from './layout.js';
+import {
+  MEASURE_HEADER_HEIGHT,
+  STAVE_TOP_LINE_OFFSET,
+  TRACK_INFO_WIDTH,
+  computeLayout,
+  resolveZoom,
+} from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
@@ -64,24 +70,26 @@ const GUTTER_FONT_SELECTED = 'bold 11px sans-serif';
 const GUTTER_TEXT_INSET = 3;
 /** Distance from the band's bottom edge up to the text baseline, so numbers sit just above the stave. */
 const GUTTER_TEXT_BASELINE_INSET = 5;
-/** Selected-measure tint opacity: enough to read as "selected", light enough to keep the number legible over it. */
-/** Thickness of the rule marking a selected measure's span. */
-const GUTTER_RULE_HEIGHT = 2;
-/** Gap between that rule and the baseline of the number above it. */
-const GUTTER_RULE_GAP = 3;
+/** Selected-measure tint opacity: enough to read as "selected", light enough to keep the notes over it legible. */
+const MEASURE_SELECTION_ALPHA = 0.16;
 
-/** Track-info gutter type and insets. */
-const TRACK_INFO_NAME_FONT = 'bold 12px sans-serif';
-const TRACK_INFO_DETAIL_FONT = '11px sans-serif';
+/**
+ * Track-info gutter type and insets.
+ *
+ * Sized for the 220px column `layout.ts` reserves rather than for the margin
+ * this text used to live in: at 11-12px it read as a caption on a panel that
+ * has room for a label, and the instrument line in particular is something you
+ * check while reading the staff beside it.
+ */
+const TRACK_INFO_NAME_FONT = 'bold 14px sans-serif';
+const TRACK_INFO_DETAIL_FONT = '13px sans-serif';
 /** Side of the square the instrument's line art is drawn into. */
-const TRACK_INFO_ICON_SIZE = 13;
+const TRACK_INFO_ICON_SIZE = 16;
 /** Space the instrument icon occupies before its name. */
-const TRACK_INFO_ICON_WIDTH = 18;
+const TRACK_INFO_ICON_WIDTH = 22;
 const TRACK_INFO_INSET = 10;
-/** Where the name baseline sits below the stave's top edge. */
-const TRACK_INFO_NAME_BASELINE = 22;
-/** Gap from the name baseline down to the instrument baseline. */
-const TRACK_INFO_LINE_GAP = 16;
+/** Gap between the gutter's three rows, name to instrument to state. */
+const TRACK_INFO_LINE_GAP = 18;
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
@@ -211,22 +219,31 @@ export class CanvasScoreRenderer {
         const isActive = options.activeTrackId != null && track.id === options.activeTrackId;
         ctx.fillStyle = isActive ? options.theme.staveActive : options.theme.staveInactive;
 
-        const top = placement.box.y;
+        // The instrument row is aligned to the stave's **top line** — the
+        // first thing the reader's eye lands on — rather than to the top of the
+        // track's box, which is headroom VexFlow reserves and nothing is drawn
+        // in. The track name then sits on the line above it, inside that same
+        // headroom, so the pair reads downward into the music: whose staff this
+        // is, then what it sounds like, then the staff itself.
+        const staveTopLine = placement.box.y + STAVE_TOP_LINE_OFFSET;
+        // Baseline sits at the icon's foot, so glyph and text share a bottom
+        // edge and the row's *top* is the stave line.
+        const detailBaseline = staveTopLine + TRACK_INFO_ICON_SIZE - 1;
+
         ctx.font = TRACK_INFO_NAME_FONT;
-        ctx.fillText(track.name, TRACK_INFO_INSET, top + TRACK_INFO_NAME_BASELINE);
+        ctx.fillText(track.name, TRACK_INFO_INSET, detailBaseline - TRACK_INFO_LINE_GAP);
 
         // Icon then instrument name, so the glyph reads as a label for the text
         // beside it rather than decoration floating on its own. The icon is
         // stroked, so it takes the same active/inactive colour as the text.
-        const detailBaseline = top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP;
         ctx.strokeStyle = ctx.fillStyle;
         strokeInstrumentIcon(
           ctx,
-          gmInstrumentIcon(track.midiProgram),
+          // Through the track: on a percussion track `midiProgram` addresses a
+          // drum kit, so the melodic art at that number is the wrong picture.
+          trackInstrumentIcon(track),
           TRACK_INFO_INSET,
-          // Positioned off the text baseline, so the icon sits on the line
-          // rather than hanging above it.
-          detailBaseline - TRACK_INFO_ICON_SIZE + 1,
+          staveTopLine,
           TRACK_INFO_ICON_SIZE,
         );
 
@@ -239,7 +256,7 @@ export class CanvasScoreRenderer {
 
         // Mute/solo are the only state here that changes what you hear, so they
         // are worth showing without making the track active first.
-        const stateBaseline = top + TRACK_INFO_NAME_BASELINE + TRACK_INFO_LINE_GAP * 2;
+        const stateBaseline = detailBaseline + TRACK_INFO_LINE_GAP;
         if (track.muted) ctx.fillText('M', TRACK_INFO_INSET, stateBaseline);
         if (track.solo) ctx.fillText('S', TRACK_INFO_INSET + 14, stateBaseline);
       }
@@ -399,6 +416,8 @@ export class CanvasScoreRenderer {
     // let a dense track distribute its notes on its own timeline, visually
     // desynchronized from the other tracks' staves.
     const windowIndices = this.visibleMeasureIndices(system, plan, viewportLeft, viewportRight);
+    this.paintSelectedMeasures(system, plan, ctx, windowIndices, options);
+
     for (const measureIndex of windowIndices) {
       const measureStaves: Stave[] = [];
       const voiceGroups: Voice[][] = [];
@@ -530,14 +549,61 @@ export class CanvasScoreRenderer {
   }
 
   /**
-   * Measure numbers in the band above the system's top stave, with any
-   * measure in `selectedMeasureIds` marked by colouring its number and ruling
-   * a line along its width.
+   * Tints every selected measure across the full height of the system.
    *
-   * Colour carries the state and the rule carries the *extent* — a selection
-   * usually spans several bars, and a coloured number alone cannot show where
-   * one stops. No fill: notes gave up their highlight rectangle when
-   * `paintHighlights` was deleted, and this was the last one left.
+   * The whole bar, not a mark near it: a selection's *extent* is the thing that
+   * has to be legible — "these four bars, on every staff" — and the 2px rule
+   * this replaces stated that in the one strip of the sheet nobody is looking
+   * at. Spanning the system rather than one track's stave is deliberate, and
+   * matches what the selection means: the measure gutter is one band per
+   * system, and replacing a measure region acts on every track in it.
+   *
+   * Drawn **before** the staves and notes so it reads as paper the music sits
+   * on. Over the top it would tint the noteheads themselves, and a selected
+   * bar's notes would not match the same notes anywhere else.
+   */
+  private paintSelectedMeasures(
+    system: SystemLayout,
+    plan: LayoutPlan,
+    ctx: CanvasRenderingContext2D,
+    windowIndices: number[],
+    options: CanvasRenderOptions,
+  ): void {
+    const selected = options.selectedMeasureIds;
+    if (!selected || selected.size === 0) return;
+    const measures = plan.trackLayouts[0]?.measures;
+    const track = plan.tracks[0];
+    if (!measures || !track) return;
+
+    const previousFill = ctx.fillStyle;
+    const previousAlpha = ctx.globalAlpha;
+    ctx.fillStyle = options.theme.noteSelected;
+    ctx.globalAlpha = MEASURE_SELECTION_ALPHA;
+
+    for (const measureIndex of windowIndices) {
+      const measure = track.measures[measureIndex];
+      if (!measure || !selected.has(measure.id)) continue;
+      const box = measures.find((m) => m.measureIndex === measureIndex)?.box;
+      if (!box) continue;
+      // From the number band down to the foot of the last stave, so the tint
+      // takes in the measure number as well as every track's bar. Full width
+      // and flush with the next bar, so a multi-measure selection is one block
+      // rather than a row of stripes.
+      ctx.fillRect(box.x, system.gutterTop, box.width, system.yBottom - system.gutterTop);
+    }
+
+    ctx.globalAlpha = previousAlpha;
+    ctx.fillStyle = previousFill;
+  }
+
+  /**
+   * Measure numbers in the band above the system's top stave, with any
+   * measure in `selectedMeasureIds` picked out in the selection colour.
+   *
+   * Extent is carried by `paintSelectedMeasures`, which tints the bar itself;
+   * this only has to say which number belongs to it. It used to draw a 2px rule
+   * under the number instead, which was the only thing showing how far a
+   * selection reached and was easy to miss entirely.
    *
    * Drawn straight to the 2D context: there is no VexFlow object for "the
    * space above a stave", and a number plus a rect needs none. Measure
@@ -567,18 +633,6 @@ export class CanvasScoreRenderer {
       const box = placement.box;
 
       const selected = options.selectedMeasureIds?.has(measure.id) ?? false;
-
-      if (selected) {
-        // Full width and abutting the next bar's rule, so a multi-measure
-        // selection reads as one continuous span rather than dashes.
-        ctx.fillStyle = options.theme.noteSelected;
-        ctx.fillRect(
-          box.x,
-          baselineY + GUTTER_RULE_GAP,
-          box.width,
-          GUTTER_RULE_HEIGHT,
-        );
-      }
 
       ctx.fillStyle = selected ? options.theme.noteSelected : options.theme.foreground;
       ctx.font = selected ? GUTTER_FONT_SELECTED : GUTTER_FONT;

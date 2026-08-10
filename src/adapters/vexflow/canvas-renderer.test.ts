@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer } from './canvas-renderer.js';
-import { TRACK_INFO_WIDTH, computeLayout } from './layout.js';
+import { STAVE_TOP_LINE_OFFSET, TRACK_INFO_WIDTH, computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
@@ -311,7 +311,63 @@ describe('measure-number gutter drawing', () => {
     expect(texts).not.toContain('0');
   });
 
-  it('tints the gutter cell of a selected measure', () => {
+  it('tints the whole of a selected measure, across every staff of its system', () => {
+    // The extent of a selection is the thing that has to be legible — "these
+    // bars, on every staff". This used to be a 2px rule under the measure
+    // number, in the one strip of the sheet nobody looks at.
+    const score = twoTrackScore();
+    const measureId = score.tracks[0].measures[0].id;
+    const plan = computeLayout(score, OPTS);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    const rects: Array<{ fill: string; args: number[] }> = [];
+    (ctx as unknown as { fillRect: (...a: number[]) => void }).fillRect = function (
+      this: { fillStyle: string },
+      ...args: number[]
+    ) {
+      rects.push({ fill: this.fillStyle, args });
+    };
+
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      selectedMeasureIds: new Set([measureId]),
+    });
+
+    const system = plan.systems[0];
+    const box = plan.trackLayouts[0].measures.find((m) => m.measureIndex === 0)!.box;
+    const tint = rects.find((r) => r.fill === THEME.noteSelected);
+    expect(tint).toBeDefined();
+    const [x, y, width, height] = tint!.args;
+    expect(x).toBe(box.x);
+    expect(width).toBe(box.width);
+    // From the number band down past the second track's stave.
+    expect(y).toBe(system.gutterTop);
+    expect(height).toBe(system.yBottom - system.gutterTop);
+  });
+
+  it('paints the selection under the notes, not over them', () => {
+    // Over the top it would tint the noteheads, and a selected bar's notes
+    // would stop matching the same notes anywhere else on the sheet.
+    const score = twinkleScore();
+    const measureId = score.tracks[0].measures[0].id;
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext();
+
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+      selectedMeasureIds: new Set([measureId]),
+    });
+
+    const firstFillRect = ctx.ops.findIndex((o) => o.method === 'fillRect');
+    const firstNoteDraw = ctx.ops.findIndex((o) => o.method === 'fillText' || o.method === 'stroke');
+    expect(firstFillRect).toBeGreaterThanOrEqual(0);
+    expect(firstFillRect).toBeLessThan(firstNoteDraw);
+  });
+
+  it('uses the selection colour for a selected measure', () => {
     const score = twinkleScore();
     const measureId = score.tracks[0].measures[0].id;
     const renderer = new CanvasScoreRenderer();
@@ -459,6 +515,33 @@ describe('track-info gutter drawing', () => {
       expect(drawn).toContain(track.name);
       expect(drawn).toContain(track.instrumentName);
     }
+  });
+
+  it('aligns the instrument row to the stave top line, with the name above it', () => {
+    // The instrument is what you check while reading the staff beside it, so
+    // it starts where the music does. The track name goes in the headroom
+    // above — space VexFlow reserves and draws nothing in — so the pair reads
+    // downward into the score. Both used to hang off the top of the track's
+    // *box*, which is 40 units above the first line anyone can see.
+    const score = twoTrackScore();
+    const plan = computeLayout(score, OPTS);
+    const ctx = createMock2DContext();
+    const texts = captureText(ctx);
+
+    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+
+    const box = plan.trackLayouts[0].measures[0].box;
+    const staveTopLine = box.y + STAVE_TOP_LINE_OFFSET;
+    const instrument = texts.find((t) => t.text === score.tracks[0].instrumentName)!;
+    const name = texts.find((t) => t.text === score.tracks[0].name)!;
+
+    // The instrument row's top is the stave line: its baseline sits one icon
+    // below, and text is drawn up from a baseline.
+    expect(instrument.y).toBeGreaterThan(staveTopLine);
+    expect(instrument.y).toBeLessThanOrEqual(staveTopLine + 20);
+    // And the name sits on the line above the instrument, not below it.
+    expect(name.y).toBeLessThan(instrument.y);
+    expect(name.y).toBeGreaterThan(box.y);
   });
 
   it('repeats the gutter for every visible system', () => {

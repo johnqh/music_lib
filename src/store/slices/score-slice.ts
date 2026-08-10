@@ -17,6 +17,7 @@
 import { HistoryManager } from "../../domain/commands/history.js";
 import type { ScoreCommand } from "../../domain/commands/types.js";
 import type { Score } from "@sudobility/music_types";
+import { scoreWithResolvedKits } from "../../domain/instruments/track-instrument.js";
 import { validateScore } from "../../domain/validation/validator.js";
 import type { ValidationIssue } from "../../domain/validation/issues.js";
 import type { StateCreator } from "zustand";
@@ -112,9 +113,16 @@ export const createScoreSlice: StateCreator<
     setScore: (score, options = {}) => {
       const resetHistory = options.resetHistory ?? true;
       if (resetHistory) historyManager.clear();
+      // Inbound, before the score becomes what the store holds: a percussion
+      // track's program is a drum kit, and a MIDI file may set an address no
+      // kit sits at. Correcting it here rather than after means the project is
+      // never marked dirty by it, so opening a score does not upload an edit
+      // the user did not make; the correction persists with their next one.
+      // Identity is preserved when there is nothing to correct.
+      const resolved = scoreWithResolvedKits(score);
       set((state) => {
-        state.score = score;
-        state.validationIssues = validateScore(score);
+        state.score = resolved;
+        state.validationIssues = validateScore(resolved);
         syncHistoryMirrors(state);
       });
     },

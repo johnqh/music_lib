@@ -39,6 +39,18 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Gotchas
 
+- **`Track.midiProgram` means two different things, and `track-instrument.ts`
+  is the only place that knows which.** On a percussion-clef track it addresses
+  a General MIDI *drum kit* (`gm-kit.ts`); everywhere else it is an instrument
+  (`gm.ts`). The two never coincide — Brush is kit 40, and program 40 is Violin
+  — so every program-keyed table (`gm-range`, `gm-polyphony`,
+  `gm-transposition`, `gm-icon`) gives a confidently wrong answer for a drum
+  track. Take a `Track` and call `trackKeyboardRange`/`trackMaxPolyphony`/
+  `trackWrittenTransposition`/`trackInstrumentIcon` instead; the program-keyed
+  functions stay exported for callers that genuinely hold only a program.
+  `scoreWithResolvedKits` (run by `setScore`) snaps a percussion track to a real
+  kit and returns the **identical score** when there is nothing to fix, which is
+  what keeps opening a project from marking it dirty.
 - **The autosave omits the score when the score has not changed.**
   `project-slice` keeps the last-saved score by *identity* — every mutation
   goes through a command that returns a new object, so an unchanged reference

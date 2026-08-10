@@ -4,6 +4,8 @@
  * `transformCommand`, matching the note-commands.ts pattern.
  */
 import { appendMeasure, createTrack, rebuildMeasureTicks } from '../score/factory.js';
+import { gmKitAt } from '../instruments/gm-kit.js';
+import { gmInstrument } from '../instruments/gm.js';
 import type { CreateTrackOptions } from '../score/factory.js';
 import { createId } from '../score/ids.js';
 import { measureDurationTicks } from '../time/ticks.js';
@@ -146,11 +148,34 @@ export function changeKeySignatureCommand(measureId: UUID, keySignature: KeySign
 // ---- changeClefCommand -----------------------------------------------------------
 
 function changeClef(score: Score, trackId: UUID, clef: Clef): Score {
-  const tracks = score.tracks.map((t) => (t.id === trackId ? { ...t, clef } : t));
+  const tracks = score.tracks.map((t) => (t.id === trackId ? { ...t, clef, ...programForClef(t, clef) } : t));
   return withTracks(score, tracks);
 }
 
-/** Changes a track's clef. */
+/**
+ * The program a track should carry once its clef is `clef`.
+ *
+ * `midiProgram` addresses a drum kit on a percussion track and an instrument
+ * anywhere else, so crossing that boundary reinterprets the number it already
+ * holds. Going in, it is snapped to the kit whose region it falls in; coming
+ * out, it is reset to Acoustic Grand, because a kit address as an instrument is
+ * whatever program happens to sit there — Brush becomes a violin. `name` is
+ * deliberately left alone: it is the user's, unlike `instrumentName`, which
+ * describes the sound and so has to follow it.
+ */
+function programForClef(track: Track, clef: Clef): Partial<Track> {
+  const wasPercussion = track.clef === 'percussion';
+  const isPercussion = clef === 'percussion';
+  if (wasPercussion === isPercussion) return {};
+  if (isPercussion) {
+    const kit = gmKitAt(track.midiProgram);
+    return { midiProgram: kit.program, instrumentName: kit.name };
+  }
+  const instrument = gmInstrument(0);
+  return { midiProgram: 0, instrumentName: instrument?.name ?? 'Acoustic Grand Piano' };
+}
+
+/** Changes a track's clef, reinterpreting its program if it crosses into or out of percussion. */
 export function changeClefCommand(trackId: UUID, clef: Clef): ScoreCommand {
   return transformCommand('Change clef', (score) => changeClef(score, trackId, clef));
 }

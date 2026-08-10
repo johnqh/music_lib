@@ -167,3 +167,16 @@ export function crossHeadStemOffsets(
 export function percussionVexKey(midi: number): string {
   return DRUM_MAP[midi] ?? UNMAPPED;
 }
+
+/**
+ * Whether `midi` has a staff position of its own.
+ *
+ * Exposed because `UNMAPPED` is `b/4`, which is also a real position — Low Tom
+ * sits there — so the return of `percussionVexKey` cannot be used to tell a
+ * drum this table knows from one it does not. `gm-percussion.ts` pins its own
+ * coverage against this, since a drum in one and not the other is either drawn
+ * without a name or named without a place to draw it.
+ */
+export function hasPercussionMapping(midi: number): boolean {
+  return midi in DRUM_MAP;
+}

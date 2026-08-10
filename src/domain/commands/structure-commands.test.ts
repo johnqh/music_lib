@@ -136,6 +136,51 @@ describe('changeClefCommand', () => {
     expect(next.tracks[0].clef).toBe('bass');
     expect(cmd.undo(next)).toEqual(score);
   });
+
+  it('reinterprets the program when a track becomes percussion', () => {
+    // `midiProgram` addresses a kit on a percussion track, so the number the
+    // track already holds now means something else. Program 40 is Violin as an
+    // instrument and Brush as an address.
+    const score = baseScore();
+    const track = { ...score.tracks[0], midiProgram: 40, instrumentName: 'Violin' };
+    const withViolin = { ...score, tracks: [track, ...score.tracks.slice(1)] };
+
+    const next = changeClefCommand(track.id, 'percussion').execute(withViolin);
+    expect(next.tracks[0].midiProgram).toBe(40);
+    expect(next.tracks[0].instrumentName).toBe('Brush Kit');
+  });
+
+  it('resets the program when a track stops being percussion', () => {
+    // A kit address as an instrument is whatever program happens to sit there,
+    // which is not a choice anybody made.
+    const score = baseScore();
+    const track = { ...score.tracks[0], clef: 'percussion' as const, midiProgram: 40, instrumentName: 'Brush Kit' };
+    const withKit = { ...score, tracks: [track, ...score.tracks.slice(1)] };
+
+    const next = changeClefCommand(track.id, 'treble').execute(withKit);
+    expect(next.tracks[0].midiProgram).toBe(0);
+    expect(next.tracks[0].instrumentName).toBe('Acoustic Grand Piano');
+  });
+
+  it('leaves the program alone when the clef change stays on one side', () => {
+    const score = baseScore();
+    const track = { ...score.tracks[0], midiProgram: 40, instrumentName: 'Violin' };
+    const withViolin = { ...score, tracks: [track, ...score.tracks.slice(1)] };
+
+    const next = changeClefCommand(track.id, 'bass').execute(withViolin);
+    expect(next.tracks[0].midiProgram).toBe(40);
+    expect(next.tracks[0].instrumentName).toBe('Violin');
+  });
+
+  it('keeps the user’s own track name across the reinterpretation', () => {
+    // `name` is theirs; `instrumentName` describes the sound and has to follow.
+    const score = baseScore();
+    const track = { ...score.tracks[0], name: 'Backbeat', midiProgram: 40 };
+    const withName = { ...score, tracks: [track, ...score.tracks.slice(1)] };
+
+    const next = changeClefCommand(track.id, 'percussion').execute(withName);
+    expect(next.tracks[0].name).toBe('Backbeat');
+  });
 });
 
 describe('changeTempoCommand', () => {
