@@ -25,6 +25,8 @@ import { isNoteEvent } from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 import { decomposeDuration } from '../../domain/time/durations.js';
 import type { DisplayGroup } from './display-timing.js';
+import { percussionVexKey } from './percussion.js';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
 
 /** `Pitch.accidental` (-2..2) -> VexFlow accidental suffix/code (`''` for natural, no glyph drawn). */
 const ACCIDENTAL_SUFFIX: Record<DomainAccidental, string> = {
@@ -179,6 +181,12 @@ export function buildVoiceContent(
   groups: DisplayGroup[],
   ppq: number,
   glyphScale?: number,
+  /**
+   * Draw the events as drums rather than pitches: fixed staff positions and
+   * cross noteheads, per `percussion.ts`. A drum's "pitch" says which drum was
+   * struck, so drawn literally a kick lands six ledger lines below the staff.
+   */
+  isPercussion = false,
 ): VoiceContent {
   const notes: StaveNote[] = [];
   const metas: NoteMeta[] = [];
@@ -197,7 +205,13 @@ export function buildVoiceContent(
       const isLastSegment = segmentIndex === segments.length - 1;
       const { code, dots } = ticksToVexDuration(segmentTicks, ppq);
 
-      const keys = isRest ? [REST_KEY] : group.map((e) => pitchToVexKey((e as NoteEvent).pitch));
+      const keys = isRest
+        ? [REST_KEY]
+        : group.map((e) =>
+            isPercussion
+              ? percussionVexKey(pitchToMidi((e as NoteEvent).pitch))
+              : pitchToVexKey((e as NoteEvent).pitch),
+          );
 
       const staveNote = new StaveNote({
         keys,

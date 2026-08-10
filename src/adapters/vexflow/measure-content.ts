@@ -14,6 +14,7 @@ import {
   Stave,
   StaveModifierPosition,
   StaveTie,
+  Stem,
   TextJustification,
   Voice,
 } from 'vexflow';
@@ -45,6 +46,20 @@ function sameKeySignature(a: KeySignature, b: KeySignature): boolean {
 /** A single note/rest "channel" (spec §25 voice-ordinal convention, mirrored from `domain/score/ties.ts`) accumulated across a track's measures, for cross-measure/cross-decomposition tie detection. */
 export type Channel = Array<{ note: StaveNote; meta: NoteMeta }>;
 
+/**
+ * Beams a measure's notes, flat and stems-up on a drum staff.
+ *
+ * A kit part puts the kick in the bottom space and the hi-hat above the top
+ * line, and both land in the same voice here. Beamed by pitch, as melodic
+ * notes are, the beam followed that gap: it swept diagonally from above the
+ * staff down past the bottom of it. Drum notation answers this with flat
+ * beams and one stem direction, which is what the convention exists for.
+ */
+function beamsFor(notes: StaveNote[], isPercussion: boolean): Beam[] {
+  if (!isPercussion) return Beam.generateBeams(notes);
+  return Beam.generateBeams(notes, { flat_beams: true, stem_direction: Stem.UP });
+}
+
 /** Builds one measure's `Stave`, its VexFlow `Voice`s, and its beams; records notes into `channels` for tie building. */
 export function buildMeasureContent(
   measure: Measure,
@@ -56,6 +71,9 @@ export function buildMeasureContent(
   allMetas: NoteMeta[],
 ): { stave: Stave; voices: Voice[]; beams: Beam[]; multiMeasureRest?: MultiMeasureRest } {
   const { box, isFirstInSystem } = placement;
+  // A percussion track's notes name drums, not pitches, which changes both
+  // where they sit and whether an accidental could ever apply to them.
+  const isPercussion = track.clef === 'percussion';
   const stave = new Stave(box.x, box.y, box.width);
   stave.setAttribute('id', measure.id);
 
@@ -122,6 +140,7 @@ export function buildMeasureContent(
       displayGroups(measure.cue.events, measure.startTick, measure.durationTicks, ppq),
       ppq,
       CUE_GLYPH_SCALE,
+      isPercussion,
     );
     if (notes.length === 0) return { stave, voices: [], beams: [] };
 
@@ -131,9 +150,9 @@ export function buildMeasureContent(
     });
     cueVoice.setMode(Voice.Mode.SOFT);
     cueVoice.addTickables(notes);
-    Accidental.applyAccidentals([cueVoice], keySignatureToVexSpec(measure.keySignature));
+    if (!isPercussion) Accidental.applyAccidentals([cueVoice], keySignatureToVexSpec(measure.keySignature));
 
-    return { stave, voices: [cueVoice], beams: Beam.generateBeams(notes) };
+    return { stave, voices: [cueVoice], beams: beamsFor(notes, isPercussion) };
   }
 
   const voices: Voice[] = [];
@@ -143,6 +162,8 @@ export function buildMeasureContent(
     const { notes, metas } = buildVoiceContent(
       displayGroups(domainVoice.events, measure.startTick, measure.durationTicks, ppq),
       ppq,
+      undefined,
+      isPercussion,
     );
     if (notes.length === 0) return;
 
@@ -156,7 +177,7 @@ export function buildMeasureContent(
     vexVoice.setMode(Voice.Mode.SOFT);
     vexVoice.addTickables(notes);
     voices.push(vexVoice);
-    beams.push(...Beam.generateBeams(notes));
+    beams.push(...beamsFor(notes, isPercussion));
 
     const channel = channels.get(voiceOrdinal) ?? [];
     notes.forEach((note, i) => channel.push({ note, meta: metas[i] }));
@@ -171,7 +192,7 @@ export function buildMeasureContent(
   // an in-key F# in G major), reading each note's spelling straight out of
   // the `keys` string `convert.ts` already built.
   if (voices.length > 0) {
-    Accidental.applyAccidentals(voices, keySignatureToVexSpec(measure.keySignature));
+    if (!isPercussion) Accidental.applyAccidentals(voices, keySignatureToVexSpec(measure.keySignature));
   }
 
   return { stave, voices, beams };
