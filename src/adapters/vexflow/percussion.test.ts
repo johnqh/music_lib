@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StaveNote } from 'vexflow';
-import { isFootDrum, percussionVexKey } from './percussion.js';
+import { crossHeadStemOffsets, isFootDrum, percussionVexKey } from './percussion.js';
 
 /** The staff position a key resolves to, as VexFlow computes it. */
 function line(key: string): number {
@@ -71,6 +71,31 @@ describe('percussionVexKey', () => {
   it('marks the kick and the hi-hat pedal as played by the feet', () => {
     for (const midi of [35, 36, 44]) expect(isFootDrum(midi), `midi ${midi}`).toBe(true);
     for (const midi of [38, 42, 46, 49, 51]) expect(isFootDrum(midi), `midi ${midi}`).toBe(false);
+  });
+
+  it('reaches a stem into a cross notehead, in whichever direction it points', () => {
+    // A stem meets a head at its edge, halfway up — solid ink on an oval, the
+    // hollow middle of a cross. VexFlow stopped four units short of even that,
+    // grazing the upper arm tip at a point, so the stem read as a separate mark
+    // floating above the note.
+    const offsets = crossHeadStemOffsets([percussionVexKey(42)]);
+    expect(offsets).toEqual({ stem_up_y_base_offset: 5, stem_down_y_base_offset: -5 });
+    // Symmetric: an up-stem reaches down to the head's bottom edge, a down-stem
+    // up to its top edge, so both span the glyph.
+    expect(offsets!.stem_up_y_base_offset).toBe(-offsets!.stem_down_y_base_offset);
+  });
+
+  it('leaves ordinary drumheads alone, and mixed chords with them', () => {
+    // A snare already meets its stem; so does a chord whose outer head might be
+    // the snare rather than the hi-hat.
+    expect(crossHeadStemOffsets([percussionVexKey(38)])).toBeNull();
+    expect(crossHeadStemOffsets([percussionVexKey(36), percussionVexKey(42)])).toBeNull();
+    expect(crossHeadStemOffsets([])).toBeNull();
+  });
+
+  it('treats the circled cross as a cross too', () => {
+    // Open hi-hat is just as hollow at the edge as the closed one.
+    expect(crossHeadStemOffsets([percussionVexKey(46)])).not.toBeNull();
   });
 
   it('parks anything that is not General MIDI percussion on the middle line', () => {

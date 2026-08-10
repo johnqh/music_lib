@@ -122,6 +122,47 @@ export function isFootDrum(midi: number): boolean {
   return FOOT_DRUMS.has(midi);
 }
 
+/**
+ * How far a cross notehead's stem must reach into the glyph to join it.
+ *
+ * A stem meets a notehead at its right (or left) edge, halfway up. On an oval
+ * that is solid ink; on a cross it is the hollow middle, and the only ink at
+ * that edge is the two arm tips at the corners. VexFlow's default stops the
+ * stem four units short of even the halfway point, so it grazed the upper tip
+ * at a single point and read as a separate mark sitting above the note.
+ *
+ * Half a notehead — five units at the default glyph scale — runs the stem the
+ * full height of the glyph, bridging both arm tips, which is what reads as
+ * joined. Measured from the rendered SVG in both directions: +5 lands an
+ * up-stem exactly on the head's bottom edge and -5 lands a down-stem exactly
+ * on its top edge, while -9 and beyond overshoot past the glyph.
+ */
+const CROSS_STEM_OVERLAP = 5;
+
+/** Whether `key` (VexFlow `note/octave/head` form) draws as a cross. */
+function isCrossHead(key: string): boolean {
+  const head = key.split('/')[2];
+  return head === X || head === CIRCLE_X;
+}
+
+/**
+ * The stem base offsets that join a stem to `keys`, or `null` when they need
+ * none.
+ *
+ * Only when *every* head in the group is a cross: the stem attaches to one
+ * outer head, and in a mixed chord that may be an ordinary one, which already
+ * meets its stem correctly.
+ */
+export function crossHeadStemOffsets(
+  keys: string[],
+): { stem_up_y_base_offset: number; stem_down_y_base_offset: number } | null {
+  if (keys.length === 0 || !keys.every(isCrossHead)) return null;
+  return {
+    stem_up_y_base_offset: CROSS_STEM_OVERLAP,
+    stem_down_y_base_offset: -CROSS_STEM_OVERLAP,
+  };
+}
+
 /** The VexFlow key for General MIDI percussion note `midi`. */
 export function percussionVexKey(midi: number): string {
   return DRUM_MAP[midi] ?? UNMAPPED;

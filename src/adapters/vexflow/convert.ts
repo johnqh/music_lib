@@ -26,7 +26,7 @@ import { isNoteEvent } from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 import { decomposeDuration } from '../../domain/time/durations.js';
 import type { DisplayGroup } from './display-timing.js';
-import { percussionVexKey } from './percussion.js';
+import { crossHeadStemOffsets, percussionVexKey } from './percussion.js';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 
 /** `Pitch.accidental` (-2..2) -> VexFlow accidental suffix/code (`''` for natural, no glyph drawn). */
@@ -244,6 +244,11 @@ export function buildVoiceContent(
         // presence, not its value.
         ...(glyphScale === undefined ? {} : { glyph_font_scale: glyphScale }),
       });
+
+      // A cross notehead is hollow where a stem meets it, so the stem has to
+      // reach further in to join up. See `crossHeadStemOffsets`.
+      const stemOffsets = crossHeadStemOffsets(keys);
+      if (stemOffsets) staveNote.getStem()?.setOptions(stemOffsets);
 
       for (let i = 0; i < dots; i += 1) {
         Dot.buildAndAttach([staveNote], { all: true });
