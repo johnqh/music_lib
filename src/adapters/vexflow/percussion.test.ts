@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StaveNote } from 'vexflow';
-import { percussionVexKey } from './percussion.js';
+import { isFootDrum, percussionVexKey } from './percussion.js';
 
 /** The staff position a key resolves to, as VexFlow computes it. */
 function line(key: string): number {
@@ -16,7 +16,7 @@ describe('percussionVexKey', () => {
     for (let midi = 35; midi <= 81; midi += 1) {
       const l = line(percussionVexKey(midi));
       expect(l, `midi ${midi} sits at line ${l}`).toBeGreaterThanOrEqual(0.5);
-      expect(l, `midi ${midi} sits at line ${l}`).toBeLessThanOrEqual(6);
+      expect(l, `midi ${midi} sits at line ${l}`).toBeLessThanOrEqual(6.5);
     }
   });
 
@@ -42,10 +42,11 @@ describe('percussionVexKey', () => {
 
   it('crosses the cymbals and sticks, and leaves the drumheads plain', () => {
     for (const midi of [37, 42, 46, 49, 51, 55]) {
-      expect(percussionVexKey(midi), `midi ${midi}`).toMatch(/\/(x2|x3|ci)$/);
+      expect(percussionVexKey(midi), `midi ${midi}`).toMatch(/\/(x|x3)$/);
     }
     for (const midi of [36, 38, 41, 45, 47, 48]) {
-      expect(percussionVexKey(midi), `midi ${midi}`).not.toMatch(/\/(x2|x3|ci|d)$/);
+      // No notehead suffix at all: just note/octave, so VexFlow draws its default.
+      expect(percussionVexKey(midi).split('/'), `midi ${midi}`).toHaveLength(2);
     }
   });
 
@@ -54,6 +55,22 @@ describe('percussionVexKey', () => {
     const open = percussionVexKey(46);
     expect(closed.split('/').slice(0, 2)).toEqual(open.split('/').slice(0, 2));
     expect(closed).not.toBe(open);
+  });
+
+  it('uses the glyphs it means, checked against VexFlow rather than assumed', () => {
+    // `x` and `x2` are the same cross; `x3` is the circled cross that marks a
+    // ringing cymbal; `ci` is a filled head inside a circle and means nothing
+    // here. Open hi-hat was drawn with `ci` until this was checked.
+    const code = (key: string) => new StaveNote({ keys: [key], duration: 'q' }).getKeyProps()[0].code;
+    expect(code(percussionVexKey(42))).toBe('noteheadXBlack'); // closed hi-hat
+    expect(code(percussionVexKey(46))).toBe('noteheadCircleX'); // open hi-hat
+    expect(code(percussionVexKey(53))).toBe('noteheadDiamondBlack'); // ride bell
+    expect(code(percussionVexKey(38))).toBeUndefined(); // snare: VexFlow's default drumhead
+  });
+
+  it('marks the kick and the hi-hat pedal as played by the feet', () => {
+    for (const midi of [35, 36, 44]) expect(isFootDrum(midi), `midi ${midi}`).toBe(true);
+    for (const midi of [38, 42, 46, 49, 51]) expect(isFootDrum(midi), `midi ${midi}`).toBe(false);
   });
 
   it('parks anything that is not General MIDI percussion on the middle line', () => {

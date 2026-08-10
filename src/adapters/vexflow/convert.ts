@@ -11,7 +11,8 @@
  * Pure-ish: builds VexFlow objects but never touches the DOM, a `Stave`'s
  * position, or a rendering context. No store/React imports (spec §3, §37).
  */
-import { Articulation, Dot, StaveNote } from 'vexflow';
+import { Articulation, Dot, GhostNote, StaveNote } from 'vexflow';
+import type { StemmableNote } from 'vexflow';
 import type {
   Accidental as DomainAccidental,
   Articulation as DomainArticulation,
@@ -160,7 +161,16 @@ export type NoteMeta = {
   keyTies: KeyTie[];
 };
 
-export type VoiceContent = { notes: StaveNote[]; metas: NoteMeta[] };
+export type VoiceContent = {
+  /**
+   * Everything the VexFlow voice holds, spacers included — this is what goes
+   * into `Voice.addTickables` and into beaming, and what the formatter counts.
+   */
+  tickables: StemmableNote[];
+  /** The drawn notes only, parallel to `metas`; spacers are not notes. */
+  notes: StaveNote[];
+  metas: NoteMeta[];
+};
 
 const REST_KEY = 'b/4';
 
@@ -188,10 +198,22 @@ export function buildVoiceContent(
    */
   isPercussion = false,
 ): VoiceContent {
+  const tickables: StemmableNote[] = [];
   const notes: StaveNote[] = [];
   const metas: NoteMeta[] = [];
 
   for (const { events: group, durationTicks } of groups) {
+    // A spacer: time the voice must account for so it still sums to the bar,
+    // drawing nothing. Two voices on one drum staff need these wherever the
+    // other voice is the one playing.
+    if (group.length === 0) {
+      for (const segmentTicks of decomposeDuration(durationTicks, ppq)) {
+        const { code, dots } = ticksToVexDuration(segmentTicks, ppq);
+        tickables.push(new GhostNote({ duration: code, dots }));
+      }
+      continue;
+    }
+
     const first = group[0];
     const isRest = !isNoteEvent(first);
     // The group's display duration, not the event's recorded one: a recorded
@@ -269,6 +291,7 @@ export function buildVoiceContent(
       const tieStart = keyTies.some((k) => k.tieStart);
       const tieStop = keyTies.some((k) => k.tieStop);
 
+      tickables.push(staveNote);
       notes.push(staveNote);
       metas.push({
         vexId,
@@ -281,5 +304,5 @@ export function buildVoiceContent(
     });
   }
 
-  return { notes, metas };
+  return { tickables, notes, metas };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MusicalEvent, NoteEvent } from '@sudobility/music_types';
-import { displayGridTicks, displayGroups } from './display-timing.js';
+import { displayGridTicks, displayGroups, drumDisplayGroups } from './display-timing.js';
 
 const PPQ = 480;
 const BAR = PPQ * 4;
@@ -129,5 +129,65 @@ describe('displayGroups', () => {
 
   it('returns nothing for an empty voice', () => {
     expect(displayGroups([], 0, BAR, PPQ)).toEqual([]);
+  });
+});
+
+describe('drumDisplayGroups', () => {
+  it('caps a hit at a quarter so its notehead stays filled', () => {
+    // Stretching a kick to reach the next one two beats later would draw it as
+    // a half note, and half notes are hollow — which reads as a different
+    // instruction. The leftover becomes spacers.
+    const groups = drumDisplayGroups([note(0, 120), note(BAR / 2, 120)], 0, BAR, PPQ);
+    expect(total(groups)).toBe(BAR);
+    const sounding = groups.filter((g) => g.events.length > 0);
+    expect(sounding.map((g) => g.durationTicks)).toEqual([PPQ, PPQ]);
+    expect(groups.filter((g) => g.events.length === 0)).toHaveLength(2);
+  });
+
+  it('ignores the recorded length, which for a drum is an artifact', () => {
+    // Using it made every hit the shortest drawable note plus a spacer, and
+    // spacers break beam groups: a running hi-hat became flagged 32nds.
+    const sixteenths = Array.from({ length: 16 }, (_, i) => note(i * 120, 3));
+    const groups = drumDisplayGroups(sixteenths, 0, BAR, PPQ);
+    expect(groups).toHaveLength(16);
+    expect(groups.every((g) => g.durationTicks === 120)).toBe(true);
+  });
+
+  it('accounts for the time before the first hit', () => {
+    // Otherwise the voice is short and the staves disagree about the bar.
+    const groups = drumDisplayGroups([note(BAR / 2, 120)], 0, BAR, PPQ);
+    expect(total(groups)).toBe(BAR);
+    expect(groups[0].events).toHaveLength(0);
+    expect(groups[0].durationTicks).toBe(BAR / 2);
+  });
+
+  it('leaves a continuous stream with no spacers at all', () => {
+    const sixteenths = Array.from({ length: 16 }, (_, i) => note(i * 120, 120));
+    const groups = drumDisplayGroups(sixteenths, 0, BAR, PPQ);
+    expect(groups).toHaveLength(16);
+    expect(groups.every((g) => g.events.length > 0)).toBe(true);
+    expect(total(groups)).toBe(BAR);
+  });
+
+  it('lets a rest span its whole silence, since it has no head to go hollow', () => {
+    // Capped like a hit, a bar of silence drew a quarter rest and left the
+    // remaining three beats blank.
+    const groups = drumDisplayGroups([rest(0, BAR)], 0, BAR, PPQ);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].durationTicks).toBe(BAR);
+  });
+
+  it('never draws a hit shorter than one grid step', () => {
+    const groups = drumDisplayGroups([note(0, 3), note(240, 3)], 0, BAR, PPQ);
+    expect(total(groups)).toBe(BAR);
+    for (const g of groups.filter((x) => x.events.length > 0)) {
+      expect(g.durationTicks).toBeGreaterThanOrEqual(displayGridTicks(PPQ));
+    }
+  });
+
+  it('never lets a hit run past the next one', () => {
+    const groups = drumDisplayGroups([note(0, BAR), note(120, 120)], 0, BAR, PPQ);
+    expect(total(groups)).toBe(BAR);
+    expect(groups[0].durationTicks).toBe(120);
   });
 });

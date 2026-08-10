@@ -19,14 +19,25 @@
  * outside this file should read them as pitch.
  */
 
-/** Cross: sticks, cymbals, shakers — anything that is not a drumhead. */
-const X = 'x2';
-/** Circled cross: the ringing counterpart of a closed sound. */
-const CIRCLE_X = 'ci';
+/**
+ * Cross (`noteheadXBlack`): sticks, cymbals, shakers — anything that is not a
+ * drumhead.
+ */
+const X = 'x';
+/**
+ * Circled cross (`noteheadCircleX`): the standard "let it ring" mark, which is
+ * how an open hi-hat is told from a closed one.
+ *
+ * Verified against VexFlow's own codes rather than assumed: `x` and `x2` are
+ * both `noteheadXBlack`, `x3` is `noteheadCircleX`, and `ci` is
+ * `noteheadCircledBlack` — a filled head inside a circle, which means nothing
+ * here and is what open hi-hat was wrongly drawn with.
+ */
+const CIRCLE_X = 'x3';
 /** Diamond: bells and cups. */
 const DIAMOND = 'd';
-/** A second cross, to separate cymbals that share a position. */
-const X_ALT = 'x3';
+/** Triangle: the cowbell's usual mark. */
+const TRIANGLE = 'tu';
 
 /**
  * General MIDI percussion (35-81) to staff position.
@@ -54,12 +65,12 @@ const DRUM_MAP: Record<number, string> = {
   49: `a/5/${X}`, // Crash Cymbal 1
   50: 'f/5', // High Tom
   51: `f/5/${X}`, // Ride Cymbal 1
-  52: `a/5/${CIRCLE_X}`, // Chinese Cymbal
+  52: `b/5/${CIRCLE_X}`, // Chinese Cymbal
   53: `f/5/${DIAMOND}`, // Ride Bell
   54: `d/5/${X}`, // Tambourine
-  55: `g/5/${X_ALT}`, // Splash Cymbal
-  56: `e/5/${DIAMOND}`, // Cowbell
-  57: `a/5/${X_ALT}`, // Crash Cymbal 2
+  55: `b/5/${X}`, // Splash Cymbal
+  56: `e/5/${TRIANGLE}`, // Cowbell
+  57: `a/5/${X}`, // Crash Cymbal 2
   58: `b/4/${X}`, // Vibraslap
   59: `f/5/${X}`, // Ride Cymbal 2
   // 60-81 are hand and Latin percussion rather than kit pieces, so there is no
@@ -97,6 +108,19 @@ const DRUM_MAP: Record<number, string> = {
  * pedal hi-hat is deliberately just below it, as convention has it.
  */
 const UNMAPPED = 'b/4';
+
+/**
+ * The kit pieces played with the feet: both bass drums and the hi-hat pedal.
+ *
+ * They are stemmed downward against the hands, which is what lets a drum staff
+ * carry a whole kit on five lines and still be read at a glance.
+ */
+const FOOT_DRUMS = new Set([35, 36, 44]);
+
+/** Whether `midi` is struck with a foot rather than a hand. */
+export function isFootDrum(midi: number): boolean {
+  return FOOT_DRUMS.has(midi);
+}
 
 /** The VexFlow key for General MIDI percussion note `midi`. */
 export function percussionVexKey(midi: number): string {

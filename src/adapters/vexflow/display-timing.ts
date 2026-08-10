@@ -43,6 +43,12 @@ import type { MusicalEvent } from '@sudobility/music_types';
  */
 const GRID_DIVISOR = 8;
 
+/**
+ * The longest note value that still draws a filled notehead, in quarters.
+ * A half note is hollow, and a hollow drum hit reads as the wrong instruction.
+ */
+const LONGEST_FILLED_QUARTERS = 1;
+
 /** Ticks per display grid step. At the usual 480 ppq this is 60. */
 export function displayGridTicks(ppq: number): number {
   return Math.max(1, Math.round(ppq / GRID_DIVISOR));
@@ -53,33 +59,29 @@ export function displayGridTicks(ppq: number): number {
  * occupies the bar. A chord is several events in one group.
  */
 export type DisplayGroup = {
+  /**
+   * The events sounding at this point. **Empty means a spacer**: time that has
+   * to be accounted for so the voice still sums to the bar, but that draws
+   * nothing. `buildVoiceContent` renders those as VexFlow `GhostNote`s.
+   */
   events: MusicalEvent[];
   /** Always a whole number of grid steps; the groups sum to the measure. */
   durationTicks: number;
 };
 
 /**
- * Groups `events` (one voice of one measure, in ascending start order) into
- * drawable tickables whose durations sum to exactly `measureDurationTicks`.
+ * The events of one voice, grouped onto snapped onsets and sorted.
  *
- * `measureStartTick` is subtracted first, so callers pass absolute domain
- * ticks and this works in measure-relative space throughout.
- *
- * Events that snap to the same grid step become one group — which is how a
- * rolled chord recorded three ticks apart is drawn as the chord it is, rather
- * than as three consecutive notes that between them overrun the bar.
+ * Shared by both layouts below so they cannot disagree about where a note
+ * begins — only about how long it is drawn.
  */
-export function displayGroups(
+function snappedOnsets(
   events: MusicalEvent[],
   measureStartTick: number,
   measureDurationTicks: number,
   ppq: number,
-): DisplayGroup[] {
-  if (events.length === 0 || measureDurationTicks <= 0) return [];
-
+): Array<{ start: number; events: MusicalEvent[] }> {
   const grid = displayGridTicks(ppq);
-  const snap = (event: MusicalEvent): number =>
-    Math.max(0, Math.round((event.startTick - measureStartTick) / grid) * grid);
 
   // An onset that rounds up to the barline is the next bar's note recorded a
   // few ticks early, not an onset in this one. This score has such a note at
@@ -95,7 +97,7 @@ export function displayGroups(
   const atBarline: MusicalEvent[] = [];
   const byStart = new Map<number, MusicalEvent[]>();
   for (const event of events) {
-    const snapped = snap(event);
+    const snapped = Math.max(0, Math.round((event.startTick - measureStartTick) / grid) * grid);
     if (snapped >= measureDurationTicks) {
       atBarline.push(event);
       continue;
@@ -106,22 +108,100 @@ export function displayGroups(
   }
 
   for (const event of atBarline) {
-    // The last onset that exists, or the bar's start when this event is all
-    // the voice has — never a new step.
     const last = byStart.size > 0 ? Math.max(...byStart.keys()) : 0;
     const at = byStart.get(last);
     if (at) at.push(event);
     else byStart.set(last, [event]);
   }
 
-  const starts = [...byStart.keys()].sort((a, b) => a - b);
-  return starts.map((start, index) => ({
+  return [...byStart.keys()]
+    .sort((a, b) => a - b)
     // A rest that snapped onto a note's step would draw a rest through a
     // sounding note, so notes win their step and the rest simply vanishes —
     // it was silence that turned out to be shorter than the grid.
-    events: preferNotes(byStart.get(start)!),
-    durationTicks: (starts[index + 1] ?? measureDurationTicks) - start,
+    .map((start) => ({ start, events: preferNotes(byStart.get(start)!) }));
+}
+
+/**
+ * Groups `events` (one voice of one measure, in ascending start order) into
+ * drawable tickables whose durations sum to exactly `measureDurationTicks`.
+ *
+ * `measureStartTick` is subtracted first, so callers pass absolute domain
+ * ticks and this works in measure-relative space throughout.
+ *
+ * Each group runs until the next one begins, which is what a single melodic
+ * line wants: the notes join up and the bar is accounted for with no spacers.
+ *
+ * Events that snap to the same grid step become one group — which is how a
+ * rolled chord recorded three ticks apart is drawn as the chord it is, rather
+ * than as three consecutive notes that between them overrun the bar.
+ */
+export function displayGroups(
+  events: MusicalEvent[],
+  measureStartTick: number,
+  measureDurationTicks: number,
+  ppq: number,
+): DisplayGroup[] {
+  if (events.length === 0 || measureDurationTicks <= 0) return [];
+  const onsets = snappedOnsets(events, measureStartTick, measureDurationTicks, ppq);
+  return onsets.map((onset, index) => ({
+    events: onset.events,
+    durationTicks: (onsets[index + 1]?.start ?? measureDurationTicks) - onset.start,
   }));
+}
+
+/**
+ * The same onsets, laid out for a drum staff: each hit runs to the next one,
+ * but never long enough for its notehead to turn hollow.
+ *
+ * A kit part is not a melodic line, and a drum's recorded length is an
+ * artifact — a struck cymbal rings however long the MIDI note says. What
+ * matters is the rhythmic slot, so a hit runs to the next hit and the leftover
+ * becomes spacers.
+ *
+ * The cap is what makes it readable. Stretching a kick to reach the next kick
+ * two beats later would draw it as a half note, and half notes are hollow: a
+ * kick on beats one and three would come out as two open noteheads, which
+ * reads as a different instruction entirely. A quarter is the longest value
+ * that is still filled and still obviously a hit.
+ *
+ * Using each hit's own recorded length instead does not work: drum hits are
+ * recorded a few ticks long, so every one became the shortest drawable note
+ * followed by a spacer — and spacers break beam groups, which turned a running
+ * hi-hat into a row of flagged thirty-seconds.
+ *
+ * Spacers rather than rests: with hands and feet on one staff, a rest drawn in
+ * the feet voice under a running hi-hat is clutter that says nothing a reader
+ * needs. Drum charts routinely leave it out.
+ */
+export function drumDisplayGroups(
+  events: MusicalEvent[],
+  measureStartTick: number,
+  measureDurationTicks: number,
+  ppq: number,
+): DisplayGroup[] {
+  if (events.length === 0 || measureDurationTicks <= 0) return [];
+  const onsets = snappedOnsets(events, measureStartTick, measureDurationTicks, ppq);
+  const groups: DisplayGroup[] = [];
+
+  // Time before the first hit still has to be accounted for, or the voice
+  // would be short and every stave would disagree about the bar's length.
+  if (onsets[0].start > 0) groups.push({ events: [], durationTicks: onsets[0].start });
+
+  onsets.forEach((onset, index) => {
+    const until = onsets[index + 1]?.start ?? measureDurationTicks;
+    const available = until - onset.start;
+    // The cap is about noteheads, so it applies to hits only. A rest has no
+    // head to turn hollow and must span its whole silence: capped, a bar of
+    // silence drew a quarter rest with the remaining three beats blank.
+    const sounded = onset.events.some(isNoteEvent)
+      ? Math.min(available, LONGEST_FILLED_QUARTERS * ppq)
+      : available;
+    groups.push({ events: onset.events, durationTicks: sounded });
+    if (available > sounded) groups.push({ events: [], durationTicks: available - sounded });
+  });
+
+  return groups;
 }
 
 function preferNotes(events: MusicalEvent[]): MusicalEvent[] {

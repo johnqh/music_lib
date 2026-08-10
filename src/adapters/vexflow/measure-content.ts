@@ -18,10 +18,13 @@ import {
   TextJustification,
   Voice,
 } from 'vexflow';
-import type { StaveNote } from 'vexflow';
-import type { KeySignature, Measure, TimeSignature, Track } from '@sudobility/music_types';
+import type { StaveNote, StemmableNote } from 'vexflow';
+import { isNoteEvent } from '@sudobility/music_types';
+import type { KeySignature, Measure, MusicalEvent, TimeSignature, Track } from '@sudobility/music_types';
 import { buildVoiceContent, keySignatureToVexSpec, pitchToVexKey } from './convert.js';
-import { displayGroups } from './display-timing.js';
+import { displayGroups, drumDisplayGroups } from './display-timing.js';
+import { isFootDrum } from './percussion.js';
+import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { NoteMeta } from './convert.js';
 import type { MeasureLayout } from './layout.js';
 
@@ -47,17 +50,36 @@ function sameKeySignature(a: KeySignature, b: KeySignature): boolean {
 export type Channel = Array<{ note: StaveNote; meta: NoteMeta }>;
 
 /**
- * Beams a measure's notes, flat and stems-up on a drum staff.
+ * Beams one voice's tickables — flat, and in the voice's own direction, when
+ * that voice is a drum voice.
  *
- * A kit part puts the kick in the bottom space and the hi-hat above the top
- * line, and both land in the same voice here. Beamed by pitch, as melodic
- * notes are, the beam followed that gap: it swept diagonally from above the
- * staff down past the bottom of it. Drum notation answers this with flat
- * beams and one stem direction, which is what the convention exists for.
+ * Beamed by pitch, as melodic notes are, a drum beam followed the gap between
+ * a kick and a hi-hat: it swept diagonally from above the staff down past the
+ * bottom of it. Drum notation answers that with flat beams, which is what the
+ * convention exists for. Spacers are passed through rather than filtered out,
+ * so a beam correctly stops where the voice stops playing.
  */
-function beamsFor(notes: StaveNote[], isPercussion: boolean): Beam[] {
-  if (!isPercussion) return Beam.generateBeams(notes);
-  return Beam.generateBeams(notes, { flat_beams: true, stem_direction: Stem.UP });
+function beamsFor(tickables: StemmableNote[], stemDirection?: number): Beam[] {
+  if (stemDirection === undefined) return Beam.generateBeams(tickables);
+  return Beam.generateBeams(tickables, { flat_beams: true, stem_direction: stemDirection });
+}
+
+/**
+ * Splits a drum voice into what the player's hands do and what their feet do.
+ *
+ * Feet are the bass drum and the hi-hat pedal; everything else is hands. The
+ * split exists so the two can be stemmed in opposite directions — the reason
+ * drum charts are readable at a glance.
+ */
+function splitHandsAndFeet(events: MusicalEvent[]): { hands: MusicalEvent[]; feet: MusicalEvent[] } {
+  const hands: MusicalEvent[] = [];
+  const feet: MusicalEvent[] = [];
+  for (const event of events) {
+    // Rests belong to the hands: a bar of silence should show one rest, not two.
+    if (isNoteEvent(event) && isFootDrum(pitchToMidi(event.pitch))) feet.push(event);
+    else hands.push(event);
+  }
+  return { hands, feet };
 }
 
 /** Builds one measure's `Stave`, its VexFlow `Voice`s, and its beams; records notes into `channels` for tie building. */
@@ -142,7 +164,7 @@ export function buildMeasureContent(
       style: 'italic',
     });
 
-    const { notes } = buildVoiceContent(
+    const { tickables, notes } = buildVoiceContent(
       displayGroups(measure.cue.events, measure.startTick, measure.durationTicks, ppq),
       ppq,
       CUE_GLYPH_SCALE,
@@ -155,23 +177,27 @@ export function buildMeasureContent(
       beat_value: measure.timeSignature.denominator,
     });
     cueVoice.setMode(Voice.Mode.SOFT);
-    cueVoice.addTickables(notes);
+    cueVoice.addTickables(tickables);
     if (!isPercussion) Accidental.applyAccidentals([cueVoice], keySignatureToVexSpec(measure.keySignature));
 
-    return { stave, voices: [cueVoice], beams: beamsFor(notes, isPercussion) };
+    return { stave, voices: [cueVoice], beams: beamsFor(tickables, isPercussion ? Stem.UP : undefined) };
   }
 
   const voices: Voice[] = [];
   const beams: Beam[] = [];
 
-  measure.voices.forEach((domainVoice, voiceOrdinal) => {
-    const { notes, metas } = buildVoiceContent(
-      displayGroups(domainVoice.events, measure.startTick, measure.durationTicks, ppq),
+  /** Builds one VexFlow voice, recording its notes under `voiceOrdinal` for ties. */
+  const addVoice = (events: MusicalEvent[], voiceOrdinal: number, stemDirection?: number): void => {
+    const { tickables, notes, metas } = buildVoiceContent(
+      isPercussion
+        ? drumDisplayGroups(events, measure.startTick, measure.durationTicks, ppq)
+        : displayGroups(events, measure.startTick, measure.durationTicks, ppq),
       ppq,
       undefined,
       isPercussion,
     );
     if (notes.length === 0) return;
+    if (stemDirection !== undefined) for (const note of notes) note.setStemDirection(stemDirection);
 
     const vexVoice = new Voice({
       num_beats: measure.timeSignature.numerator,
@@ -181,14 +207,29 @@ export function buildMeasureContent(
     // the time signature (e.g. the decomposeDuration nearest-duration
     // fallback for a non-standard remainder can be off by a few ticks).
     vexVoice.setMode(Voice.Mode.SOFT);
-    vexVoice.addTickables(notes);
+    vexVoice.addTickables(tickables);
     voices.push(vexVoice);
-    beams.push(...beamsFor(notes, isPercussion));
+    beams.push(...beamsFor(tickables, stemDirection));
 
     const channel = channels.get(voiceOrdinal) ?? [];
     notes.forEach((note, i) => channel.push({ note, meta: metas[i] }));
     channels.set(voiceOrdinal, channel);
     allMetas.push(...metas);
+  };
+
+  measure.voices.forEach((domainVoice, voiceOrdinal) => {
+    if (!isPercussion) {
+      addVoice(domainVoice.events, voiceOrdinal);
+      return;
+    }
+    // A drum staff carries two voices, not one: hands stemmed up, feet stemmed
+    // down. Struck together in a single voice they became one chord, so a kick
+    // in the bottom space and a hi-hat above the top line shared one stem
+    // running the height of the staff. Splitting them is what every drum chart
+    // does, and it is the only way the two can point in opposite directions.
+    const { hands, feet } = splitHandsAndFeet(domainVoice.events);
+    addVoice(hands, voiceOrdinal, Stem.UP);
+    addVoice(feet, voiceOrdinal, Stem.DOWN);
   });
 
   // Accidental *glyphs* are decided here, once per measure, across every
