@@ -47,3 +47,42 @@ export function transcribe(
     })),
   };
 }
+
+/** One note an analyser heard, in seconds — the shape `AudioTranscriber` returns. */
+export type HeardNote = {
+  midi: number;
+  startSec: number;
+  durationSec: number;
+  amplitude: number;
+};
+
+/**
+ * Heard notes → a scored transcription.
+ *
+ * The musical half of the job, and the reason it is here rather than beside
+ * the model: choosing a tempo and rounding onto a tick grid are judgements
+ * about music, testable with a list of numbers and no browser. The platform
+ * layer owns the part that needs a tensor runtime and hands back seconds.
+ *
+ * Polyphony arrives for free — notes that overlap in time simply do, and
+ * `addTranscribedTrackCommand` already allocates voices for them. That is the
+ * whole difference from `transcribe`, whose YIN tracker can only ever report
+ * one pitch at a time.
+ */
+export function transcriptionFromHeardNotes(notes: readonly HeardNote[], ppq: number): Transcription {
+  // Tempo from onsets alone, as the monophonic path does — a chord's notes
+  // share an onset, so simultaneous notes must not each count as a beat.
+  const onsets = [...new Set(notes.map((note) => note.startSec))].sort((a, b) => a - b);
+  const bpm = detectTempo(onsets);
+  const ticksPerSecond = (bpm / 60) * ppq;
+
+  return {
+    bpm,
+    notes: notes.map((note) => ({
+      midi: note.midi,
+      startTick: Math.round(note.startSec * ticksPerSecond),
+      // At least one tick: a note rounding to zero length would vanish.
+      durationTicks: Math.max(1, Math.round(note.durationSec * ticksPerSecond)),
+    })),
+  };
+}

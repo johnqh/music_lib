@@ -23,6 +23,15 @@ export type AddTranscribedTrackParams = {
   notes: readonly TranscribedNote[];
   /** GM program for the new track. Defaults to piano. */
   midiProgram?: number;
+  /**
+   * Clef for the new track. Defaults to treble.
+   *
+   * `'percussion'` is what makes a track a drum part — `isPercussionTrack`
+   * reads the clef, and everything program-keyed goes through
+   * `track-instrument.ts` on the strength of it. A transcribed drum stem has to
+   * set this, or its `midiProgram` names an instrument rather than a kit.
+   */
+  clef?: Track['clef'];
 };
 
 function addTranscribedTrack(score: Score, params: AddTranscribedTrackParams): Score {
@@ -33,6 +42,7 @@ function addTranscribedTrack(score: Score, params: AddTranscribedTrackParams): S
     name: params.name,
     instrumentName: params.name,
     ...(params.midiProgram === undefined ? {} : { midiProgram: params.midiProgram }),
+    ...(params.clef === undefined ? {} : { clef: params.clef }),
   });
 
   // Same measure grid as the rest of the score, fully rested, then the notes

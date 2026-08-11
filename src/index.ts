@@ -67,7 +67,9 @@ export * from './domain/instruments/gm-transposition.js';
 export * from './domain/instruments/icon-art.js';
 
 // domain/audio
+export * from './domain/audio/drums.js';
 export * from './domain/audio/pitch-track.js';
+export * from './domain/audio/stems.js';
 export * from './domain/audio/segment.js';
 export * from './domain/audio/transcribe.js';
 
