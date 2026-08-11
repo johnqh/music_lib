@@ -33,7 +33,7 @@ export * from './domain/commands/reflow.js';
 export * from './domain/commands/note-commands.js';
 export * from './domain/commands/ripple-commands.js';
 export * from './domain/commands/relocate-commands.js';
-export * from './domain/commands/transcription-commands.js';
+export * from './domain/commands/track-commands.js';
 export * from './domain/commands/structure-commands.js';
 export * from './domain/commands/edit-commands.js';
 export * from './domain/commands/region-commands.js';
@@ -65,13 +65,6 @@ export * from './domain/instruments/gm-range.js';
 export * from './domain/instruments/gm-polyphony.js';
 export * from './domain/instruments/gm-transposition.js';
 export * from './domain/instruments/icon-art.js';
-
-// domain/audio
-export * from './domain/audio/drums.js';
-export * from './domain/audio/pitch-track.js';
-export * from './domain/audio/stems.js';
-export * from './domain/audio/segment.js';
-export * from './domain/audio/transcribe.js';
 
 // domain/pitch
 export * from './domain/pitch/pitch.js';
@@ -122,7 +115,6 @@ export * from './services/persistence/autosave.js';
 export * from './services/playback/types.js';
 export * from './services/playback/controller.js';
 export * from './services/quantization/quantize-service.js';
-export * from './services/transcription/transcribe-service.js';
 export * from './services/regeneration/controller.js';
 
 // store
