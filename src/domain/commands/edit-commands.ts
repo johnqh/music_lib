@@ -110,18 +110,15 @@ export function collectQuantizeTargets(score: Score, eventIds: readonly UUID[]):
 
 /**
  * Splices each target's already-quantized notes (`quantizedByVoiceId`,
- * keyed by `QuantizeTarget.voiceId` — computed by the caller, either
- * inline via `quantizeEvents` or off-thread via `QuantizeService`) back
- * into `score`: clips each note back to its measure's span, then
+ * keyed by `QuantizeTarget.voiceId` — computed by the caller via
+ * `quantizeEvents`) back into `score`: clips each note back to its measure's span, then
  * `reflowVoice` regenerates that voice's rests around the result. This
  * keeps quantization measure-local (no cross-measure re-splitting), a
  * deliberate Task 5 scope limitation documented in the original brief.
  * A target whose `voiceId` has no entry in `quantizedByVoiceId` is treated
  * as "nothing computed for it" (splices in an empty note list) — the
- * intent-layer callers always populate every target's key before calling
- * this, so that only matters if a voice was concurrently deleted between
- * `collectQuantizeTargets` and this call (see `applyQuantizedCommand`'s
- * doc comment).
+ * sole caller (`quantize`, below) always populates every target's key
+ * before calling this.
  */
 export function applyQuantizedGroups(
   score: Score,
@@ -164,13 +161,12 @@ export function applyQuantizedGroups(
 
 /**
  * Quantizes the voice(s) containing any of `eventIds`, calling
- * `quantizeEvents` synchronously on the main thread for every touched
- * voice. Used directly for the common case (a modest-sized selection); a
- * manual quantize of >2000 events is instead routed through
- * `collectQuantizeTargets` + `QuantizeService` + `applyQuantizedCommand`
- * by the intent layer, so the expensive part runs off-thread while this
- * command factory itself stays synchronous/pure like every other
- * `ScoreCommand` (see `applyQuantizedCommand`'s doc comment).
+ * `quantizeEvents` synchronously for every touched voice.
+ *
+ * This is the only path. A >2000-event selection used to be routed through a
+ * worker instead, via a precomputed-groups variant of this command; that was
+ * removed once the offload was measured at 0.57ms of saved work against a
+ * structured clone of the whole event array in each direction.
  */
 function quantize(score: Score, eventIds: readonly UUID[], options: QuantizeOptions): Score {
   const targets = collectQuantizeTargets(score, eventIds);
@@ -181,31 +177,6 @@ function quantize(score: Score, eventIds: readonly UUID[], options: QuantizeOpti
 /** Quantizes every voice containing at least one of `eventIds`, per Task 4's reusable quantization engine. */
 export function quantizeCommand(eventIds: UUID[], options: QuantizeOptions): ScoreCommand {
   return transformCommand('Quantize notes', (score) => quantize(score, eventIds, options));
-}
-
-/**
- * Same measure-splice/reflow logic as `quantizeCommand`, but sources each
- * voice's quantized notes from `quantizedByVoiceId` — precomputed
- * elsewhere, in practice off the main thread via
- * `services/quantization/quantize-service.ts`'s `QuantizeService` — instead
- * of calling `quantizeEvents` itself here. Exists so the intent layer's
- * >2000-event worker-routing (spec §29) can keep this command, like every
- * other `ScoreCommand`, synchronous and pure: by the time this factory
- * runs, the expensive quantization work already happened (off-thread, or
- * inline in the fallback-no-worker environment), so `execute` here is just
- * a cheap splice, not a redundant recomputation.
- *
- * `targets` is a snapshot taken before the (async) worker round-trip; if
- * the score changed in the interim (e.g. the voice was deleted by another
- * edit), `applyQuantizedGroups` degrades safely — a target whose track/
- * measure/voice no longer exists simply contributes no splice, not an
- * error.
- */
-export function applyQuantizedCommand(
-  targets: QuantizeTarget[],
-  quantizedByVoiceId: ReadonlyMap<UUID, MusicalEvent[]>,
-): ScoreCommand {
-  return transformCommand('Quantize notes', (score) => applyQuantizedGroups(score, targets, quantizedByVoiceId));
 }
 
 // ---- transposeCommand -----------------------------------------------------------

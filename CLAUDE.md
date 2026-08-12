@@ -21,10 +21,9 @@ Business logic for ScoreSmith (the Sudobility music app family): the entire non-
 
 - `src/domain/` — framework-free core: `score/` (factories, queries, ties, fragments, ids), `commands/` (ScoreCommand factories, HistoryManager, reflow), `validation/`, `quantization/`, `voicing/`, `selection/`, `time/` (fractions/ticks/tempo/durations), `pitch/`
 - `src/adapters/` — `vexflow/` (`CanvasScoreRenderer` — windowed, viewport-only canvas drawing with O(visible) per-frame cost, coloring each note by state via `note-color.ts`'s role precedence; `layout.ts` binary-search lookups + the measure-number gutter band; `playhead.ts` caret/seek helpers; `measure-content.ts` shared Stave/Voice/tie builders), `tone/` (playback engine + instruments), `midi/`, `musicxml/`
-- `src/services/` — playback controller singleton (lazy Proxy; safe to import before store init), autosave debouncer, device-prefs persistence (`prefs.ts` via injected PrefsStorage), import-export, quantize worker service, errors, benchmark
+- `src/services/` — playback controller singleton (lazy Proxy; safe to import before store init), autosave debouncer, device-prefs persistence (`prefs.ts` via injected PrefsStorage), import-export, errors, benchmark
 - `src/store/` — Zustand slices (score/selection/playback/generation/project/ui; `ui-slice.activeTrackId` + `selectActiveTrackId`, `selection-slice.selectionRegenerated`) + memoized selectors; `context.ts` defines `StoreContext { client: MusicClient; getToken; storage?; provider? }` and `ApiGenerationProvider`; `createAppStore({ context })` is the factory, `initializeAppStore(context)` boots the app-wide `useAppStore` hook (lazy delegate)
 - `src/templates/` — deterministic "New from template" starter scores (replaced the Dexie sample installer)
-- `src/workers/` — module workers (midi-import, quantize); services fall back to inline processing when `Worker` is undefined
 - `src/test/fixtures.ts` — deterministic score builders (exported for downstream suites)
 
 Everything exports from `src/index.ts` (package root import only).
@@ -66,13 +65,22 @@ Everything exports from `src/index.ts` (package root import only).
   change — which made the editor re-download the project it had just uploaded
   and reset the undo history seconds after every edit. A write that goes
   around the autosaver must call `noteServerVersion`.
-- **This package is platform-free, and three guard tests keep it that way**
+- **This package is platform-free, and five guard tests keep it that way**
   (`src/platform/no-platform-imports.test.ts`): no `tone`/`@tonejs/midi` import,
-  no platform runtime dependency, no DOM global outside the canvas renderer.
-  Runtime dependencies are exactly `immer`, `vexflow` and `zod`. Without the
-  guards nothing would notice a regression — every test here runs in jsdom,
-  where the offending import works fine, and the breakage only appears in a
-  React Native bundle.
+  no platform runtime dependency, no web-only global outside the canvas
+  renderer, no `import.meta`, and no `Worker`. Runtime dependencies are exactly
+  `immer`, `vexflow` and `zod`. Without the guards nothing would notice a
+  regression — every test here runs in jsdom, where the offending import works
+  fine, and the breakage only appears in a React Native bundle. The rules grep
+  raw source with comments stripped, so reword a doc comment rather than
+  weakening a rule.
+- **`import.meta` is the hazard a `typeof` guard cannot cover.** It is syntax,
+  not a value: React Native's bundler transforms modules to CommonJS, where it
+  has no meaning, so a module using it fails to *parse* rather than falling
+  back. It shipped here twice — `import.meta.env.DEV` in `services/errors.ts`
+  and `new Worker(new URL(..., import.meta.url))` in two services — and neither
+  Node nor Vite nor this suite objected. Anything environment-shaped is now
+  injected by the app: `setErrorLogging` for dev-only console output.
 - **Platform services arrive two different ways.** Playback is a long-lived
   singleton reached through a module import, so it comes from the registry
   (`initializeMusicPlatform` / `getMusicPlatform`); `playbackController`'s lazy
@@ -83,12 +91,22 @@ Everything exports from `src/index.ts` (package root import only).
 - **`vexflow` stays here** because it is not actually platform-bound: the canvas
   renderer draws into a 2D context the caller supplies, and was verified to
   render a full score with no DOM present at all.
-- **The MIDI worker takes a decoded `MidiFile`, not bytes.** A `MidiCodec` is not
-  structured-cloneable, and importing one inside the worker would make this
-  package depend on `music_io`, which already peer-depends on this one. So the
-  service decodes on the main thread (parsing is cheap) and the worker does the
-  quantization and voice allocation it exists for. `importMidiFile` /
-  `analyzeMidiFile` are that seam.
+- **There are no workers, deliberately.** `src/workers/` held two — thin
+  wrappers moving `quantizeEvents` and `importMidiFile` off the main thread —
+  plus `MidiService`/`QuantizeService` to drive them and a requestId/postMessage
+  protocol. Threading is a platform capability like audio or file access, and
+  this was the one that never got extracted; supporting React Native would have
+  meant an injection seam for worker construction on top of everything else. So
+  the offload was measured first: `quantizeEvents` takes **0.57ms** at the
+  2000-event count where music_app routed to the worker (1.40ms at 10k, 9.53ms
+  at 50k), against a ~5ms notation redraw — and `postMessage` structure-clones
+  the whole event array in each direction. There is no note count at which the
+  clone is cheaper than the work. All of it was deleted; the synchronous path
+  the services fell back to, which every test and every non-web platform
+  already took, is now the only path. `importMidiFile` / `analyzeMidiFile`
+  survive as the pure `MidiFile`-in seam (a `MidiCodec` was never
+  structured-cloneable, and importing one here would invert the `music_io`
+  dependency).
 - **Tests use `@sudobility/music_io/mocks`, never `music_io/web`.** The web entry
   imports this package, so reaching for it in a test pulls this package's own
   published dist back in through its dependency.

@@ -107,14 +107,12 @@ export * from './adapters/musicxml/duration-map.js';
 
 // services
 export * from './services/errors.js';
-export * from './services/import-export/midi-service.js';
 export * from './services/import-export/musicxml-service.js';
 export * from './services/export/render-events.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 export * from './services/playback/types.js';
 export * from './services/playback/controller.js';
-export * from './services/quantization/quantize-service.js';
 export * from './services/regeneration/controller.js';
 
 // store

@@ -76,10 +76,21 @@ export function toUserMessage(err: unknown): string {
   return String(err);
 }
 
-/** True in a Vite dev server build; false in `vitest` (no `import.meta.env.DEV`) and in production builds. Guarded so this module works outside Vite (e.g. plain Node) too. */
-function isDev(): boolean {
-  const env = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
-  return env?.DEV === true;
+let logTechnicalDetail = false;
+
+/**
+ * Turns the development-only `console.debug` of raw errors on or off. Off
+ * until the app says otherwise.
+ *
+ * This used to read `import.meta.env.DEV` and decide for itself. That is a
+ * sniff of one specific bundler, in a package that is supposed to know nothing
+ * about its host — and worse, `import.meta` is syntax rather than a value, so
+ * React Native's bundler failed to parse this module rather than falling back.
+ * The app knows whether it is a dev build; it passes that in.
+ * See `platform/workers.ts`, which moved for the same reason.
+ */
+export function setErrorLogging(enabled: boolean): void {
+  logTechnicalDetail = enabled;
 }
 
 /**
@@ -98,7 +109,7 @@ export function reportError(err: unknown, options: ReportErrorOptions = {}): voi
     ...(options.retry ? { action: { label: options.retryLabel ?? 'Retry', onClick: options.retry } } : {}),
   });
 
-  if (isDev()) {
+  if (logTechnicalDetail) {
     console.debug('[ScoreSmith error]', options.context ?? '(no context)', err);
   }
 }

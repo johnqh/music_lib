@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMusicIo } from '@sudobility/music_io/mocks';
-import { MidiService } from '../../services/import-export/midi-service.js';
+import { analyzeMidi } from './analyze.js';
+import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
 import { TempoMap } from '../../domain/time/tempo-map.js';
 import { appendFileSync } from 'node:fs';
@@ -34,10 +35,10 @@ function smf(ppq: number, bpm: number, quarterNotes: number): ArrayBuffer {
 }
 
 async function onsets(ppq: number, bpm: number, n: number): Promise<number[]> {
-  const service = new MidiService(createMusicIo().midiCodec);
+  const codec = createMusicIo().midiCodec;
   const bytes = smf(ppq, bpm, n);
-  const summary = await service.analyze(bytes);
-  const { score } = await service.import(bytes, defaultMidiImportOptions(summary));
+  const summary = analyzeMidi(bytes, codec);
+  const { score } = importMidi(bytes, defaultMidiImportOptions(summary), codec);
   const map = new TempoMap(score.tempoMap, score.ppq);
   return score.tracks[0].measures
     .flatMap((m) => m.voices.flatMap((v) => v.events))

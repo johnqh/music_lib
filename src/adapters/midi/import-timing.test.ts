@@ -11,7 +11,8 @@
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
 import { createMusicIo } from '@sudobility/music_io/mocks';
-import { MidiService } from '../../services/import-export/midi-service.js';
+import { analyzeMidi } from './analyze.js';
+import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
 import { TempoMap } from '../../domain/time/tempo-map.js';
 
@@ -34,9 +35,9 @@ async function importedOnsetSeconds(beats: number[], lengthBeats: number): Promi
   }
 
   const bytes = midi.toArray().buffer as ArrayBuffer;
-  const service = new MidiService(createMusicIo().midiCodec);
-  const summary = await service.analyze(bytes);
-  const { score } = await service.import(bytes, defaultMidiImportOptions(summary));
+  const codec = createMusicIo().midiCodec;
+  const summary = analyzeMidi(bytes, codec);
+  const { score } = importMidi(bytes, defaultMidiImportOptions(summary), codec);
 
   const map = new TempoMap(score.tempoMap, score.ppq);
   const notes = score.tracks[0].measures
