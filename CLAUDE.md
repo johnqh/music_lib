@@ -38,6 +38,9 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Gotchas
 
+- **`ScoreCommand` declares `kind: 'content' | 'mix'`, and it is required.** Content is immutable while the transport plays: `score-slice`'s `dispatchCommand`/`undo`/`redo` refuse it. Mixing — volume, pan, mute, solo — is exempt and reaches the engine live through `applyMix`. `changeTrackPropsCommand` carries a partial patch and serves both, so it classifies from its own patch (mix only if *every* key is); every other factory inherits `'content'` from `snapshotCommand`. Required rather than optional so a command written later without thinking about the lock is refused rather than admitted — the typecheck caught a hand-rolled literal in `history.test.ts` the moment it landed.
+- **`PlaybackController.handleScoreChange` has exactly two branches, and the lock is what allows the first.** Playing → `engine.applyMix(score)`, no reload, no reschedule. Otherwise → load the score. It used to be a stop-reload-seek-resume cycle with `pendingResume` and `scoreChangeGeneration` deciding which of several in-flight calls owned the resume; all of that existed to make a burst of edits during playback safe, and editing during playback is now refused. **If the lock is ever loosened, that code has to come back** — the no-reload branch is only sound because a content change cannot have happened.
+
 - **`Track.midiProgram` means two different things, and `track-instrument.ts`
   is the only place that knows which.** On a percussion-clef track it addresses
   a General MIDI *drum kit* (`gm-kit.ts`); everywhere else it is an instrument
