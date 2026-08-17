@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../../store/useAppStore.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
-import { addMeasureCommand } from '../../domain/commands/structure-commands.js';
+import { addMeasureCommand, changeTrackPropsCommand } from '../../domain/commands/structure-commands.js';
 import { createPlaybackController, PlaybackController } from './controller.js';
 import type { PlaybackStoreApi } from './controller.js';
 import type { PlaybackEngine, PlaybackObserver } from './types.js';
@@ -49,6 +49,7 @@ function createFakeEngine(): PlaybackEngine {
     setTempoMultiplier: vi.fn(),
     setLoop: vi.fn(),
     setTrackMute: vi.fn(),
+    applyMix: vi.fn(),
     setTrackSolo: vi.fn(),
     setMetronome: vi.fn(),
     setMasterVolume: vi.fn(),
@@ -384,128 +385,6 @@ describe('PlaybackController: tempo / metronome / master volume', () => {
   });
 });
 
-describe('PlaybackController: candidate preview (playPreview/stopPreview)', () => {
-  it('playPreview loads the given score and plays from fromTick', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.loadScore).mockClear();
-
-    const previewScore = twoTrackScore();
-    await controller.playPreview(previewScore, 480);
-
-    expect(engine.loadScore).toHaveBeenCalledWith(previewScore);
-    expect(engine.play).toHaveBeenCalledWith(480);
-  });
-
-  it('suspends the committed-score subscription while previewing: a committed score change does not reload the engine', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-
-    await controller.playPreview(twoTrackScore());
-    vi.mocked(engine.loadScore).mockClear();
-    vi.mocked(engine.play).mockClear();
-
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-
-    expect(engine.loadScore).not.toHaveBeenCalled();
-    expect(engine.play).not.toHaveBeenCalled();
-  });
-
-  it('stopPreview reloads the committed score and resumes the subscription', async () => {
-    const store = makeStore();
-    const committed = twinkleScore();
-    store.getState().setScore(committed);
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-
-    await controller.playPreview(twoTrackScore());
-    vi.mocked(engine.loadScore).mockClear();
-
-    controller.stopPreview();
-    await flushAsync();
-
-    expect(engine.stop).toHaveBeenCalled();
-    expect(engine.loadScore).toHaveBeenCalledWith(committed);
-
-    // The subscription is live again afterward.
-    vi.mocked(engine.loadScore).mockClear();
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
-  });
-
-  it('stopPreview is a no-op when nothing is being previewed', () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-
-    controller.stopPreview();
-
-    expect(engine.stop).not.toHaveBeenCalled();
-  });
-
-  it('only the latest of two rapid playPreview() calls resumes playback', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.play).mockClear();
-
-    let resolveFirstLoad!: () => void;
-    vi.mocked(engine.loadScore).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveFirstLoad = resolve;
-        }),
-    );
-
-    const first = controller.playPreview(twoTrackScore(), 0);
-    const second = controller.playPreview(twinkleScore(), 240);
-    resolveFirstLoad();
-    await Promise.all([first, second]);
-
-    expect(engine.play).toHaveBeenCalledTimes(1);
-    expect(engine.play).toHaveBeenCalledWith(240);
-  });
-
-  it('a failed playPreview resyncs the engine to the committed score rather than stranding it mid-preview', async () => {
-    const store = makeStore();
-    const committed = twinkleScore();
-    store.getState().setScore(committed);
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.loadScore).mockClear();
-
-    vi.mocked(engine.loadScore).mockRejectedValueOnce(new Error('corrupt preview'));
-    await controller.playPreview(twoTrackScore(), 0);
-
-    // The failed preview load's own engine.stop() (inside playPreview) plus
-    // the resync's engine.stop() both fire; what matters is the *last*
-    // loadScore call is the committed score, not the failed preview.
-    expect(engine.loadScore).toHaveBeenLastCalledWith(committed);
-    const toast = store.getState().toasts.at(-1);
-    expect(toast?.severity).toBe('error');
-    expect(toast?.message).toContain('corrupt preview');
-
-    // The subscription is live again afterward -- confirms `previewing` was cleared.
-    vi.mocked(engine.loadScore).mockClear();
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('PlaybackController.dispose', () => {
   it('disposes the engine and stops reacting to further score changes', () => {
     const store = makeStore();
@@ -722,5 +601,63 @@ describe('PlaybackController: synth loading', () => {
       status: 'failed',
       message: 'Soundfont fetch failed: 404',
     });
+  });
+});
+
+describe('PlaybackController: score changes while playing', () => {
+  it('applies mix to the engine without reloading or stopping', async () => {
+    const store = makeStore();
+    store.getState().setScore(twinkleScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await Promise.resolve();
+
+    vi.mocked(engine.loadScore).mockClear();
+    vi.mocked(engine.stop).mockClear();
+    store.getState().setPlaybackState('playing');
+
+    const trackId = store.getState().score!.tracks[0].id;
+    store.getState().dispatchCommand(changeTrackPropsCommand(trackId, { muted: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(engine.applyMix).toHaveBeenCalled();
+    expect(engine.loadScore).not.toHaveBeenCalled();
+    expect(engine.stop).not.toHaveBeenCalled();
+  });
+
+  it('loads the score when a change arrives while stopped', async () => {
+    const store = makeStore();
+    store.getState().setScore(twinkleScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await Promise.resolve();
+
+    vi.mocked(engine.loadScore).mockClear();
+    store.getState().dispatchCommand(addMeasureCommand());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(engine.loadScore).toHaveBeenCalled();
+  });
+
+  it('never resumes playback on its own', async () => {
+    // pendingResume existed to restart playback after a stop-reload cycle.
+    // There is no such cycle now, so nothing may call play() but the user.
+    const store = makeStore();
+    store.getState().setScore(twinkleScore());
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    await Promise.resolve();
+
+    store.getState().setPlaybackState('playing');
+    vi.mocked(engine.play).mockClear();
+
+    const trackId = store.getState().score!.tracks[0].id;
+    store.getState().dispatchCommand(changeTrackPropsCommand(trackId, { volume: 0.3 }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(engine.play).not.toHaveBeenCalled();
   });
 });
