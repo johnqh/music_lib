@@ -59,6 +59,34 @@ export type CanvasRenderResult = {
   theme: RenderTheme;
 };
 
+/**
+ * One system's built VexFlow objects, before any colour is applied.
+ *
+ * Cached between frames: a note starting or a selection moving changes none of
+ * this, and rebuilding it is where the time goes.
+ */
+type SystemDrawing = {
+  system: SystemLayout;
+  windowIndices: number[];
+  staves: Array<{ stave: Stave; trackId: string }>;
+  voicesToDraw: Voice[];
+  beamsToDraw: Array<{ beam: Beam; trackId: string }>;
+  restsToDraw: MultiMeasureRest[];
+  firstStaveByTrack: Map<number, Stave>;
+  measureIdToBBox: Map<string, BBox>;
+  drawnMeasureIndices: Set<number>;
+};
+
+/** A built frame plus the inputs that produced it, so a later frame can tell whether it may reuse it. */
+type FrameCache = {
+  key: string;
+  score: Score;
+  theme: RenderTheme;
+  drawings: SystemDrawing[];
+  channelsByTrack: Map<string, Map<number, Channel>>;
+  idToBBox: Map<string, BBox>;
+};
+
 type BoundingBoxLike = { getX(): number; getY(): number; getW(): number; getH(): number };
 
 /** Width kept free at the end of each measure's note area so the final glyph never crosses the barline — see the joint-format comment in `drawSystem`. */
@@ -135,6 +163,22 @@ function capHeightOf(ctx: CanvasRenderingContext2D, fallbackFontSize: number): n
 
 export class CanvasScoreRenderer {
   private cache: { key: string; score: Score; plan: LayoutPlan } | null = null;
+  /**
+   * The last frame's built objects, reused when only colour changed.
+   *
+   * The single most expensive thing this renderer does is construct and format
+   * VexFlow objects, and playback asks it to redraw on every note boundary to
+   * move one notehead's colour. Keyed on everything geometry depends on —
+   * score identity, zoom, layout mode, width, track set, viewport — and
+   * deliberately *not* on the theme, the note colours, the active track or the
+   * selection, which are exactly what a repaint changes.
+   *
+   * One frame, not an LRU: during playback the viewport is still, so
+   * consecutive repaints hit it; scrolling misses it and rebuilds, which is the
+   * same work it did before. Bounded by construction, since it only ever holds
+   * what was last drawn.
+   */
+  private frame: FrameCache | null = null;
 
   private planFor(score: Score, options: CanvasRenderOptions): LayoutPlan {
     const key = JSON.stringify([options.zoom, options.layoutMode, options.width, options.trackIds ?? null]);
@@ -161,23 +205,61 @@ export class CanvasScoreRenderer {
     vexCtx.setFillStyle(options.theme.foreground);
     vexCtx.setStrokeStyle(options.theme.foreground);
 
-    const idToBBox = new Map<string, BBox>();
-    const measureIdToBBox = new Map<string, BBox>();
-    const drawnMeasureIndices = new Set<number>();
-    /** trackId -> voiceOrdinal -> accumulated channel, across every drawn system in order (cross-system tie continuity within the window). */
-    const channelsByTrack = new Map<string, Map<number, Channel>>();
-    for (const track of plan.tracks) channelsByTrack.set(track.id, new Map());
-
     const visibleSystems = plan.systems.filter(
       (s) => s.yBottom >= options.viewport.top && s.yTop <= options.viewport.bottom,
     );
 
-    for (const system of visibleSystems) {
+    // Everything geometry depends on, and nothing colour does. A repaint driven
+    // by a note starting or a selection moving produces the same key and skips
+    // straight to painting.
+    const frameKey = JSON.stringify([
+      options.zoom,
+      options.layoutMode,
+      options.width,
+      options.trackIds ?? null,
+      options.showTrackInfo ?? true,
+      options.viewport.top,
+      options.viewport.bottom,
+      viewportLeft,
+      viewportRight === Number.POSITIVE_INFINITY ? 'inf' : viewportRight,
+      visibleSystems.map((s) => s.measureIndices[0]),
+    ]);
+
+    const reusable = this.frame && this.frame.key === frameKey && this.frame.score === score;
+    /** trackId -> voiceOrdinal -> accumulated channel, across every drawn system in order (cross-system tie continuity within the window). */
+    let channelsByTrack: Map<string, Map<number, Channel>>;
+    let drawings: SystemDrawing[];
+    let idToBBox: Map<string, BBox>;
+
+    if (reusable) {
+      ({ channelsByTrack, drawings, idToBBox } = this.frame!);
+    } else {
+      channelsByTrack = new Map<string, Map<number, Channel>>();
+      for (const track of plan.tracks) channelsByTrack.set(track.id, new Map());
+      drawings = [];
+      for (const system of visibleSystems) {
+        try {
+          drawings.push(
+            this.buildSystem(system, plan, score, z, channelsByTrack, viewportLeft, viewportRight),
+          );
+        } catch (error) {
+          // One corrupt system must not blank the rest of the sheet.
+          console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
+        }
+      }
+      idToBBox = new Map<string, BBox>();
+      this.frame = { key: frameKey, score, theme: options.theme, drawings, channelsByTrack, idToBBox };
+    }
+
+    const measureIdToBBox = new Map<string, BBox>();
+    const drawnMeasureIndices = new Set<number>();
+    for (const drawing of drawings) {
+      for (const [id, box] of drawing.measureIdToBBox) measureIdToBBox.set(id, box);
+      for (const index of drawing.drawnMeasureIndices) drawnMeasureIndices.add(index);
       try {
-        this.drawSystem(system, plan, score, vexCtx, ctx, z, channelsByTrack, measureIdToBBox, drawnMeasureIndices, viewportLeft, viewportRight, options);
+        this.paintSystem(drawing, plan, vexCtx, ctx, channelsByTrack, options);
       } catch (error) {
-        // One corrupt system must not blank the rest of the sheet.
-        console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
+        console.error('CanvasScoreRenderer: skipping system after draw failure', drawing.system.measureIndices, error);
       }
     }
 
@@ -194,11 +276,24 @@ export class CanvasScoreRenderer {
         } catch (error) {
           console.error('CanvasScoreRenderer: skipping ties after draw failure', error);
         }
-        // Event bboxes from the VexFlow objects (post-format): first
-        // decomposition segment wins per event id, so a tied long note's
-        // click target is its first drawn glyph.
-        for (const entry of channel) {
-          this.recordEventBBox(entry.note as unknown as { getBoundingBox(): BoundingBoxLike | undefined }, entry.meta, z, idToBBox);
+      }
+    }
+
+    if (!reusable) {
+      // After painting, not before: VexFlow reports a bounding box only once an
+      // object has been drawn, so recording these off freshly-built objects
+      // yielded zeros. They are geometry, so they are computed once per built
+      // frame and reused by every repaint of it.
+      for (const channels of channelsByTrack.values()) {
+        for (const channel of channels.values()) {
+          for (const entry of channel) {
+            this.recordEventBBox(
+              entry.note as unknown as { getBoundingBox(): BoundingBoxLike | undefined },
+              entry.meta,
+              z,
+              idToBBox,
+            );
+          }
         }
       }
     }
@@ -432,24 +527,29 @@ export class CanvasScoreRenderer {
     return indices.slice(start, end + 1);
   }
 
-  private drawSystem(
+  /**
+   * Builds one system's VexFlow objects, without deciding what colour anything
+   * is.
+   *
+   * Split from painting so the result can be cached: constructing and
+   * formatting notes is what costs milliseconds (measured at 119ms for a
+   * twelve-track sixteenth-note score at zoom 0.5), and a colour change — a
+   * note starting, a selection moving — changes none of it. See `render`.
+   */
+  private buildSystem(
     system: SystemLayout,
     plan: LayoutPlan,
     score: Score,
-    vexCtx: CanvasContext,
-    /** The raw 2D context behind `vexCtx`: the measure gutter is a number and a rect, so it needs nothing VexFlow provides. */
-    ctx: CanvasRenderingContext2D,
     z: number,
     channelsByTrack: Map<string, Map<number, Channel>>,
-    measureIdToBBox: Map<string, BBox>,
-    drawnMeasureIndices: Set<number>,
     viewportLeft: number,
     viewportRight: number,
-    options: CanvasRenderOptions,
-  ): void {
-    const staves: Array<{ stave: Stave; dimmed: boolean }> = [];
+  ): SystemDrawing {
+    const staves: Array<{ stave: Stave; trackId: string }> = [];
+    const measureIdToBBox = new Map<string, BBox>();
+    const drawnMeasureIndices = new Set<number>();
     const voicesToDraw: Voice[] = [];
-    const beamsToDraw: Array<{ beam: Beam; dimmed: boolean }> = [];
+    const beamsToDraw: Array<{ beam: Beam; trackId: string }> = [];
     const restsToDraw: MultiMeasureRest[] = [];
     /** trackIndex -> the system's first-measure stave, for the brace connector. */
     const firstStaveByTrack = new Map<number, Stave>();
@@ -463,7 +563,6 @@ export class CanvasScoreRenderer {
     // let a dense track distribute its notes on its own timeline, visually
     // desynchronized from the other tracks' staves.
     const windowIndices = this.visibleMeasureIndices(system, plan, viewportLeft, viewportRight);
-    this.paintSelectedMeasures(system, plan, ctx, windowIndices, options);
 
     for (const measureIndex of windowIndices) {
       const measureStaves: Stave[] = [];
@@ -485,19 +584,13 @@ export class CanvasScoreRenderer {
           channels,
           allMetas,
         );
-        // Stave lines only. `Stave.draw` calls `restoreStyle()` *before*
-        // drawing its modifiers (clef / key signature / time signature), so
-        // this never reaches those glyphs — they draw in whatever the context
-        // carries, which is why the draw loop below sets that per stave.
-        const isActiveTrack = this.isActiveTrack(track.id, options);
-        stave.setStyle({
-          strokeStyle: isActiveTrack ? options.theme.staveActive : options.theme.staveInactive,
-        });
-        stave.setContext(vexCtx);
+        // Formatting only. Which colour this stave draws in depends on the
+        // active track, which is a paint-time decision — keeping it out of here
+        // is what lets the built objects survive a selection change.
         stave.format();
-        staves.push({ stave, dimmed: this.notesDimmed(track.id, options) });
+        staves.push({ stave, trackId: track.id });
         measureStaves.push(stave);
-        for (const beam of beams) beamsToDraw.push({ beam, dimmed: this.notesDimmed(track.id, options) });
+        for (const beam of beams) beamsToDraw.push({ beam, trackId: track.id });
         if (multiMeasureRest) {
           multiMeasureRest.setStave(stave);
           restsToDraw.push(multiMeasureRest);
@@ -538,6 +631,39 @@ export class CanvasScoreRenderer {
       }
     }
 
+    return {
+      system,
+      windowIndices,
+      staves,
+      voicesToDraw,
+      beamsToDraw,
+      restsToDraw,
+      firstStaveByTrack,
+      measureIdToBBox,
+      drawnMeasureIndices,
+    };
+  }
+
+  /**
+   * Paints an already-built system.
+   *
+   * Everything here is a colour decision or a context write, so it is what runs
+   * again when a note starts sounding or the selection moves — cheap beside the
+   * building it no longer has to repeat.
+   */
+  private paintSystem(
+    drawing: SystemDrawing,
+    plan: LayoutPlan,
+    vexCtx: CanvasContext,
+    /** The raw 2D context behind `vexCtx`: the measure gutter is a number and a rect, so it needs nothing VexFlow provides. */
+    ctx: CanvasRenderingContext2D,
+    channelsByTrack: Map<string, Map<number, Channel>>,
+    options: CanvasRenderOptions,
+  ): void {
+    const { system, windowIndices, staves, voicesToDraw, beamsToDraw, restsToDraw, firstStaveByTrack } =
+      drawing;
+    this.paintSelectedMeasures(system, plan, ctx, windowIndices, options);
+
     // Color every note in the window before anything draws. `StaveNote.draw`
     // wraps its whole body (noteheads, stem, flag, and its modifiers) in
     // applyStyle/restoreStyle, so one setStyle per note is enough — the
@@ -562,7 +688,16 @@ export class CanvasScoreRenderer {
     // pick up their track's dimming. Without it a dimmed track kept a
     // full-strength clef sitting over its greyed notes, which read as a
     // rendering fault rather than as an inactive track.
-    staves.forEach(({ stave, dimmed }) => {
+    staves.forEach(({ stave, trackId }) => {
+      const dimmed = this.notesDimmed(trackId, options);
+      stave.setStyle({
+        strokeStyle: this.isActiveTrack(trackId, options)
+          ? options.theme.staveActive
+          : options.theme.staveInactive,
+      });
+      // Re-bound every frame: a cached stave holds the previous frame's
+      // context, and `CanvasContext` is rebuilt per render.
+      stave.setContext(vexCtx);
       const color = dimmed ? options.theme.noteInactive : options.theme.foreground;
       vexCtx.setFillStyle(color);
       vexCtx.setStrokeStyle(color);
@@ -574,8 +709,8 @@ export class CanvasScoreRenderer {
     // After the formatter has run, so the stave's final geometry is settled.
     for (const rest of restsToDraw) rest.setContext(vexCtx).draw();
 
-    beamsToDraw.forEach(({ beam, dimmed }) => {
-      const color = this.trackColor(dimmed, options);
+    beamsToDraw.forEach(({ beam, trackId }) => {
+      const color = this.trackColor(this.notesDimmed(trackId, options), options);
       beam.setStyle({ fillStyle: color, strokeStyle: color });
       beam.setContext(vexCtx);
       beam.draw();
@@ -693,5 +828,6 @@ export class CanvasScoreRenderer {
 
   dispose(): void {
     this.cache = null;
+    this.frame = null;
   }
 }

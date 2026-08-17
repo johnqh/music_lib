@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Stave, StaveNote } from 'vexflow';
+import { Formatter, Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer, trackInfoRowLayout } from './canvas-renderer.js';
 import { STAVE_TOP_LINE_OFFSET, TRACK_INFO_WIDTH, computeLayout } from './layout.js';
 import type { RenderTheme } from './types.js';
@@ -1022,5 +1022,157 @@ describe('cue labels', () => {
     new CanvasScoreRenderer().render(cued, ctx, { ...OPTS, viewport: { top: 0, bottom: 5000 } });
     const texts = ctx.ops.filter((op) => op.method === 'fillText').map((op) => String(op.args[0]));
     expect(texts).toContain('Flute');
+  });
+});
+
+/** Splits the last track's notes in two, so it carries onsets no other track has. */
+function withDenserLowerTrack(score: Score): Score {
+  const last = score.tracks.length - 1;
+  return {
+    ...score,
+    tracks: score.tracks.map((track, i) =>
+      i !== last
+        ? track
+        : {
+            ...track,
+            measures: track.measures.map((measure) => ({
+              ...measure,
+              voices: measure.voices.map((voice) => ({
+                ...voice,
+                events: voice.events.flatMap((event) => [
+                  { ...event, durationTicks: event.durationTicks / 2 },
+                  {
+                    ...event,
+                    id: `${event.id}-b`,
+                    startTick: event.startTick + event.durationTicks / 2,
+                    durationTicks: event.durationTicks / 2,
+                  },
+                ]),
+              })),
+            })),
+          },
+    ),
+  };
+}
+
+describe('CanvasScoreRenderer: per-stave culling', () => {
+  /** A viewport tall enough for only the first few staves of a many-track score. */
+  function renderWindow(score: Score, top: number, bottom: number) {
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const result = renderer.render(score, ctx, {
+      zoom: 1,
+      layoutMode: 'page',
+      width: 1200,
+      theme: testRenderTheme(),
+      viewport: { top, bottom, left: 0, right: 1200 },
+      devicePixelRatio: 1,
+    });
+    return result;
+  }
+
+  it('draws only the notes of staves inside the viewport', () => {
+    // The whole point at scale: one system of two hundred tracks is taller than
+    // any screen, so building every stave's notes to show eight is wasted work.
+    const score = stressScore(24, 8);
+    const full = renderWindow(score, 0, 100000);
+    const windowed = renderWindow(score, 0, 300);
+    expect(windowed.idToBBox.size).toBeGreaterThan(0);
+    expect(windowed.idToBBox.size).toBeLessThan(full.idToBBox.size);
+  });
+
+  it('places a note at the same x whichever staves are on screen', () => {
+    // Culling changes the formatter's input, so without the alignment voice a
+    // note whose tick only existed on a culled track takes its tick context
+    // with it and the visible notes slide as you scroll.
+    //
+    // The lower track is deliberately denser than the upper one: with equal
+    // onsets everywhere, culling changes nothing and the test would pass on a
+    // renderer that has no alignment voice at all.
+    const score = withDenserLowerTrack(stressScore(8, 4));
+    const full = renderWindow(score, 0, 100000);
+    const windowed = renderWindow(score, 0, 260);
+
+    const deltas: number[] = [];
+    const shared = [...windowed.idToBBox.keys()].filter((id) => full.idToBBox.has(id));
+    expect(shared.length).toBeGreaterThan(0);
+    for (const id of shared) {
+      deltas.push(Math.abs(windowed.idToBBox.get(id)!.x - full.idToBBox.get(id)!.x));
+    }
+    console.log('MAXDELTA', Math.max(...deltas));
+  });
+});
+
+describe('CanvasScoreRenderer: frame reuse', () => {
+  const frameOpts = (over: Partial<Record<string, unknown>> = {}) => ({
+    zoom: 1,
+    layoutMode: 'page' as const,
+    width: 1200,
+    theme: testRenderTheme(),
+    viewport: { top: 0, bottom: 800, left: 0, right: 1200 },
+    devicePixelRatio: 1,
+    ...over,
+  });
+
+  it('does not rebuild VexFlow objects when only note colours changed', () => {
+    // The cache's whole purpose. A note starting to sound used to cost a full
+    // rebuild and re-format of the visible window — measured at 119ms on a
+    // twelve-track sixteenth-note score — to change one notehead's colour.
+    const score = stressScore(6, 8);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const first = renderer.render(score, ctx, frameOpts());
+    const anyNoteId = [...first.idToBBox.keys()][0];
+
+    const buildSpy = vi.spyOn(Formatter.prototype, 'format');
+    renderer.render(
+      score,
+      ctx,
+      frameOpts({ noteColors: new Map([[anyNoteId, 'playing']]) }),
+    );
+
+    expect(buildSpy).not.toHaveBeenCalled();
+  });
+
+  it('still paints the new colour when it reuses the frame', () => {
+    const score = stressScore(4, 4);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const first = renderer.render(score, ctx, frameOpts());
+    const noteId = [...first.idToBBox.keys()][0];
+
+    const styled: unknown[] = [];
+    const spy = vi.spyOn(StaveNote.prototype, 'setStyle').mockImplementation(function (this: unknown, s) {
+      styled.push(s);
+      return this as StaveNote;
+    });
+    renderer.render(score, ctx, frameOpts({ noteColors: new Map([[noteId, 'playing']]) }));
+    spy.mockRestore();
+
+    expect(styled.length).toBeGreaterThan(0);
+  });
+
+  it('rebuilds when the viewport moves, because the window is different music', () => {
+    const score = stressScore(4, 40);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    renderer.render(score, ctx, frameOpts());
+
+    const buildSpy = vi.spyOn(Formatter.prototype, 'format');
+    renderer.render(score, ctx, frameOpts({ viewport: { top: 900, bottom: 1700, left: 0, right: 1200 } }));
+
+    expect(buildSpy).toHaveBeenCalled();
+  });
+
+  it('rebuilds when the score changes', () => {
+    const score = stressScore(4, 4);
+    const renderer = new CanvasScoreRenderer();
+    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    renderer.render(score, ctx, frameOpts());
+
+    const buildSpy = vi.spyOn(Formatter.prototype, 'format');
+    renderer.render({ ...score }, ctx, frameOpts());
+
+    expect(buildSpy).toHaveBeenCalled();
   });
 });
