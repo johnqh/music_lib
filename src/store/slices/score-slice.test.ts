@@ -73,6 +73,18 @@ describe("score-slice", () => {
       store.getState().setScore(twinkleScore(), { resetHistory: false });
       expect(store.getState().canUndo).toBe(true);
     });
+
+    it("resets the playback caret when adopting a new score", () => {
+      const store = createAppStore({ context: testStoreContext() });
+      store.getState().setScore(twinkleScore());
+      store.getState().setPositionTick(1920);
+      store.getState().setActiveNoteIds(["n1", "n2"]);
+
+      store.getState().setScore(twinkleScore());
+
+      expect(store.getState().positionTick).toBe(0);
+      expect(store.getState().activeNoteIds).toEqual([]);
+    });
   });
 
   describe("dispatchCommand", () => {

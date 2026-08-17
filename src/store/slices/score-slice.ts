@@ -123,6 +123,8 @@ export const createScoreSlice: StateCreator<
       set((state) => {
         state.score = resolved;
         state.validationIssues = validateScore(resolved);
+        state.positionTick = 0;
+        state.activeNoteIds = [];
         syncHistoryMirrors(state);
       });
     },
