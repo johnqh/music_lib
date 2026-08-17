@@ -96,7 +96,8 @@ export const SYSTEM_HEADER_WIDTH = 90;
  * silently clipped away, which is what a larger floor used to cause.
  */
 const MIN_CONTENT_WIDTH = 80;
-const STAVE_HEIGHT = 100;
+/** The whole vertical row one track occupies in a system. Exported so the renderer can cull staves against the viewport. */
+export const STAVE_HEIGHT = 100;
 
 /**
  * Vertical distance between adjacent staff positions, in logical units — one

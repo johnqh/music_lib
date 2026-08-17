@@ -24,6 +24,7 @@ import { buildMeasureContent, buildTies } from './measure-content.js';
 import type { Channel } from './measure-content.js';
 import {
   MEASURE_HEADER_HEIGHT,
+  STAVE_HEIGHT,
   STAVE_TOP_LINE_OFFSET,
   TRACK_INFO_WIDTH,
   computeLayout,
@@ -664,6 +665,23 @@ export class CanvasScoreRenderer {
       drawing;
     this.paintSelectedMeasures(system, plan, ctx, windowIndices, options);
 
+    // Which staves are actually on screen.
+    //
+    // Culling at *draw* time rather than at build time is the whole trick. The
+    // formatter always saw every track in the column, so geometry is identical
+    // whatever is visible — an earlier attempt that skipped building off-screen
+    // tracks lost their tick contexts and slid the visible notes by a measured
+    // 13.5px as you scrolled. Here nothing moves; there is simply less ink.
+    //
+    // It matters at scale: one system of two hundred tracks is some 24,000px
+    // tall, so without this every frame draws two hundred staves to show eight.
+    const { top, bottom } = options.viewport;
+    const onScreen = (stave: Stave): boolean => {
+      if (!Number.isFinite(top) && !Number.isFinite(bottom)) return true;
+      const y = stave.getYForLine(0);
+      return y + STAVE_HEIGHT >= top && y <= bottom;
+    };
+
     // Color every note in the window before anything draws. `StaveNote.draw`
     // wraps its whole body (noteheads, stem, flag, and its modifiers) in
     // applyStyle/restoreStyle, so one setStyle per note is enough — the
@@ -688,7 +706,10 @@ export class CanvasScoreRenderer {
     // pick up their track's dimming. Without it a dimmed track kept a
     // full-strength clef sitting over its greyed notes, which read as a
     // rendering fault rather than as an inactive track.
+    const visibleStaves = new Set<Stave>();
     staves.forEach(({ stave, trackId }) => {
+      if (!onScreen(stave)) return;
+      visibleStaves.add(stave);
       const dimmed = this.notesDimmed(trackId, options);
       stave.setStyle({
         strokeStyle: this.isActiveTrack(trackId, options)
@@ -705,11 +726,21 @@ export class CanvasScoreRenderer {
     });
     vexCtx.setFillStyle(options.theme.foreground);
     vexCtx.setStrokeStyle(options.theme.foreground);
-    voicesToDraw.forEach((v) => v.draw(vexCtx));
+    voicesToDraw.forEach((v) => {
+      const stave = v.getStave();
+      if (stave && !visibleStaves.has(stave)) return;
+      v.draw(vexCtx);
+    });
     // After the formatter has run, so the stave's final geometry is settled.
-    for (const rest of restsToDraw) rest.setContext(vexCtx).draw();
+    for (const rest of restsToDraw) {
+      const stave = rest.getStave?.();
+      if (stave && !visibleStaves.has(stave)) continue;
+      rest.setContext(vexCtx).draw();
+    }
 
     beamsToDraw.forEach(({ beam, trackId }) => {
+      const stave = beam.getNotes()[0]?.getStave();
+      if (stave && !visibleStaves.has(stave)) return;
       const color = this.trackColor(this.notesDimmed(trackId, options), options);
       beam.setStyle({ fillStyle: color, strokeStyle: color });
       beam.setContext(vexCtx);

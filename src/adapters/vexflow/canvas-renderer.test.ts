@@ -1071,14 +1071,29 @@ describe('CanvasScoreRenderer: per-stave culling', () => {
     return result;
   }
 
-  it('draws only the notes of staves inside the viewport', () => {
-    // The whole point at scale: one system of two hundred tracks is taller than
-    // any screen, so building every stave's notes to show eight is wasted work.
-    const score = stressScore(24, 8);
-    const full = renderWindow(score, 0, 100000);
-    const windowed = renderWindow(score, 0, 300);
-    expect(windowed.idToBBox.size).toBeGreaterThan(0);
-    expect(windowed.idToBBox.size).toBeLessThan(full.idToBBox.size);
+  it('puts ink only on staves inside the viewport', () => {
+    // The point at scale: one system of two hundred tracks is far taller than
+    // any screen, so drawing every stave to show eight is wasted work. Measured
+    // in canvas operations, because the bounding boxes deliberately still cover
+    // the whole column — the formatter sees every track so that geometry cannot
+    // depend on what is scrolled into view.
+    const score = stressScore(24, 2);
+    const wide = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const narrow = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const opts = (bottom: number) => ({
+      zoom: 1,
+      layoutMode: 'page' as const,
+      width: 1200,
+      theme: testRenderTheme(),
+      viewport: { top: 0, bottom, left: 0, right: 1200 },
+      devicePixelRatio: 1,
+    });
+    new CanvasScoreRenderer().render(score, wide, opts(100000));
+    new CanvasScoreRenderer().render(score, narrow, opts(300));
+
+    const ops = (c: CanvasRenderingContext2D) => (c as unknown as { ops: unknown[] }).ops.length;
+    expect(ops(narrow)).toBeGreaterThan(0);
+    expect(ops(narrow)).toBeLessThan(ops(wide) / 2);
   });
 
   it('places a note at the same x whichever staves are on screen', () => {
