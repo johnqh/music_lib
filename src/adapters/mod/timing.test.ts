@@ -55,3 +55,19 @@ describe('tempoChanges', () => {
     expect(tempoChanges([[cell()], [cell({ speed: 0x06 })]])).toHaveLength(1);
   });
 });
+
+describe('effectiveBpm: staying inside what a score can hold', () => {
+  it('clamps a speed of 1, which works out to 750 bpm', () => {
+    // A real S3M (modarchive 54606) sets speed 1. Unclamped this imports a
+    // score the validator rejects with `invalid-tempo-bpm`.
+    expect(effectiveBpm(1, 125)).toBe(400);
+  });
+
+  it('clamps a tempo far below the range', () => {
+    expect(effectiveBpm(31, 32)).toBe(20);
+  });
+
+  it('leaves an ordinary tempo alone', () => {
+    expect(effectiveBpm(6, 125)).toBe(125);
+  });
+});

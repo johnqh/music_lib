@@ -12,6 +12,10 @@
  */
 import type { TrackerCell } from './types.js';
 
+/** The range a `TempoEvent` may hold; mirrors `domain/validation/validator.ts`. */
+const MIN_BPM = 20;
+const MAX_BPM = 400;
+
 const DEFAULT_SPEED = 6;
 const DEFAULT_TEMPO = 125;
 
@@ -25,7 +29,13 @@ const DEFAULT_TEMPO = 125;
  */
 export function effectiveBpm(speed: number, tempo: number): number {
   if (speed <= 0) return DEFAULT_TEMPO;
-  return Math.round((6 * tempo) / speed);
+  // Clamped to what a score can hold. A module is free to set a speed of 1,
+  // which at the default tempo works out to 750 BPM — real, and outside the
+  // 20-400 the score model accepts, so an unclamped value imports a score the
+  // validator rejects outright. A real S3M (modarchive 54606) does exactly
+  // this. Clamping keeps the music fast and the score valid; the alternative
+  // is a failed import.
+  return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round((6 * tempo) / speed)));
 }
 
 export type TempoChange = { row: number; bpm: number };
