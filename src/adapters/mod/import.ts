@@ -18,39 +18,66 @@
 import { createEmptyScore } from '../../domain/score/factory.js';
 import { createId } from '../../domain/score/ids.js';
 import { midiToPitch } from '../../domain/pitch/pitch.js';
-import { effectiveBpm, periodToMidi, tempoChanges } from './timing.js';
-import type { ModCell, ModFile } from './types.js';
+import { effectiveBpm, tempoChanges } from './timing.js';
+import { fillVoiceWithRests } from './fill.js';
+import type { TrackerCell, TrackerModule } from './types.js';
 import type { NoteEvent, Score, TempoEvent, Voice } from '@sudobility/music_types';
 
-const ROWS_PER_PATTERN = 64;
 /** A tracker row is a sixteenth: four to the beat. */
 const ROWS_PER_BEAT = 4;
 const BEATS_PER_MEASURE = 4;
 
-type Placed = { sample: number; startRow: number; endRow: number; midi: number };
+type Placed = { instrument: number; startRow: number; endRow: number; midi: number };
 
-/** Every note in playback order, with the row each ends on. */
-function placeNotes(mod: ModFile): Placed[] {
-  const flat: ModCell[][] = [];
-  for (const patternIndex of mod.order) {
-    const pattern = mod.patterns[patternIndex];
+/**
+ * Rows in playback order, honouring `patternBreak`.
+ *
+ * `Dxx` ends a pattern where it appears rather than at row 64. Ignoring it —
+ * which this did — imports a module that uses breaks with too many bars, and
+ * silently.
+ */
+export function flattenRows(module: TrackerModule): TrackerCell[][] {
+  const flat: TrackerCell[][] = [];
+  for (const patternIndex of module.order) {
+    const pattern = module.patterns[patternIndex];
     if (!pattern) continue;
-    for (const row of pattern) flat.push(row);
+    for (const row of pattern) {
+      flat.push(row);
+      if (row.some((cell) => cell.patternBreak)) break;
+    }
   }
+  return flat;
+}
 
+/**
+ * Every note in playback order, with the row each ends on.
+ *
+ * A channel holds one note at a time. It ends when that channel plays another
+ * note, or on an explicit note-off — which MOD never sends, so there the first
+ * rule is the only one, exactly as it always was.
+ */
+function placeNotes(module: TrackerModule): Placed[] {
+  const flat = flattenRows(module);
   const placed: Placed[] = [];
-  // A channel is monophonic, so a note runs until that channel plays again.
   const open = new Map<number, Placed>();
 
   flat.forEach((cells, row) => {
     cells.forEach((cell, channel) => {
-      const midi = periodToMidi(cell.period);
-      if (midi === null) return;
+      if (cell.note === null) return;
 
       const previous = open.get(channel);
       if (previous) previous.endRow = row;
+      open.delete(channel);
 
-      const note: Placed = { sample: cell.sample, startRow: row, endRow: row + 1, midi };
+      // A release ends whatever was sounding and starts nothing.
+      if (cell.note === 'off') return;
+
+      const note: Placed = {
+        instrument: cell.instrument,
+        startRow: row,
+        endRow: row + 1,
+        midi: cell.note,
+      };
       open.set(channel, note);
       placed.push(note);
     });
@@ -60,51 +87,50 @@ function placeNotes(mod: ModFile): Placed[] {
 }
 
 /** Tempo events at ticks, from the flattened row sequence. */
-function tempoMapOf(mod: ModFile, ticksPerRow: number): TempoEvent[] {
-  const flat: ModCell[][] = [];
-  for (const patternIndex of mod.order) {
-    const pattern = mod.patterns[patternIndex];
-    if (pattern) for (const row of pattern) flat.push(row);
-  }
+function tempoMapOf(module: TrackerModule, ticksPerRow: number): TempoEvent[] {
   // Given the *flattened* sequence, not one pattern: a change in a later
   // pattern would otherwise be invisible.
-  return tempoChanges(flat).map((change) => ({
+  return tempoChanges(flattenRows(module)).map((change) => ({
     id: createId(),
     tick: change.row * ticksPerRow,
     bpm: change.bpm,
   }));
 }
 
-export function modToScore(mod: ModFile): Score {
-  const placed = placeNotes(mod);
+export function trackerToScore(module: TrackerModule): Score {
+  const placed = placeNotes(module);
 
-  // One track per sample actually used, in first-heard order so the result is
-  // stable rather than dependent on the sample bank's layout.
-  const usedSamples: number[] = [];
-  for (const note of placed) if (!usedSamples.includes(note.sample)) usedSamples.push(note.sample);
+  // One track per instrument actually used, in first-heard order so the result
+  // is stable rather than dependent on the instrument bank's layout.
+  const usedInstruments: number[] = [];
+  for (const note of placed) {
+    if (!usedInstruments.includes(note.instrument)) usedInstruments.push(note.instrument);
+  }
 
-  const nameOf = (sample: number): string => {
-    const found = mod.samples.find((s) => s.index === sample);
-    return found && found.name.length > 0 ? found.name : `Sample ${sample}`;
+  const nameOf = (instrument: number): string => {
+    const found = module.instruments.find((s) => s.index === instrument);
+    return found && found.name.length > 0 ? found.name : `Instrument ${instrument}`;
   };
 
-  const totalRows = Math.max(1, mod.order.length * ROWS_PER_PATTERN);
+  // Counted from the flattened rows, so a pattern break shortens the score
+  // rather than leaving empty bars at the end.
+  const totalRows = Math.max(1, flattenRows(module).length);
   const measures = Math.max(1, Math.ceil(totalRows / (ROWS_PER_BEAT * BEATS_PER_MEASURE)));
 
   const base = createEmptyScore({
-    title: mod.title.length > 0 ? mod.title : 'Module',
+    title: module.title.length > 0 ? module.title : 'Module',
     measures,
     tracks:
-      usedSamples.length > 0
-        ? usedSamples.map((s) => ({ name: nameOf(s), instrumentName: nameOf(s), clef: 'treble' as const }))
+      usedInstruments.length > 0
+        ? usedInstruments.map((s) => ({ name: nameOf(s), instrumentName: nameOf(s), clef: 'treble' as const }))
         : [{ name: 'Module', instrumentName: 'Module', clef: 'treble' as const }],
   });
 
   const ticksPerRow = base.ppq / ROWS_PER_BEAT;
 
   const tracks = base.tracks.map((track, trackIndex) => {
-    const sample = usedSamples[trackIndex];
-    const mine = placed.filter((n) => n.sample === sample);
+    const instrument = usedInstruments[trackIndex];
+    const mine = placed.filter((n) => n.instrument === instrument);
 
     const withNotes = track.measures.map((measure) => {
       const measureEnd = measure.startTick + measure.durationTicks;
@@ -112,6 +138,8 @@ export function modToScore(mod: ModFile): Score {
         const tick = n.startRow * ticksPerRow;
         return tick >= measure.startTick && tick < measureEnd;
       });
+      // An untouched measure already carries a full-measure rest from
+      // `createEmptyScore`, so it is already complete.
       if (here.length === 0) return measure;
 
       // Voice allocation: a note overlapping one already placed in a voice
@@ -143,7 +171,19 @@ export function modToScore(mod: ModFile): Score {
 
       const voices: Voice[] = voiceEvents.map((events, i) => {
         const id = measure.voices[i]?.id ?? createId();
-        return { id, name: `Voice ${i + 1}`, events: events.map((e) => ({ ...e, voiceId: id })) };
+        return {
+          id,
+          name: `Voice ${i + 1}`,
+          // Rests around the notes, or the bar does not add up — see `fill.ts`.
+          events: fillVoiceWithRests(
+            events,
+            measure.startTick,
+            measure.durationTicks,
+            base.ppq,
+            track.id,
+            id,
+          ),
+        };
       });
 
       return { ...measure, voices };
@@ -152,7 +192,7 @@ export function modToScore(mod: ModFile): Score {
     return { ...track, measures: withNotes };
   });
 
-  return { ...base, tracks, tempoMap: tempoMapOf(mod, ticksPerRow) };
+  return { ...base, tracks, tempoMap: tempoMapOf(module, ticksPerRow) };
 }
 
-export { effectiveBpm, periodToMidi, tempoChanges };
+export { effectiveBpm, tempoChanges };

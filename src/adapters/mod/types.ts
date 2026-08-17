@@ -1,8 +1,12 @@
 /**
- * The shape `music_io`'s `ModCodec.decode` produces.
+ * The shape `music_io`'s `TrackerCodec.decode` produces.
  *
- * Was declared structurally here so the score-building half did not wait on a
- * publish cycle; now that `ModFile` lives beside `MidiFile` in music_types,
- * this is the re-export it was always going to become.
+ * Re-exported rather than redeclared: the model lives in music_types beside
+ * `MidiFile`, so both halves of the import path see the same type.
  */
-export type { ModCell, ModFile, ModSample } from '@sudobility/music_types';
+export type {
+  TrackerCell,
+  TrackerFormat,
+  TrackerInstrument,
+  TrackerModule,
+} from '@sudobility/music_types';
