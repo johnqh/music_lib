@@ -19,7 +19,7 @@ import type { Draft, Patch } from 'immer';
 import { applyPatches, current, enablePatches, produceWithPatches } from 'immer';
 import { createId } from '../score/ids.js';
 import type { Score } from '@sudobility/music_types';
-import type { ScoreCommand } from './types.js';
+import type { CommandKind, ScoreCommand } from './types.js';
 
 enablePatches();
 
@@ -30,13 +30,18 @@ enablePatches();
  * parameters the command needs (event ids, new values, etc.), captured at
  * construction.
  */
-export function snapshotCommand(label: string, mutate: (draft: Draft<Score>) => void): ScoreCommand {
+export function snapshotCommand(
+  label: string,
+  mutate: (draft: Draft<Score>) => void,
+  kind: CommandKind = 'content',
+): ScoreCommand {
   let inversePatches: Patch[] | null = null;
 
   return {
     id: createId(),
     label,
     timestamp: Date.now(),
+    kind,
     execute(score: Score): Score {
       const [next, , inverse] = produceWithPatches(score, mutate);
       inversePatches = inverse;
@@ -57,9 +62,17 @@ export function snapshotCommand(label: string, mutate: (draft: Draft<Score>) => 
  * `current`), and its result is adopted wholesale as the new draft state,
  * so `mutate`'s Immer-facing bookkeeping stays out of each factory.
  */
-export function transformCommand(label: string, transform: (score: Score) => Score): ScoreCommand {
-  return snapshotCommand(label, (draft) => {
-    const next = transform(current(draft) as Score);
-    Object.assign(draft, next);
-  });
+export function transformCommand(
+  label: string,
+  transform: (score: Score) => Score,
+  kind: CommandKind = 'content',
+): ScoreCommand {
+  return snapshotCommand(
+    label,
+    (draft) => {
+      const next = transform(current(draft) as Score);
+      Object.assign(draft, next);
+    },
+    kind,
+  );
 }

@@ -231,3 +231,31 @@ describe('changeTrackPropsCommand', () => {
     expect(cmd.undo(next)).toEqual(score);
   });
 });
+
+describe('command kind', () => {
+  it('classifies a patch of only mix properties as mix', () => {
+    expect(changeTrackPropsCommand('t1', { muted: true }).kind).toBe('mix');
+    expect(changeTrackPropsCommand('t1', { solo: true }).kind).toBe('mix');
+    expect(changeTrackPropsCommand('t1', { volume: 0.5 }).kind).toBe('mix');
+    expect(changeTrackPropsCommand('t1', { pan: -1 }).kind).toBe('mix');
+    expect(changeTrackPropsCommand('t1', { volume: 0.5, muted: true }).kind).toBe('mix');
+  });
+
+  it('classifies anything touching the score as content', () => {
+    expect(changeTrackPropsCommand('t1', { name: 'Viola' }).kind).toBe('content');
+    expect(changeTrackPropsCommand('t1', { midiProgram: 41 }).kind).toBe('content');
+    expect(changeTrackPropsCommand('t1', { clef: 'bass' }).kind).toBe('content');
+  });
+
+  it('classifies a mixed patch as content, because half of it is', () => {
+    expect(changeTrackPropsCommand('t1', { muted: true, name: 'Viola' }).kind).toBe('content');
+  });
+
+  it('treats an empty patch as mix, since it changes nothing', () => {
+    expect(changeTrackPropsCommand('t1', {}).kind).toBe('mix');
+  });
+
+  it('defaults every other command to content', () => {
+    expect(addTrackCommand({ name: 'New' }).kind).toBe('content');
+  });
+});

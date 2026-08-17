@@ -20,7 +20,7 @@ import type {
   Track,
   UUID,
 } from '@sudobility/music_types';
-import type { ScoreCommand } from './types.js';
+import type { CommandKind, ScoreCommand } from './types.js';
 import { transformCommand } from './snapshot.js';
 import { reflowVoice, touchMetadata, withTracks } from './reflow.js';
 
@@ -218,7 +218,27 @@ function changeTrackProps(score: Score, trackId: UUID, patch: TrackPropsPatch): 
   return withTracks(score, tracks);
 }
 
+/**
+ * The track properties that are mixing rather than music.
+ *
+ * `changeTrackPropsCommand` carries a partial patch and serves both purposes —
+ * `{ muted }` is mixing, `{ name }` and `{ midiProgram }` are the score — so
+ * the content/mix classification cannot be made on the command's type. It is
+ * made here, where the patch is, rather than in a switch elsewhere that would
+ * have to be kept in step with this list.
+ */
+const MIX_PROPS = new Set<string>(['volume', 'pan', 'muted', 'solo']);
+
+/** A patch is mix only if *every* key in it is. An empty patch changes nothing, so it counts as mix. */
+function trackPatchKind(patch: TrackPropsPatch): CommandKind {
+  return Object.keys(patch).every((key) => MIX_PROPS.has(key)) ? 'mix' : 'content';
+}
+
 /** Patches a track's non-structural properties (name, instrument, MIDI program/channel, clef, volume, pan, mute, solo). */
 export function changeTrackPropsCommand(trackId: UUID, patch: TrackPropsPatch): ScoreCommand {
-  return transformCommand('Change track properties', (score) => changeTrackProps(score, trackId, patch));
+  return transformCommand(
+    'Change track properties',
+    (score) => changeTrackProps(score, trackId, patch),
+    trackPatchKind(patch),
+  );
 }
