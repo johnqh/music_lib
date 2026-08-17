@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { testStoreContext } from "../../test/store-context.js";
 import { createAppStore } from "../useAppStore.js";
-import { changeMetadataCommand } from "../../domain/commands/structure-commands.js";
+import {
+  addMeasureCommand,
+  changeMetadataCommand,
+  changeTrackPropsCommand,
+} from "../../domain/commands/structure-commands.js";
 import { deleteEventsCommand } from "../../domain/commands/note-commands.js";
 import { validateScore } from "../../domain/validation/validator.js";
 import { twinkleScore } from "../../test/fixtures.js";
@@ -192,5 +196,66 @@ describe("score-slice", () => {
       store.getState().redo();
       expect(store.getState().dirty).toBe(true);
     });
+  });
+});
+
+describe("the playback edit lock", () => {
+  const freshStore = () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twinkleScore());
+    return store;
+  };
+
+  it("refuses a content command while playing, leaving the score untouched", () => {
+    const store = freshStore();
+    const before = store.getState().score;
+    store.getState().setPlaybackState("playing");
+
+    store.getState().dispatchCommand(addMeasureCommand());
+
+    expect(store.getState().score).toBe(before); // same reference: nothing ran
+  });
+
+  it("accepts a mix command while playing", () => {
+    const store = freshStore();
+    const trackId = store.getState().score!.tracks[0].id;
+    store.getState().setPlaybackState("playing");
+
+    store.getState().dispatchCommand(changeTrackPropsCommand(trackId, { muted: true }));
+
+    expect(store.getState().score!.tracks[0].muted).toBe(true);
+  });
+
+  it("refuses undo and redo while playing", () => {
+    const store = freshStore();
+    store.getState().dispatchCommand(addMeasureCommand());
+    const edited = store.getState().score;
+
+    store.getState().setPlaybackState("playing");
+    store.getState().undo();
+    expect(store.getState().score).toBe(edited);
+    store.getState().redo();
+    expect(store.getState().score).toBe(edited);
+  });
+
+  it("accepts content again once playback stops", () => {
+    const store = freshStore();
+    store.getState().setPlaybackState("playing");
+    store.getState().dispatchCommand(addMeasureCommand());
+    store.getState().setPlaybackState("stopped");
+
+    const before = store.getState().score;
+    store.getState().dispatchCommand(addMeasureCommand());
+    expect(store.getState().score).not.toBe(before);
+  });
+
+  it("does not mark the project dirty for a refused command", () => {
+    // A refusal that still queued an autosave would upload an unchanged score.
+    const store = freshStore();
+    store.getState().setPlaybackState("playing");
+    const dirtyBefore = store.getState().dirty;
+
+    store.getState().dispatchCommand(addMeasureCommand());
+    expect(store.getState().dirty).toBe(dirtyBefore);
   });
 });

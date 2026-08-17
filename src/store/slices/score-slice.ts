@@ -16,6 +16,7 @@
  */
 import { HistoryManager } from "../../domain/commands/history.js";
 import type { ScoreCommand } from "../../domain/commands/types.js";
+import type { TransportState } from "./playback-slice.js";
 import type { Score } from "@sudobility/music_types";
 import { scoreWithResolvedKits } from "../../domain/instruments/track-instrument.js";
 import { validateScore } from "../../domain/validation/validator.js";
@@ -43,6 +44,24 @@ export type ScoreSlice = {
   /** Replaces `score` outright (open project, accept a freshly generated score, MIDI/MusicXML import at the app boundary). */
   setScore: (score: Score, options?: SetScoreOptions) => void;
 };
+
+/**
+ * Whether `cmd` may run right now.
+ *
+ * While the transport is playing, the score's musical content is immutable.
+ * Mixing is exempt — mute, solo, volume and pan reach the engine live through
+ * `applyMix`, and muting a part while listening is how an arrangement gets
+ * listened to, not editing.
+ *
+ * This is load-bearing for `services/playback/controller.ts`: its "score
+ * changed while playing" branch pushes mix state to the engine and does *not*
+ * reload, which is only sound because this guarantees a content change cannot
+ * have happened. Loosening the rule here without revisiting that will silently
+ * play stale music.
+ */
+function commandAllowed(cmd: ScoreCommand, playbackState: TransportState): boolean {
+  return playbackState !== "playing" || cmd.kind === "mix";
+}
 
 export const createScoreSlice: StateCreator<
   AppState,
@@ -73,8 +92,9 @@ export const createScoreSlice: StateCreator<
     redoLabel: null,
 
     dispatchCommand: (cmd) => {
-      const score = get().score;
+      const { score, state } = get();
       if (!score) return;
+      if (!commandAllowed(cmd, state)) return;
       const next = historyManager.execute(cmd, score);
       set((state) => {
         state.score = next;
@@ -86,7 +106,9 @@ export const createScoreSlice: StateCreator<
 
     undo: () => {
       const score = get().score;
-      if (!score || !historyManager.canUndo) return;
+      // Undo is always content: it reverses whatever was done, and while
+      // playing nothing that needs reversing can have happened.
+      if (!score || get().state === "playing" || !historyManager.canUndo) return;
       const previous = historyManager.undo(score);
       if (previous === null) return;
       set((state) => {
@@ -99,7 +121,7 @@ export const createScoreSlice: StateCreator<
 
     redo: () => {
       const score = get().score;
-      if (!score || !historyManager.canRedo) return;
+      if (!score || get().state === "playing" || !historyManager.canRedo) return;
       const next = historyManager.redo(score);
       if (next === null) return;
       set((state) => {

@@ -113,31 +113,6 @@ describe('PlaybackController: construction and score subscription', () => {
     expect(engine.loadScore).not.toHaveBeenCalled();
   });
 
-  it('reschedules with stop -> loadScore -> play(resumeTick) when the score changes while playing', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    vi.mocked(engine.loadScore).mockClear();
-
-    store.getState().setPlaybackState('playing');
-    store.getState().setPositionTick(960);
-    const callOrder: string[] = [];
-    vi.mocked(engine.stop).mockImplementation(() => callOrder.push('stop'));
-    vi.mocked(engine.loadScore).mockImplementation(async () => {
-      callOrder.push('loadScore');
-    });
-    vi.mocked(engine.play).mockImplementation(async (fromTick) => {
-      callOrder.push(`play:${fromTick}`);
-    });
-
-    store.getState().dispatchCommand(addMeasureCommand());
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(callOrder).toEqual(['stop', 'loadScore', 'play:960']);
-  });
-
   it('does not stop/resume when the score changes while stopped', () => {
     const store = makeStore();
     store.getState().setScore(twinkleScore());
@@ -166,102 +141,6 @@ describe('PlaybackController: construction and score subscription', () => {
     expect(toast?.message).toContain('corrupt score');
   });
 
-  it('two rapid score changes while playing produce exactly one resume, at the pre-stop position, reflecting only the final score', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.loadScore).mockClear();
-    vi.mocked(engine.stop).mockClear();
-    vi.mocked(engine.play).mockClear();
-
-    store.getState().setPlaybackState('playing');
-    store.getState().setPositionTick(480);
-
-    // Two score changes dispatched back-to-back, before either's loadScore()
-    // has resolved. The fake engine's stop() (see createFakeEngine's doc)
-    // synchronously fires onStateChange('stopped')/onPositionTick(0) just
-    // like the real engine — so by the time the second change's
-    // handleScoreChange runs, the store already reads state:'stopped'/
-    // positionTick:0 because of the *first* change's stop() call. The
-    // controller must not be fooled by that into thinking there is nothing
-    // left to resume, and must not resume at the now-0 position either.
-    store.getState().dispatchCommand(addMeasureCommand());
-    const scoreA = store.getState().score;
-    store.getState().dispatchCommand(addMeasureCommand());
-    const scoreB = store.getState().score;
-
-    await flushAsync();
-
-    expect(engine.loadScore).toHaveBeenCalledTimes(2);
-    expect(engine.loadScore).toHaveBeenNthCalledWith(1, scoreA);
-    expect(engine.loadScore).toHaveBeenNthCalledWith(2, scoreB);
-    // Only the newest (scoreB) change is allowed to resume playback — the
-    // stale scoreA continuation aborts after noticing a newer generation —
-    // and it resumes at 480 (captured before the first stop()), not 0.
-    expect(engine.play).toHaveBeenCalledTimes(1);
-    expect(engine.play).toHaveBeenCalledWith(480);
-  });
-
-  it('a rejected loadScore while playing does not leave a stale pendingResume for a later, unrelated score change', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.loadScore).mockClear();
-    vi.mocked(engine.play).mockClear();
-
-    store.getState().setPlaybackState('playing');
-    store.getState().setPositionTick(480);
-
-    vi.mocked(engine.loadScore).mockRejectedValueOnce(new Error('corrupt edit'));
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-
-    // Sanity: the failed load itself never resumed anything, and reported an error.
-    expect(engine.play).not.toHaveBeenCalled();
-    expect(store.getState().toasts.at(-1)?.severity).toBe('error');
-
-    // A later, unrelated score change (made while genuinely stopped — the
-    // fake's stop() already flipped state to 'stopped') must not auto-play
-    // using a pendingResume left over from the earlier failure.
-    vi.mocked(engine.play).mockClear();
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-
-    expect(engine.play).not.toHaveBeenCalled();
-  });
-
-  it('an explicit stop() during an in-flight reload cancels the queued resume', async () => {
-    const store = makeStore();
-    store.getState().setScore(twinkleScore());
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-    vi.mocked(engine.loadScore).mockClear();
-    vi.mocked(engine.play).mockClear();
-
-    store.getState().setPlaybackState('playing');
-    store.getState().setPositionTick(480);
-
-    // Make loadScore controllable so an explicit stop() can land while it's still pending.
-    let resolveLoad!: () => void;
-    vi.mocked(engine.loadScore).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveLoad = resolve;
-        }),
-    );
-
-    store.getState().dispatchCommand(addMeasureCommand()); // captures pendingResume, calls engine.stop(), suspends awaiting loadScore
-    controller.stop(); // explicit user Stop while the reload is still in flight
-    resolveLoad();
-    await flushAsync();
-
-    expect(engine.play).not.toHaveBeenCalled();
-  });
 });
 
 describe('PlaybackController: observer wiring', () => {
@@ -340,39 +219,6 @@ describe('PlaybackController: play/pause/stop', () => {
     const toast = store.getState().toasts.at(-1);
     expect(toast?.severity).toBe('error');
     expect(toast?.message).toContain('no audio device');
-  });
-
-  it('togglePlay after a preview ends on its own (without an explicit stopPreview()) resumes the COMMITTED score, not the stale preview (Task 19 review fold-in a)', async () => {
-    const store = makeStore();
-    const committed = twinkleScore();
-    store.getState().setScore(committed);
-    const engine = createFakeEngine();
-    controller = createPlaybackController(engine, store);
-    await flushAsync();
-
-    await controller.playPreview(twoTrackScore(), 0);
-    vi.mocked(engine.loadScore).mockClear();
-    vi.mocked(engine.play).mockClear();
-
-    // The preview finishes on its own -- nothing calls stopPreview(), so
-    // `previewing` stays (incorrectly, absent this guard) true; the engine
-    // itself reports 'stopped' the way a real preview reaching its end
-    // would.
-    observerOf(engine).onStateChange('stopped');
-
-    controller.togglePlay();
-    await flushAsync();
-
-    expect(engine.loadScore).toHaveBeenCalledWith(committed);
-    expect(engine.play).toHaveBeenCalledTimes(1);
-    expect(engine.play).toHaveBeenCalledWith(0);
-
-    // The committed-score subscription is live again -- confirms
-    // `previewing` was actually cleared by the guard, not left stuck.
-    vi.mocked(engine.loadScore).mockClear();
-    store.getState().dispatchCommand(addMeasureCommand());
-    await flushAsync();
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
   });
 
   it('stop() delegates to the engine', () => {
