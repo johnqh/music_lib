@@ -145,19 +145,55 @@ describe('PlaybackController: construction and score subscription', () => {
 });
 
 describe('PlaybackController: observer wiring', () => {
-  it('forwards onPositionTick/onActiveNotes/onStateChange into the store', () => {
+  it('publishes position and sounding notes on the bus, not into the store', () => {
+    // The split that keeps a 30Hz value out of Zustand: nothing the engine
+    // reports at that rate may reach a store subscriber.
+    const store = makeStore();
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    const observer = observerOf(engine);
+    const positions: number[] = [];
+    const sounding: string[][] = [];
+    controller.bus.onPosition((t) => positions.push(t));
+    controller.bus.onSounding((notes) => sounding.push(notes.map((n) => n.noteId)));
+
+    observer.onPositionTick(480);
+    observer.onActiveNotes([
+      { noteId: 'note-1', trackId: 't', midi: 60 },
+      { noteId: 'note-2', trackId: 't', midi: 64 },
+    ]);
+    observer.onStateChange('playing');
+
+    expect(positions).toEqual([480]);
+    expect(sounding).toEqual([['note-1', 'note-2']]);
+    // Transport state is low-frequency and still belongs in the store.
+    expect(store.getState().state).toBe('playing');
+  });
+
+  it('commits the engine position to the edit caret when the transport stops', () => {
     const store = makeStore();
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
     const observer = observerOf(engine);
 
-    observer.onPositionTick(480);
-    observer.onActiveNotes(['note-1', 'note-2']);
     observer.onStateChange('playing');
+    observer.onPositionTick(1920);
+    observer.onStateChange('paused');
 
-    expect(store.getState().positionTick).toBe(480);
-    expect(store.getState().activeNoteIds).toEqual(['note-1', 'note-2']);
-    expect(store.getState().state).toBe('playing');
+    expect(store.getState().caretTick).toBe(1920);
+  });
+
+  it('leaves the edit caret alone while playing', () => {
+    const store = makeStore();
+    const engine = createFakeEngine();
+    controller = createPlaybackController(engine, store);
+    const observer = observerOf(engine);
+    store.getState().setCaretTick(240);
+
+    observer.onStateChange('playing');
+    observer.onPositionTick(1920);
+
+    expect(store.getState().caretTick).toBe(240);
   });
 });
 
@@ -285,22 +321,22 @@ describe('PlaybackController: seeking', () => {
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
 
-    store.getState().setPositionTick(score.tracks[0].measures[1].startTick);
+    store.getState().setCaretTick(score.tracks[0].measures[1].startTick);
     controller.nextMeasure();
     expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[2].startTick);
 
-    store.getState().setPositionTick(score.tracks[0].measures[1].startTick);
+    store.getState().setCaretTick(score.tracks[0].measures[1].startTick);
     controller.previousMeasure();
     expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[0].startTick);
 
     // clamps at the first measure
-    store.getState().setPositionTick(0);
+    store.getState().setCaretTick(0);
     controller.previousMeasure();
     expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[0].startTick);
 
     // clamps at the last measure
     const lastMeasure = score.tracks[0].measures.at(-1)!;
-    store.getState().setPositionTick(lastMeasure.startTick);
+    store.getState().setCaretTick(lastMeasure.startTick);
     controller.nextMeasure();
     expect(engine.seek).toHaveBeenLastCalledWith(lastMeasure.startTick);
   });
@@ -472,7 +508,7 @@ describe('PlaybackController: auditioning', () => {
     expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, 0, false);
     expect(vi.mocked(engine.noteOff)).toHaveBeenCalledWith(60);
     expect(store.getState().state).toBe(before);
-    expect(store.getState().positionTick).toBe(0);
+    expect(store.getState().caretTick).toBe(0);
     controller.dispose();
   });
 

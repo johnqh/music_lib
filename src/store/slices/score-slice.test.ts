@@ -81,13 +81,11 @@ describe("score-slice", () => {
     it("resets the playback caret when adopting a new score", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().setPositionTick(1920);
-      store.getState().setActiveNoteIds(["n1", "n2"]);
+      store.getState().setCaretTick(1920);
 
       store.getState().setScore(twinkleScore());
 
-      expect(store.getState().positionTick).toBe(0);
-      expect(store.getState().activeNoteIds).toEqual([]);
+      expect(store.getState().caretTick).toBe(0);
     });
   });
 

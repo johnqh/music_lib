@@ -113,6 +113,7 @@ export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 export * from './services/playback/types.js';
 export * from './services/playback/controller.js';
+export * from './services/playback/bus.js';
 export * from './services/regeneration/controller.js';
 
 // store

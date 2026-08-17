@@ -85,7 +85,7 @@ describe("selectors", () => {
     it("reports the correct measure/beat partway through the score (480 ppq, 4/4 => 480 ticks/beat, 1920/measure)", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().setPositionTick(1920 + 480 * 2); // measure 2, beat 3
+      store.getState().setCaretTick(1920 + 480 * 2); // measure 2, beat 3
       expect(selectCurrentMeasureBeat(store.getState())).toEqual({
         measureIndex: 2,
         beat: 3,
@@ -96,7 +96,7 @@ describe("selectors", () => {
       const store = createAppStore({ context: testStoreContext() });
       const score = twinkleScore();
       store.getState().setScore(score);
-      store.getState().setPositionTick(1_000_000);
+      store.getState().setCaretTick(1_000_000);
       const lastMeasure =
         score.tracks[0].measures[score.tracks[0].measures.length - 1];
       expect(selectCurrentMeasureBeat(store.getState())!.measureIndex).toBe(
@@ -145,13 +145,13 @@ describe("selectors", () => {
     it("selectCurrentMeasureBeat returns the same object reference across repeated calls with unchanged inputs, and a new one once positionTick changes", () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().setPositionTick(480);
+      store.getState().setCaretTick(480);
 
       const first = selectCurrentMeasureBeat(store.getState());
       const second = selectCurrentMeasureBeat(store.getState());
       expect(second).toBe(first);
 
-      store.getState().setPositionTick(960);
+      store.getState().setCaretTick(960);
       const third = selectCurrentMeasureBeat(store.getState());
       expect(third).not.toBe(first);
     });

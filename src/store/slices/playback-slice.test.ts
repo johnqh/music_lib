@@ -7,8 +7,7 @@ describe("playback-slice", () => {
     const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
     expect(state.state).toBe("stopped");
-    expect(state.positionTick).toBe(0);
-    expect(state.activeNoteIds).toEqual([]);
+    expect(state.caretTick).toBe(0);
     expect(state.loopRange).toBeNull();
     expect(state.tempoMultiplier).toBe(1);
     expect(state.metronome).toBe(false);
@@ -21,11 +20,9 @@ describe("playback-slice", () => {
     store.getState().setPlaybackState("playing");
     expect(store.getState().state).toBe("playing");
 
-    store.getState().setPositionTick(1920);
-    expect(store.getState().positionTick).toBe(1920);
+    store.getState().setCaretTick(1920);
+    expect(store.getState().caretTick).toBe(1920);
 
-    store.getState().setActiveNoteIds(["n1", "n2"]);
-    expect(store.getState().activeNoteIds).toEqual(["n1", "n2"]);
 
     const loop = { startTick: 0, endTick: 1920, trackIds: ["t1"] };
     store.getState().setLoopRange(loop);

@@ -23,6 +23,7 @@ import { getMusicPlatform } from '../../platform/registry.js';
 import { selectVisibleTrackIds } from '../../store/selectors.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
+import { PlaybackBus } from './bus.js';
 
 /** The store shape this module operates on: same type `useAppStore`/`createAppStore()` produce (matches `features/score-editor/editing.ts`'s `EditorStoreApi`). */
 export type PlaybackStoreApi = ReturnType<typeof createAppStore>;
@@ -40,15 +41,30 @@ function measureAt(score: Score, tick: number) {
 export class PlaybackController {
   private readonly unsubscribe: () => void;
 
+  /**
+   * Where position and sounding notes go instead of the store.
+   *
+   * Both arrive far too often to route through Zustand — see `bus.ts`. What
+   * still goes to the store is the low-frequency half: transport state and
+   * load progress, which behave like ordinary React state because they are.
+   */
+  readonly bus = new PlaybackBus();
 
   constructor(
     private readonly engine: PlaybackEngine,
     private readonly store: PlaybackStoreApi,
   ) {
     engine.setObserver({
-      onPositionTick: (tick) => this.store.getState().setPositionTick(tick),
-      onActiveNotes: (ids) => this.store.getState().setActiveNoteIds(ids),
-      onStateChange: (state) => this.store.getState().setPlaybackState(state),
+      onPositionTick: (tick) => this.bus.publishPosition(tick),
+      onActiveNotes: (notes) => this.bus.publishSounding(notes),
+      onStateChange: (state) => {
+        this.bus.publishTransport(state);
+        this.store.getState().setPlaybackState(state);
+        // Stopping or pausing commits the engine's final position to the edit
+        // caret, so the two coincide whenever the transport is not running —
+        // which is the whole basis of "play from the caret" still working.
+        if (state !== 'playing') this.store.getState().setCaretTick(this.bus.positionTick);
+      },
       // Optional on the contract: an engine with nothing to load never calls it.
       onLoadStateChange: (state) => this.store.getState().setSynthLoad(state),
     });
@@ -108,7 +124,11 @@ export class PlaybackController {
 
   seek(tick: number): void {
     if (!this.store.getState().score) return;
-    this.engine.seek(Math.max(0, tick));
+    const target = Math.max(0, tick);
+    // The caret moves with an explicit seek whether or not the transport is
+    // running: seeking *is* the user saying where they are.
+    this.store.getState().setCaretTick(target);
+    this.engine.seek(target);
   }
 
   seekToMeasure(measureIndex: number): void {
@@ -123,17 +143,17 @@ export class PlaybackController {
   }
 
   previousMeasure(): void {
-    const { score, positionTick } = this.store.getState();
+    const { score, caretTick } = this.store.getState();
     if (!score) return;
-    const current = measureAt(score, positionTick);
+    const current = measureAt(score, caretTick);
     if (!current) return;
     this.seekToMeasure(Math.max(0, current.index - 1));
   }
 
   nextMeasure(): void {
-    const { score, positionTick } = this.store.getState();
+    const { score, caretTick } = this.store.getState();
     if (!score) return;
-    const current = measureAt(score, positionTick);
+    const current = measureAt(score, caretTick);
     if (!current) return;
     const lastIndex = score.tracks[0].measures.length - 1;
     this.seekToMeasure(Math.min(lastIndex, current.index + 1));

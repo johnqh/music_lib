@@ -89,17 +89,17 @@ export const selectSelectedMeasureRange = memoize2(
 export type MeasureBeat = { measureIndex: number; beat: number };
 
 /**
- * The 1-based measure index and 1-based beat that `state.positionTick`
+ * The 1-based measure index and 1-based beat that `state.caretTick`
  * falls in (spec §10/§22, playback cursor), read off the score's first
  * track (every track shares the same measure grid once
  * `rebuildMeasureTicks` has run — see `domain/score/factory.ts`).
  * `null` if there's no score, or the score has no measures. Memoized on
- * (`score`, `positionTick`) reference/value identity.
+ * (`score`, `caretTick`) reference/value identity.
  */
 export const selectCurrentMeasureBeat = memoize2(
   (state) => state.score,
-  (state) => state.positionTick,
-  (score, positionTick): MeasureBeat | null => {
+  (state) => state.caretTick,
+  (score, caretTick): MeasureBeat | null => {
     if (!score) return null;
     const track = score.tracks[0];
     if (!track || track.measures.length === 0) return null;
@@ -107,12 +107,12 @@ export const selectCurrentMeasureBeat = memoize2(
     const measure =
       track.measures.find(
         (m) =>
-          positionTick >= m.startTick &&
-          positionTick < m.startTick + m.durationTicks,
+          caretTick >= m.startTick &&
+          caretTick < m.startTick + m.durationTicks,
       ) ?? track.measures[track.measures.length - 1];
 
     const beatTicks = beatDurationTicks(measure.timeSignature, score.ppq);
-    const beat = Math.floor((positionTick - measure.startTick) / beatTicks) + 1;
+    const beat = Math.floor((caretTick - measure.startTick) / beatTicks) + 1;
     return { measureIndex: measure.index + 1, beat };
   },
 );
