@@ -90,6 +90,8 @@ export * from './adapters/vexflow/note-color.js';
 export * from './adapters/mod/types.js';
 export * from './adapters/mod/timing.js';
 export * from './adapters/mod/import.js';
+export * from './adapters/mod/limits.js';
+export * from './adapters/mod/export.js';
 
 // adapters/midi
 export * from './adapters/midi/analyze.js';
