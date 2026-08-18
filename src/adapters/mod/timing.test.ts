@@ -18,6 +18,16 @@ describe('effectiveBpm', () => {
 });
 
 describe('tempoChanges', () => {
+  it('takes the tempo from row 0, where a module normally states it', () => {
+    // Regression: the row-0 entry is seeded from the defaults, and skipping it
+    // rather than rewriting it imported every such module at 125 BPM.
+    const rows = [
+      [{ instrument: 1, note: 60, speed: 6, bpm: 120 }],
+      [{ instrument: 0, note: null }],
+    ];
+    expect(tempoChanges(rows as never)).toEqual([{ row: 0, bpm: 120 }]);
+  });
+
   // The decoder normalises effect F into these two fields, so tempo reading
   // never sees an effect number.
   const cell = (knobs: { speed?: number; bpm?: number } = {}): TrackerCell => ({

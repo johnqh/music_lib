@@ -60,8 +60,15 @@ export function tempoChanges(rows: readonly TrackerCell[][]): TempoChange[] {
         moved = true;
       }
     }
-    // Row 0's entry already exists; only emit again if something moved.
-    if (moved && row > 0) changes.push({ row, bpm: effectiveBpm(speed, tempo) });
+    if (!moved) return;
+    const bpm = effectiveBpm(speed, tempo);
+    // Row 0's entry exists already, seeded from the *defaults* — so it has to be
+    // rewritten rather than skipped. Skipping it (which this did) threw away the
+    // tempo of every module that states one on its first row, which is where a
+    // module normally states it: the import silently came in at the 125 BPM
+    // default instead.
+    if (row === 0) changes[0] = { row: 0, bpm };
+    else changes.push({ row, bpm });
   });
 
   return changes;

@@ -164,7 +164,7 @@ describe('speed and tempo', () => {
       measures: 1,
       tracks: [{ name: 'A', instrumentName: 'Piano', clef: 'treble' as const }],
     });
-    const score: Score = { ...base, tempoMap: [{ tick: 0, bpm }] };
+    const score: Score = { ...base, tempoMap: [{ id: 'tempo-0', tick: 0, bpm }] };
     const cell = scoreToTracker(score, { format: 'xm' }).module.patterns[0][0][0];
     return { speed: cell.speed, bpm: cell.bpm };
   };
