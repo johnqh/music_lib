@@ -14,6 +14,7 @@
  */
 import { isNoteEvent } from '@sudobility/music_types';
 import type {
+  AuditionVoice,
   MetronomeClick,
   MusicalEvent,
   PlaybackNote,
@@ -36,12 +37,32 @@ import { isPercussionTrack } from '../../domain/instruments/track-instrument.js'
  * Separate from `playbackPlan` because a mix change while playing must not
  * rebuild every note — `PlaybackEngine.applyMix` takes only this.
  */
+/**
+ * The GM voice a program addresses.
+ *
+ * The one place the kit-versus-instrument distinction is resolved, shared by
+ * the plan and by auditioning. A percussion track's `midiProgram` is a *kit*
+ * address — `gmKitAt` maps any address to the kit whose region contains it, so
+ * a score that arrives at a program GM defines no kit at still plays — and the
+ * name must be the kit's, because `gmInstrument(40)` is Violin where kit 40 is
+ * Brush.
+ */
+export function resolveVoice(program: number, isPercussion: boolean, fallbackName = ''): AuditionVoice {
+  if (isPercussion) {
+    const kit = gmKitAt(program);
+    return { program: kit.program, name: kit.name, isPercussion: true };
+  }
+  return {
+    program,
+    name: gmInstrument(program)?.name ?? fallbackName,
+    isPercussion: false,
+  };
+}
+
 export function playbackTracks(score: Score): PlaybackTrack[] {
   return score.tracks.map((track) => {
     const percussion = isPercussionTrack(track);
-    // A percussion track's midiProgram is a kit address, so it resolves through
-    // the kit table; a pitched one is its own program.
-    const voiceProgram = percussion ? gmKitAt(track.midiProgram).program : track.midiProgram;
+    const voice = resolveVoice(track.midiProgram, percussion, track.instrumentName);
     return {
       id: track.id,
       midiProgram: track.midiProgram,
@@ -51,14 +72,8 @@ export function playbackTracks(score: Score): PlaybackTrack[] {
       pan: track.pan,
       muted: track.muted,
       solo: track.solo,
-      voiceProgram,
-      // The kit's name on a percussion track, not the instrument at that
-      // program: gmInstrument(40) is Violin and kit 40 is Brush. Only the
-      // pitched path reads this today, but naming a drum kit "Violin" is
-      // exactly the confusion `gmKitAt` exists to prevent.
-      voiceName: percussion
-        ? gmKitAt(track.midiProgram).name
-        : (gmInstrument(voiceProgram)?.name ?? track.instrumentName),
+      voiceProgram: voice.program,
+      voiceName: voice.name,
     };
   });
 }

@@ -24,6 +24,7 @@ import { selectVisibleTrackIds } from '../../store/selectors.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 import { PlaybackBus } from './bus.js';
+import { playbackPlan, playbackTracks, resolveVoice } from './plan.js';
 
 /** The store shape this module operates on: same type `useAppStore`/`createAppStore()` produce (matches `features/score-editor/editing.ts`'s `EditorStoreApi`). */
 export type PlaybackStoreApi = ReturnType<typeof createAppStore>;
@@ -220,7 +221,9 @@ export class PlaybackController {
    * sounds a pitched instrument while the same note plays back as a drum.
    */
   noteOn(midi: number, program: number, isPercussion = false): void {
-    this.engine.noteOn(midi, program, isPercussion);
+    // Resolved here: the engine has no GM tables, and a percussion program
+    // addresses a kit rather than an instrument.
+    this.engine.noteOn(midi, resolveVoice(program, isPercussion));
   }
 
   noteOff(midi: number): void {
@@ -247,7 +250,9 @@ export class PlaybackController {
    */
   private handleScoreChange(score: Score): void {
     if (this.store.getState().state === 'playing') {
-      this.engine.applyMix(score);
+      // Tracks only: rebuilding every note to change a gain would undo the
+      // reason this branch exists.
+      this.engine.applyMix(playbackTracks(score));
       return;
     }
     void this.loadScore(score);
@@ -256,7 +261,7 @@ export class PlaybackController {
   /** Loads a score into the engine, reporting a failure rather than swallowing it. */
   private async loadScore(score: Score): Promise<void> {
     try {
-      await this.engine.loadScore(score);
+      await this.engine.load(playbackPlan(score));
       // loadScore reseeds every channel's mute from `Track.muted`, so hidden
       // tracks would sound again on the next load without this.
       this.applyTrackAudibility();

@@ -9,6 +9,7 @@
 import { TempoMap } from '../../domain/time/tempo-map.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { resolveVoice } from '../playback/plan.js';
 import type { Score } from '@sudobility/music_types';
 
 import type { RenderEvent, RenderPlan, RenderTrack } from '@sudobility/music_types';
@@ -37,14 +38,22 @@ export function renderEvents(score: Score): RenderPlan {
   const tempoMap = new TempoMap(score.tempoMap, score.ppq);
   const anySolo = score.tracks.some((t) => t.solo);
 
-  const tracks: RenderTrack[] = score.tracks.map((track) => ({
-    id: track.id,
-    midiProgram: track.midiProgram,
-    instrumentName: track.instrumentName,
-    isPercussion: track.clef === 'percussion',
-    volume: track.volume,
-    pan: track.pan,
-  }));
+  const tracks: RenderTrack[] = score.tracks.map((track) => {
+    const isPercussion = track.clef === 'percussion';
+    // The renderer picks its sample pack from this, and a percussion track's
+    // midiProgram addresses a kit rather than an instrument.
+    const voice = resolveVoice(track.midiProgram, isPercussion, track.instrumentName);
+    return {
+      id: track.id,
+      midiProgram: track.midiProgram,
+      instrumentName: track.instrumentName,
+      isPercussion,
+      volume: track.volume,
+      pan: track.pan,
+      voiceProgram: voice.program,
+      voiceName: voice.name,
+    };
+  });
 
   const events: RenderEvent[] = [];
   for (const track of score.tracks) {

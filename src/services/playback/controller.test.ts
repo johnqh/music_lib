@@ -4,6 +4,7 @@ import { createAppStore } from '../../store/useAppStore.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import { addMeasureCommand, changeTrackPropsCommand } from '../../domain/commands/structure-commands.js';
 import { createPlaybackController, PlaybackController } from './controller.js';
+import { playbackPlan } from './plan.js';
 import type { PlaybackStoreApi } from './controller.js';
 import type { PlaybackEngine, PlaybackObserver } from './types.js';
 
@@ -33,7 +34,7 @@ function createFakeEngine(): PlaybackEngine {
   let observer: PlaybackObserver | null = null;
   return {
     initialize: vi.fn(async () => {}),
-    loadScore: vi.fn(async () => {}),
+    load: vi.fn(async () => {}),
     play: vi.fn(async () => {
       observer?.onStateChange('playing');
     }),
@@ -87,19 +88,23 @@ describe('PlaybackController: construction and score subscription', () => {
 
     controller = createPlaybackController(engine, store);
 
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
-    expect(engine.loadScore).toHaveBeenCalledWith(store.getState().score);
+    expect(engine.load).toHaveBeenCalledTimes(1);
+    // The engine is handed a plan, not the score: music_lib decides every
+    // musical question before the platform layer sees anything.
+    expect(vi.mocked(engine.load).mock.calls[0][0]).toEqual(
+      playbackPlan(store.getState().score!),
+    );
   });
 
   it('loads a score set after construction via the store subscription', () => {
     const store = makeStore();
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
-    expect(engine.loadScore).not.toHaveBeenCalled();
+    expect(engine.load).not.toHaveBeenCalled();
 
     store.getState().setScore(twinkleScore());
 
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
+    expect(engine.load).toHaveBeenCalledTimes(1);
   });
 
   it('does not reload for store changes that leave `score` untouched', () => {
@@ -107,11 +112,11 @@ describe('PlaybackController: construction and score subscription', () => {
     store.getState().setScore(twinkleScore());
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
-    vi.mocked(engine.loadScore).mockClear();
+    vi.mocked(engine.load).mockClear();
 
     store.getState().setMasterVolume(0.5);
 
-    expect(engine.loadScore).not.toHaveBeenCalled();
+    expect(engine.load).not.toHaveBeenCalled();
   });
 
   it('does not stop/resume when the score changes while stopped', () => {
@@ -119,20 +124,20 @@ describe('PlaybackController: construction and score subscription', () => {
     store.getState().setScore(twinkleScore());
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
-    vi.mocked(engine.loadScore).mockClear();
+    vi.mocked(engine.load).mockClear();
 
     store.getState().dispatchCommand(addMeasureCommand());
 
-    expect(engine.loadScore).toHaveBeenCalledTimes(1);
+    expect(engine.load).toHaveBeenCalledTimes(1);
     expect(engine.stop).not.toHaveBeenCalled();
     expect(engine.play).not.toHaveBeenCalled();
   });
 
-  it('a rejected loadScore for the initial (already-present) score pushes an error toast, not an unhandled rejection', async () => {
+  it('a rejected load for the initial (already-present) score pushes an error toast, not an unhandled rejection', async () => {
     const store = makeStore();
     store.getState().setScore(twinkleScore());
     const engine = createFakeEngine();
-    vi.mocked(engine.loadScore).mockRejectedValueOnce(new Error('corrupt score'));
+    vi.mocked(engine.load).mockRejectedValueOnce(new Error('corrupt score'));
 
     controller = createPlaybackController(engine, store);
     await flushAsync();
@@ -431,7 +436,7 @@ describe('PlaybackController.dispose', () => {
     store.getState().setScore(twoTrackScore());
 
     expect(engine.dispose).toHaveBeenCalledTimes(1);
-    expect(engine.loadScore).not.toHaveBeenCalled();
+    expect(engine.load).not.toHaveBeenCalled();
   });
 });
 
@@ -505,7 +510,12 @@ describe('PlaybackController: auditioning', () => {
     controller.noteOn(60, 0);
     controller.noteOff(60);
 
-    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, 0, false);
+    // The engine gets a resolved voice, not a raw program: it has no GM tables.
+    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(60, {
+      program: 0,
+      name: 'Acoustic Grand Piano',
+      isPercussion: false,
+    });
     expect(vi.mocked(engine.noteOff)).toHaveBeenCalledWith(60);
     expect(store.getState().state).toBe(before);
     expect(store.getState().caretTick).toBe(0);
@@ -521,7 +531,12 @@ describe('PlaybackController: auditioning', () => {
 
     controller.noteOn(38, 0, true);
 
-    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(38, 0, true);
+    // Program 0 on a percussion tap addresses the Standard Kit, not a piano.
+    expect(vi.mocked(engine.noteOn)).toHaveBeenCalledWith(38, {
+      program: 0,
+      name: 'Standard Kit',
+      isPercussion: true,
+    });
     controller.dispose();
   });
 });
@@ -569,7 +584,7 @@ describe('PlaybackController: hidden tracks are silent', () => {
   });
 
   it('re-applies visibility after a score change, which reseeds mute from the score', async () => {
-    // `loadScore` seeds each channel's mute from `Track.muted`, so without a
+    // `load` seeds each channel's mute from `Track.muted`, so without a
     // re-apply the next edit would let a hidden track start sounding again.
     const store = makeStore();
     store.getState().setScore(twoTrackScore());
@@ -648,7 +663,7 @@ describe('PlaybackController: score changes while playing', () => {
     controller = createPlaybackController(engine, store);
     await Promise.resolve();
 
-    vi.mocked(engine.loadScore).mockClear();
+    vi.mocked(engine.load).mockClear();
     vi.mocked(engine.stop).mockClear();
     store.getState().setPlaybackState('playing');
 
@@ -658,7 +673,7 @@ describe('PlaybackController: score changes while playing', () => {
     await Promise.resolve();
 
     expect(engine.applyMix).toHaveBeenCalled();
-    expect(engine.loadScore).not.toHaveBeenCalled();
+    expect(engine.load).not.toHaveBeenCalled();
     expect(engine.stop).not.toHaveBeenCalled();
   });
 
@@ -669,12 +684,12 @@ describe('PlaybackController: score changes while playing', () => {
     controller = createPlaybackController(engine, store);
     await Promise.resolve();
 
-    vi.mocked(engine.loadScore).mockClear();
+    vi.mocked(engine.load).mockClear();
     store.getState().dispatchCommand(addMeasureCommand());
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(engine.loadScore).toHaveBeenCalled();
+    expect(engine.load).toHaveBeenCalled();
   });
 
   it('never resumes playback on its own', async () => {

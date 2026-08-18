@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { twoTrackScore, twinkleScore } from '../../test/fixtures.js';
+import type { Measure, NoteEvent, Score } from '@sudobility/music_types';
 import { playbackPlan, playbackTracks } from './plan.js';
 
 describe('playbackPlan', () => {
@@ -81,5 +82,86 @@ describe('playbackPlan', () => {
     const track = playbackTracks(score)[0];
     expect(track.muted).toBe(true);
     expect(track.volume).toBe(0.25);
+  });
+});
+
+describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
+  const PPQ = 480;
+
+  /** One track, one voice, with a note tied across the barline. */
+  function tiedAcrossBarlineScore(): Score {
+    const trackId = 'track-1';
+    const voiceId = 'voice-1';
+    const measureTicks = PPQ * 4;
+    const note = (over: Partial<NoteEvent> & { id: string; startTick: number }): NoteEvent => ({
+      pitch: { step: 'C', accidental: 0, octave: 4 },
+      durationTicks: PPQ,
+      velocity: 90,
+      voiceId,
+      trackId,
+      ...over,
+    });
+    const base = twinkleScore();
+    const measures: Measure[] = [0, 1].map((i) => ({
+      id: `m${i}`,
+      index: i,
+      startTick: i * measureTicks,
+      durationTicks: measureTicks,
+      timeSignature: { numerator: 4, denominator: 4 },
+      keySignature: { fifths: 0, mode: 'major' as const },
+      voices: [
+        {
+          id: voiceId,
+          name: 'Voice 1',
+          events:
+            i === 0
+              ? [note({ id: 'note-tie-start', startTick: measureTicks - PPQ, tieStart: true })]
+              : [
+                  note({ id: 'note-tie-stop', startTick: measureTicks, tieStop: true }),
+                  note({
+                    id: 'note-untied',
+                    startTick: measureTicks + PPQ,
+                    durationTicks: PPQ * 3,
+                    pitch: { step: 'E', accidental: 0, octave: 4 },
+                  }),
+                ],
+        },
+      ],
+    }));
+    return { ...base, tracks: [{ ...base.tracks[0], id: trackId, measures }] };
+  }
+
+  it('joins a note tied across a barline into one, dropping the continuation', () => {
+    const notes = playbackPlan(tiedAcrossBarlineScore()).notes;
+    const ids = notes.map((n) => n.noteId);
+    expect(ids).not.toContain('note-tie-stop');
+    expect(ids).toContain('note-tie-start');
+
+    const joined = notes.find((n) => n.noteId === 'note-tie-start')!;
+    expect(joined.tick).toBe(PPQ * 3);
+    expect(joined.durTicks).toBe(PPQ * 2);
+    expect(notes).toHaveLength(2);
+  });
+
+  it('keeps trackId provenance across every track', () => {
+    const score = twoTrackScore();
+    const ids = new Set(playbackPlan(score).notes.map((n) => n.trackId));
+    expect(ids).toEqual(new Set(score.tracks.map((t) => t.id)));
+  });
+
+  it('emits one click per beat across the measure grid', () => {
+    // twinkleScore is 8 bars of 4/4, so 32 beats.
+    const clicks = playbackPlan(twinkleScore()).clicks;
+    expect(clicks).toHaveLength(32);
+    expect(clicks[1]).toEqual({ tick: PPQ, accent: false });
+    expect(clicks[4]).toEqual({ tick: PPQ * 4, accent: true });
+  });
+
+  it('is empty for a score with no tracks', () => {
+    const score = { ...twinkleScore(), tracks: [] };
+    const plan = playbackPlan(score);
+    expect(plan.notes).toEqual([]);
+    expect(plan.clicks).toEqual([]);
+    expect(plan.tracks).toEqual([]);
   });
 });
