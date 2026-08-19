@@ -8,9 +8,9 @@
  * Onsets are compared in seconds, not ticks, because seconds are what a
  * listener hears.
  */
+import { testMidiCodec } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
-import { createMusicIo } from '@sudobility/music_io/mocks';
 import { analyzeMidi } from './analyze.js';
 import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
@@ -38,7 +38,7 @@ async function importedOnsetSeconds(
   }
 
   const bytes = midi.toArray().buffer as ArrayBuffer;
-  const codec = createMusicIo().midiCodec;
+  const codec = testMidiCodec();
   const summary = analyzeMidi(bytes, codec);
   const { score } = importMidi(bytes, defaultMidiImportOptions(summary), codec);
 

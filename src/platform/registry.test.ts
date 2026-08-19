@@ -1,5 +1,5 @@
+import { testPlaybackEngine } from '../test/platform.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MockPlaybackEngine } from '@sudobility/music_io/mocks';
 import {
   PlatformNotInitializedError,
   getMusicPlatform,
@@ -11,7 +11,7 @@ afterEach(() => resetMusicPlatform());
 
 describe('music platform registry', () => {
   it('returns what was registered', () => {
-    const playback = new MockPlaybackEngine();
+    const playback = testPlaybackEngine();
     initializeMusicPlatform({ playback });
     expect(getMusicPlatform().playback).toBe(playback);
   });
@@ -22,8 +22,8 @@ describe('music platform registry', () => {
   });
 
   it('lets a test replace the platform', () => {
-    initializeMusicPlatform({ playback: new MockPlaybackEngine() });
-    const replacement = new MockPlaybackEngine();
+    initializeMusicPlatform({ playback: testPlaybackEngine() });
+    const replacement = testPlaybackEngine();
     initializeMusicPlatform({ playback: replacement });
     expect(getMusicPlatform().playback).toBe(replacement);
   });

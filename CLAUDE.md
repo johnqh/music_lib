@@ -1,5 +1,10 @@
 # @sudobility/music_lib
 
+> **Git policy — never auto-commit or auto-push.** Leave your work in the working tree.
+> Run `git commit`, `git push`, `gh pr create`, or `scripts/push_all.sh` **only when the user
+> explicitly asks in that turn**. Approval for an earlier change does not carry forward, and
+> finishing a task is not permission to commit it.
+
 Business logic for ScoreSmith (the Sudobility music app family): the entire non-UI layer — score domain model, undoable commands, validation, quantization, rendering/audio/file adapters, and the Zustand app store.
 
 ## Tech Stack
@@ -133,3 +138,7 @@ Everything exports from `src/index.ts` (package root import only).
 ## Related Projects
 
 - `music_types` — shared types/schemas · `music_client` — network client · `music_api` — backend · `music_app` — web UI
+
+## Git Workflow
+
+- Do not use feature branches for code changes. Always stay on the current branch.

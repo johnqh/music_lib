@@ -7,6 +7,7 @@
  * chords, two voices, ties across a barline, articulations, and 6/8, per
  * the brief.
  */
+import { testXmlParser } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { exportMusicXml } from './export.js';
@@ -23,9 +24,8 @@ import {
   twinkleScore,
   twoTrackScore,
 } from '../../test/fixtures.js';
-import { MockXmlParser } from '@sudobility/music_io/mocks';
 
-const parser = new MockXmlParser();
+const parser = testXmlParser();
 
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
   const xml = exportMusicXml(source);

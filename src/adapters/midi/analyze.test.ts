@@ -1,15 +1,15 @@
+import { testMidiCodec } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import { analyzeMidi } from './analyze.js';
 import { exportMidi } from './export.js';
 import { createEmptyScore } from '../../domain/score/factory.js';
 import { createId } from '../../domain/score/ids.js';
 import { chordScore, twoTrackScore } from '../../test/fixtures.js';
-import { createMusicIo } from '@sudobility/music_io/mocks';
 import * as midiLib from '@tonejs/midi';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
 // and the mocks entry -- unlike music_io/web -- does not import music_lib.
-const codec = createMusicIo().midiCodec;
+const codec = testMidiCodec();
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;

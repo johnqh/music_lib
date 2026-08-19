@@ -1,5 +1,5 @@
+import { testMidiCodec } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
-import { createMusicIo } from '@sudobility/music_io/mocks';
 import { analyzeMidi } from './analyze.js';
 import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
@@ -49,7 +49,7 @@ function smf(ppq: number, bpm: number, quarterNotes: number): ArrayBuffer {
 }
 
 async function onsets(ppq: number, bpm: number, n: number): Promise<number[]> {
-  const codec = createMusicIo().midiCodec;
+  const codec = testMidiCodec();
   const bytes = smf(ppq, bpm, n);
   const summary = analyzeMidi(bytes, codec);
   const { score } = importMidi(bytes, defaultMidiImportOptions(summary), codec);

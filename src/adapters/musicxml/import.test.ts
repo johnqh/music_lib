@@ -1,15 +1,15 @@
+import { testXmlParser } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { importMusicXml } from './import.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { ticksFor } from '../../domain/time/ticks.js';
-import { MockXmlParser } from '@sudobility/music_io/mocks';
 
 // The mocks parser, not the web one: music_io/web imports music_lib, so
 // reaching for it here would pull this package's own published dist back in
 // through its dependency. The mocks entry depends on nothing of ours.
-const parser = new MockXmlParser();
+const parser = testXmlParser();
 
 const MINIMAL_HEADER = (
   extraPartAttrs = ''

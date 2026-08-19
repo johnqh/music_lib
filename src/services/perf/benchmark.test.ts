@@ -1,12 +1,12 @@
+import { testMidiCodec } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_BENCHMARK_SIZES,
   runBenchmark,
   toBenchmarkTable,
 } from './benchmark.js';
-import { createMusicIo } from '@sudobility/music_io/mocks';
 
-const codec = createMusicIo().midiCodec;
+const codec = testMidiCodec();
 
 // Small sizes only (per the Task 17 brief: "benchmark runs under vitest on
 // small sizes") — `DEFAULT_BENCHMARK_SIZES` (up to 20 tracks x 500 measures)

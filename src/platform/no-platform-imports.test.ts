@@ -2,12 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * Every shipped source file.
+ *
+ * `src/test/` is excluded because it is scaffolding: the build leaves it out,
+ * and it is where the test doubles live — including a real MIDI codec, which
+ * these tests need to round-trip bytes and which is the one legitimate
+ * `@tonejs/midi` import in the package. Excluding it is what let music_lib stop
+ * borrowing those doubles from `@sudobility/music_io`, a platform package it
+ * has no business depending on even for tests.
+ *
+ * The rules below still cover everything that ships, which is what they are
+ * for: keeping a *published* music_lib free of audio, MIDI and the DOM.
+ */
 function sourceFiles(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
-    if (statSync(path).isDirectory()) sourceFiles(path, found);
-    else if (path.endsWith('.ts') && !path.endsWith('.test.ts'))
+    if (statSync(path).isDirectory()) {
+      if (entry === 'test') continue;
+      sourceFiles(path, found);
+    } else if (path.endsWith('.ts') && !path.endsWith('.test.ts')) {
       found.push(path);
+    }
   }
   return found;
 }

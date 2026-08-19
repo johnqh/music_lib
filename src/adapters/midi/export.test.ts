@@ -1,3 +1,4 @@
+import { testMidiCodec } from '../../test/platform.js';
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
 import { exportMidi, safeFilename } from './export.js';
@@ -9,11 +10,10 @@ import {
   twinkleScore,
   twoTrackScore,
 } from '../../test/fixtures.js';
-import { createMusicIo } from '@sudobility/music_io/mocks';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
 // and the mocks entry -- unlike music_io/web -- does not import music_lib.
-const codec = createMusicIo().midiCodec;
+const codec = testMidiCodec();
 
 describe('exportMidi', () => {
   it('exports PPQ, tempo, and title as the MIDI header', () => {
