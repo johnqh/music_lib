@@ -14,9 +14,19 @@
  *
  * Pure canvas adapter: no store/React imports (spec §3, §37).
  */
-import { CanvasContext, Formatter, Stave, StaveConnector, MultiMeasureRest } from 'vexflow';
+import {
+  CanvasContext,
+  Formatter,
+  Stave,
+  StaveConnector,
+  MultiMeasureRest,
+} from 'vexflow';
 import type { Beam, StaveNote, Voice } from 'vexflow';
-import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
+import {
+  noteColorFor,
+  noteEmphasisFor,
+  resolveNoteColorRole,
+} from './note-color.js';
 import { trackInstrumentIcon } from '../../domain/instruments/track-instrument.js';
 import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
@@ -41,7 +51,12 @@ import type { NoteMeta } from './convert.js';
  * horizontally too: continuous mode lays every measure in ONE system, so
  * without them each frame would draw the entire score.
  */
-export type CanvasViewport = { top: number; bottom: number; left?: number; right?: number };
+export type CanvasViewport = {
+  top: number;
+  bottom: number;
+  left?: number;
+  right?: number;
+};
 
 export type CanvasRenderOptions = RenderOptions & {
   viewport: CanvasViewport;
@@ -88,7 +103,12 @@ type FrameCache = {
   idToBBox: Map<string, BBox>;
 };
 
-type BoundingBoxLike = { getX(): number; getY(): number; getW(): number; getH(): number };
+type BoundingBoxLike = {
+  getX(): number;
+  getY(): number;
+  getW(): number;
+  getH(): number;
+};
 
 /** Width kept free at the end of each measure's note area so the final glyph never crosses the barline — see the joint-format comment in `drawSystem`. */
 const BARLINE_CLEARANCE = 12;
@@ -144,7 +164,7 @@ const FALLBACK_CAP_RATIO = 0.72;
 export function trackInfoRowLayout(
   staveTopLine: number,
   capHeight: number,
-  iconSize: number,
+  iconSize: number
 ): { textBaseline: number; iconTop: number; rowCenter: number } {
   // With an alphabetic baseline the capitals rise `capHeight` above it, so
   // putting their top on the line means dropping the baseline by that much.
@@ -154,11 +174,15 @@ export function trackInfoRowLayout(
 }
 
 /** The height of a capital in the context's current font, from the canvas itself. */
-function capHeightOf(ctx: CanvasRenderingContext2D, fallbackFontSize: number): number {
+function capHeightOf(
+  ctx: CanvasRenderingContext2D,
+  fallbackFontSize: number
+): number {
   // 'H' rather than the name itself: a per-string measurement moves the row
   // whenever a track is renamed, and every instrument name starts with a capital.
   const metrics = ctx.measureText('H') as TextMetrics | undefined;
-  const ascent = metrics?.actualBoundingBoxAscent ?? metrics?.fontBoundingBoxAscent;
+  const ascent =
+    metrics?.actualBoundingBoxAscent ?? metrics?.fontBoundingBoxAscent;
   return ascent && ascent > 0 ? ascent : fallbackFontSize * FALLBACK_CAP_RATIO;
 }
 
@@ -182,14 +206,24 @@ export class CanvasScoreRenderer {
   private frame: FrameCache | null = null;
 
   private planFor(score: Score, options: CanvasRenderOptions): LayoutPlan {
-    const key = JSON.stringify([options.zoom, options.layoutMode, options.width, options.trackIds ?? null]);
-    if (this.cache && this.cache.score === score && this.cache.key === key) return this.cache.plan;
+    const key = JSON.stringify([
+      options.zoom,
+      options.layoutMode,
+      options.width,
+      options.trackIds ?? null,
+    ]);
+    if (this.cache && this.cache.score === score && this.cache.key === key)
+      return this.cache.plan;
     const plan = computeLayout(score, options);
     this.cache = { key, score, plan };
     return plan;
   }
 
-  render(score: Score, ctx: CanvasRenderingContext2D, options: CanvasRenderOptions): CanvasRenderResult {
+  render(
+    score: Score,
+    ctx: CanvasRenderingContext2D,
+    options: CanvasRenderOptions
+  ): CanvasRenderResult {
     const z = resolveZoom(options.zoom);
     const dpr = options.devicePixelRatio ?? 1;
     const plan = this.planFor(score, options);
@@ -200,14 +234,22 @@ export class CanvasScoreRenderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // `+ 0` normalizes -0 (from a zero scroll offset) to 0.
-    ctx.setTransform(z * dpr, 0, 0, z * dpr, -viewportLeft * z * dpr + 0, -options.viewport.top * z * dpr + 0);
+    ctx.setTransform(
+      z * dpr,
+      0,
+      0,
+      z * dpr,
+      -viewportLeft * z * dpr + 0,
+      -options.viewport.top * z * dpr + 0
+    );
 
     const vexCtx = new CanvasContext(ctx);
     vexCtx.setFillStyle(options.theme.foreground);
     vexCtx.setStrokeStyle(options.theme.foreground);
 
     const visibleSystems = plan.systems.filter(
-      (s) => s.yBottom >= options.viewport.top && s.yTop <= options.viewport.bottom,
+      s =>
+        s.yBottom >= options.viewport.top && s.yTop <= options.viewport.bottom
     );
 
     // Everything geometry depends on, and nothing colour does. A repaint driven
@@ -223,10 +265,11 @@ export class CanvasScoreRenderer {
       options.viewport.bottom,
       viewportLeft,
       viewportRight === Number.POSITIVE_INFINITY ? 'inf' : viewportRight,
-      visibleSystems.map((s) => s.measureIndices[0]),
+      visibleSystems.map(s => s.measureIndices[0]),
     ]);
 
-    const reusable = this.frame && this.frame.key === frameKey && this.frame.score === score;
+    const reusable =
+      this.frame && this.frame.key === frameKey && this.frame.score === score;
     /** trackId -> voiceOrdinal -> accumulated channel, across every drawn system in order (cross-system tie continuity within the window). */
     let channelsByTrack: Map<string, Map<number, Channel>>;
     let drawings: SystemDrawing[];
@@ -241,41 +284,93 @@ export class CanvasScoreRenderer {
       for (const system of visibleSystems) {
         try {
           drawings.push(
-            this.buildSystem(system, plan, score, z, channelsByTrack, viewportLeft, viewportRight),
+            this.buildSystem(
+              system,
+              plan,
+              score,
+              z,
+              channelsByTrack,
+              viewportLeft,
+              viewportRight
+            )
           );
         } catch (error) {
           // One corrupt system must not blank the rest of the sheet.
-          console.error('CanvasScoreRenderer: skipping system after draw failure', system.measureIndices, error);
+          console.error(
+            'CanvasScoreRenderer: skipping system after draw failure',
+            system.measureIndices,
+            error
+          );
         }
       }
       idToBBox = new Map<string, BBox>();
-      this.frame = { key: frameKey, score, theme: options.theme, drawings, channelsByTrack, idToBBox };
+      this.frame = {
+        key: frameKey,
+        score,
+        theme: options.theme,
+        drawings,
+        channelsByTrack,
+        idToBBox,
+      };
     }
 
     const measureIdToBBox = new Map<string, BBox>();
     const drawnMeasureIndices = new Set<number>();
+    // Which staves this frame actually put ink on. Ties are drawn after every
+    // system, so they need the whole frame's answer, not one system's.
+    const drawnStaves = new Set<Stave>();
     for (const drawing of drawings) {
-      for (const [id, box] of drawing.measureIdToBBox) measureIdToBBox.set(id, box);
-      for (const index of drawing.drawnMeasureIndices) drawnMeasureIndices.add(index);
+      for (const [id, box] of drawing.measureIdToBBox)
+        measureIdToBBox.set(id, box);
+      for (const index of drawing.drawnMeasureIndices)
+        drawnMeasureIndices.add(index);
       try {
-        this.paintSystem(drawing, plan, vexCtx, ctx, channelsByTrack, options);
+        this.paintSystem(
+          drawing,
+          plan,
+          vexCtx,
+          ctx,
+          channelsByTrack,
+          options,
+          drawnStaves
+        );
       } catch (error) {
-        console.error('CanvasScoreRenderer: skipping system after draw failure', drawing.system.measureIndices, error);
+        console.error(
+          'CanvasScoreRenderer: skipping system after draw failure',
+          drawing.system.measureIndices,
+          error
+        );
       }
     }
 
     // Ties span measures (and systems) within the drawn window; draw last, on top.
     for (const [trackId, channels] of channelsByTrack) {
-      const tieColor = this.trackColor(this.notesDimmed(trackId, options), options);
+      const tieColor = this.trackColor(
+        this.notesDimmed(trackId, options),
+        options
+      );
       for (const channel of channels.values()) {
-        try {
-          for (const tie of buildTies(channel)) {
+        // A tie takes its Y from the notes it joins, so both must have been
+        // drawn. Culling here is what the rest of the paint path already does
+        // per stave; ties were the one thing exempt, and a tie onto an
+        // off-screen stave threw `NoYValues` on every frame of a tall score.
+        const ties = buildTies(channel, note => {
+          const stave = note.getStave();
+          return !!stave && drawnStaves.has(stave);
+        });
+        // Per tie, not per channel: one bad tie used to abandon every
+        // remaining tie in the channel, so visible ties vanished too.
+        for (const tie of ties) {
+          try {
             tie.setStyle({ fillStyle: tieColor, strokeStyle: tieColor });
             tie.setContext(vexCtx);
             tie.draw();
+          } catch (error) {
+            console.error(
+              'CanvasScoreRenderer: skipping a tie after draw failure',
+              error
+            );
           }
-        } catch (error) {
-          console.error('CanvasScoreRenderer: skipping ties after draw failure', error);
         }
       }
     }
@@ -289,10 +384,12 @@ export class CanvasScoreRenderer {
         for (const channel of channels.values()) {
           for (const entry of channel) {
             this.recordEventBBox(
-              entry.note as unknown as { getBoundingBox(): BoundingBoxLike | undefined },
+              entry.note as unknown as {
+                getBoundingBox(): BoundingBoxLike | undefined;
+              },
               entry.meta,
               z,
-              idToBBox,
+              idToBBox
             );
           }
         }
@@ -305,7 +402,13 @@ export class CanvasScoreRenderer {
       this.drawTrackInfoGutter(plan, ctx, z, dpr, visibleSystems, options);
     }
 
-    return { idToBBox, measureIdToBBox, drawnMeasureIndices, plan, theme: options.theme };
+    return {
+      idToBBox,
+      measureIdToBBox,
+      drawnMeasureIndices,
+      plan,
+      theme: options.theme,
+    };
   }
 
   /**
@@ -329,7 +432,7 @@ export class CanvasScoreRenderer {
     z: number,
     dpr: number,
     visibleSystems: SystemLayout[],
-    options: CanvasRenderOptions,
+    options: CanvasRenderOptions
   ): void {
     if (plan.trackLayouts.length === 0) return;
 
@@ -338,7 +441,14 @@ export class CanvasScoreRenderer {
     const previousFont = ctx.font;
 
     // Same transform, minus the horizontal scroll: pins x, keeps y tracking.
-    ctx.setTransform(z * dpr, 0, 0, z * dpr, 0, -options.viewport.top * z * dpr + 0);
+    ctx.setTransform(
+      z * dpr,
+      0,
+      0,
+      z * dpr,
+      0,
+      -options.viewport.top * z * dpr + 0
+    );
 
     for (const system of visibleSystems) {
       const measureIndex = system.measureIndices[0];
@@ -348,14 +458,24 @@ export class CanvasScoreRenderer {
       // background matches the sheet's by construction and cannot drift from
       // it the way a theme colour could. It also occludes the content that
       // scrolled underneath, which is the other thing this needs to do.
-      ctx.clearRect(0, system.gutterTop, TRACK_INFO_WIDTH, system.yBottom - system.gutterTop);
+      ctx.clearRect(
+        0,
+        system.gutterTop,
+        TRACK_INFO_WIDTH,
+        system.yBottom - system.gutterTop
+      );
 
       for (const trackLayout of plan.trackLayouts) {
-        const placement = trackLayout.measures.find((m) => m.measureIndex === measureIndex);
+        const placement = trackLayout.measures.find(
+          m => m.measureIndex === measureIndex
+        );
         if (!placement) continue;
         const track = trackLayout.track;
-        const isActive = options.activeTrackId != null && track.id === options.activeTrackId;
-        ctx.fillStyle = isActive ? options.theme.staveActive : options.theme.staveInactive;
+        const isActive =
+          options.activeTrackId != null && track.id === options.activeTrackId;
+        ctx.fillStyle = isActive
+          ? options.theme.staveActive
+          : options.theme.staveInactive;
 
         // The instrument row is aligned to the stave's **top line** — the
         // first thing the reader's eye lands on — rather than to the top of the
@@ -368,7 +488,11 @@ export class CanvasScoreRenderer {
         // The instrument row first: its own metrics decide where everything in
         // this block sits, including the name above it.
         ctx.font = TRACK_INFO_DETAIL_FONT;
-        const row = trackInfoRowLayout(staveTopLine, capHeightOf(ctx, 15), TRACK_INFO_ICON_SIZE);
+        const row = trackInfoRowLayout(
+          staveTopLine,
+          capHeightOf(ctx, 15),
+          TRACK_INFO_ICON_SIZE
+        );
 
         // Icon then instrument name, so the glyph reads as a label for the text
         // beside it rather than decoration floating on its own. The icon is
@@ -383,18 +507,22 @@ export class CanvasScoreRenderer {
           trackInstrumentIcon(track),
           TRACK_INFO_INSET,
           row.iconTop,
-          TRACK_INFO_ICON_SIZE,
+          TRACK_INFO_ICON_SIZE
         );
         ctx.fillText(
           track.instrumentName,
           TRACK_INFO_INSET + TRACK_INFO_ICON_WIDTH,
-          row.textBaseline,
+          row.textBaseline
         );
 
         // The track name goes above that row, in the headroom VexFlow leaves
         // over the staff and draws nothing in.
         ctx.font = TRACK_INFO_NAME_FONT;
-        ctx.fillText(track.name, TRACK_INFO_INSET, staveTopLine - TRACK_INFO_NAME_GAP);
+        ctx.fillText(
+          track.name,
+          TRACK_INFO_INSET,
+          staveTopLine - TRACK_INFO_NAME_GAP
+        );
 
         // Mute/solo are the only state here that changes what you hear, so they
         // are worth showing without making the track active first.
@@ -426,7 +554,7 @@ export class CanvasScoreRenderer {
     note: StaveNote,
     meta: NoteMeta,
     dimmed: boolean,
-    options: CanvasRenderOptions,
+    options: CanvasRenderOptions
   ): void {
     const role = resolveNoteColorRole(meta.eventIds, options.noteColors);
     const color = noteColorFor(role, options.theme, !dimmed);
@@ -441,7 +569,10 @@ export class CanvasScoreRenderer {
    * Whether `trackId` is *the* active track. With no active track set, nothing
    * is active, so every stave draws in `staveInactive` — the neutral state.
    */
-  private isActiveTrack(trackId: string, options: CanvasRenderOptions): boolean {
+  private isActiveTrack(
+    trackId: string,
+    options: CanvasRenderOptions
+  ): boolean {
     return options.activeTrackId != null && trackId === options.activeTrackId;
   }
 
@@ -467,12 +598,18 @@ export class CanvasScoreRenderer {
     note: { getBoundingBox(): BoundingBoxLike | undefined },
     meta: NoteMeta,
     z: number,
-    idToBBox: Map<string, BBox>,
+    idToBBox: Map<string, BBox>
   ): void {
     let box: BBox | null = null;
     try {
       const bb = note.getBoundingBox();
-      if (bb) box = { x: bb.getX() * z, y: bb.getY() * z, width: bb.getW() * z, height: bb.getH() * z };
+      if (bb)
+        box = {
+          x: bb.getX() * z,
+          y: bb.getY() * z,
+          width: bb.getW() * z,
+          height: bb.getH() * z,
+        };
     } catch {
       box = null; // a missing bbox only disables clicking this glyph
     }
@@ -493,7 +630,7 @@ export class CanvasScoreRenderer {
     system: SystemLayout,
     plan: LayoutPlan,
     left: number,
-    right: number,
+    right: number
   ): number[] {
     const indices = system.measureIndices;
     const measures = plan.trackLayouts[0]?.measures;
@@ -544,7 +681,7 @@ export class CanvasScoreRenderer {
     z: number,
     channelsByTrack: Map<string, Map<number, Channel>>,
     viewportLeft: number,
-    viewportRight: number,
+    viewportRight: number
   ): SystemDrawing {
     const staves: Array<{ stave: Stave; trackId: string }> = [];
     const measureIdToBBox = new Map<string, BBox>();
@@ -563,7 +700,12 @@ export class CanvasScoreRenderer {
     // Formatting each track's measure independently — the old structure —
     // let a dense track distribute its notes on its own timeline, visually
     // desynchronized from the other tracks' staves.
-    const windowIndices = this.visibleMeasureIndices(system, plan, viewportLeft, viewportRight);
+    const windowIndices = this.visibleMeasureIndices(
+      system,
+      plan,
+      viewportLeft,
+      viewportRight
+    );
 
     for (const measureIndex of windowIndices) {
       const measureStaves: Stave[] = [];
@@ -583,7 +725,7 @@ export class CanvasScoreRenderer {
           prevMeasure,
           score.ppq,
           channels,
-          allMetas,
+          allMetas
         );
         // Formatting only. Which colour this stave draws in depends on the
         // active track, which is a paint-time decision — keeping it out of here
@@ -596,10 +738,11 @@ export class CanvasScoreRenderer {
           multiMeasureRest.setStave(stave);
           restsToDraw.push(multiMeasureRest);
         }
-        if (measureIndex === system.measureIndices[0]) firstStaveByTrack.set(trackIndex, stave);
+        if (measureIndex === system.measureIndices[0])
+          firstStaveByTrack.set(trackIndex, stave);
 
         if (voices.length > 0) {
-          voices.forEach((v) => v.setStave(stave));
+          voices.forEach(v => v.setStave(stave));
           voiceGroups.push(voices);
         }
 
@@ -624,8 +767,9 @@ export class CanvasScoreRenderer {
         for (const group of voiceGroups) formatter.joinVoices(group);
         const justifyWidth = Math.max(
           20,
-          Math.min(...measureStaves.map((s) => s.getNoteEndX() - s.getNoteStartX())) -
-            BARLINE_CLEARANCE,
+          Math.min(
+            ...measureStaves.map(s => s.getNoteEndX() - s.getNoteStartX())
+          ) - BARLINE_CLEARANCE
         );
         formatter.format(voiceGroups.flat(), justifyWidth);
         voicesToDraw.push(...voiceGroups.flat());
@@ -660,9 +804,18 @@ export class CanvasScoreRenderer {
     ctx: CanvasRenderingContext2D,
     channelsByTrack: Map<string, Map<number, Channel>>,
     options: CanvasRenderOptions,
+    /** Collects the staves this system actually drew, for the frame's ties. */
+    drawnStaves: Set<Stave>
   ): void {
-    const { system, windowIndices, staves, voicesToDraw, beamsToDraw, restsToDraw, firstStaveByTrack } =
-      drawing;
+    const {
+      system,
+      windowIndices,
+      staves,
+      voicesToDraw,
+      beamsToDraw,
+      restsToDraw,
+      firstStaveByTrack,
+    } = drawing;
     this.paintSelectedMeasures(system, plan, ctx, windowIndices, options);
 
     // Which staves are actually on screen.
@@ -710,6 +863,7 @@ export class CanvasScoreRenderer {
     staves.forEach(({ stave, trackId }) => {
       if (!onScreen(stave)) return;
       visibleStaves.add(stave);
+      drawnStaves.add(stave);
       const dimmed = this.notesDimmed(trackId, options);
       stave.setStyle({
         strokeStyle: this.isActiveTrack(trackId, options)
@@ -719,14 +873,16 @@ export class CanvasScoreRenderer {
       // Re-bound every frame: a cached stave holds the previous frame's
       // context, and `CanvasContext` is rebuilt per render.
       stave.setContext(vexCtx);
-      const color = dimmed ? options.theme.noteInactive : options.theme.foreground;
+      const color = dimmed
+        ? options.theme.noteInactive
+        : options.theme.foreground;
       vexCtx.setFillStyle(color);
       vexCtx.setStrokeStyle(color);
       stave.draw();
     });
     vexCtx.setFillStyle(options.theme.foreground);
     vexCtx.setStrokeStyle(options.theme.foreground);
-    voicesToDraw.forEach((v) => {
+    voicesToDraw.forEach(v => {
       const stave = v.getStave();
       if (stave && !visibleStaves.has(stave)) return;
       v.draw(vexCtx);
@@ -741,7 +897,10 @@ export class CanvasScoreRenderer {
     beamsToDraw.forEach(({ beam, trackId }) => {
       const stave = beam.getNotes()[0]?.getStave();
       if (stave && !visibleStaves.has(stave)) return;
-      const color = this.trackColor(this.notesDimmed(trackId, options), options);
+      const color = this.trackColor(
+        this.notesDimmed(trackId, options),
+        options
+      );
       beam.setStyle({ fillStyle: color, strokeStyle: color });
       beam.setContext(vexCtx);
       beam.draw();
@@ -750,7 +909,17 @@ export class CanvasScoreRenderer {
     if (plan.tracks.length > 1) {
       const topStave = firstStaveByTrack.get(0);
       const bottomStave = firstStaveByTrack.get(plan.tracks.length - 1);
-      if (topStave && bottomStave && topStave !== bottomStave) {
+      // Culled like everything else. Without this the brace was drawn even
+      // when both of the staves it joins were scrolled off — on a tall score
+      // it stretched thousands of pixels and the slice inside the viewport
+      // read as a stray vertical mark in the corner rather than as notation.
+      if (
+        topStave &&
+        bottomStave &&
+        topStave !== bottomStave &&
+        visibleStaves.has(topStave) &&
+        visibleStaves.has(bottomStave)
+      ) {
         const connector = new StaveConnector(topStave, bottomStave);
         connector.setType('brace');
         connector.setContext(vexCtx);
@@ -780,7 +949,7 @@ export class CanvasScoreRenderer {
     plan: LayoutPlan,
     ctx: CanvasRenderingContext2D,
     windowIndices: number[],
-    options: CanvasRenderOptions,
+    options: CanvasRenderOptions
   ): void {
     const selected = options.selectedMeasureIds;
     if (!selected || selected.size === 0) return;
@@ -796,13 +965,18 @@ export class CanvasScoreRenderer {
     for (const measureIndex of windowIndices) {
       const measure = track.measures[measureIndex];
       if (!measure || !selected.has(measure.id)) continue;
-      const box = measures.find((m) => m.measureIndex === measureIndex)?.box;
+      const box = measures.find(m => m.measureIndex === measureIndex)?.box;
       if (!box) continue;
       // From the number band down to the foot of the last stave, so the tint
       // takes in the measure number as well as every track's bar. Full width
       // and flush with the next bar, so a multi-measure selection is one block
       // rather than a row of stripes.
-      ctx.fillRect(box.x, system.gutterTop, box.width, system.yBottom - system.gutterTop);
+      ctx.fillRect(
+        box.x,
+        system.gutterTop,
+        box.width,
+        system.yBottom - system.gutterTop
+      );
     }
 
     ctx.globalAlpha = previousAlpha;
@@ -829,7 +1003,7 @@ export class CanvasScoreRenderer {
     plan: LayoutPlan,
     ctx: CanvasRenderingContext2D,
     windowIndices: number[],
-    options: CanvasRenderOptions,
+    options: CanvasRenderOptions
   ): void {
     const measures = plan.trackLayouts[0]?.measures;
     const track = plan.tracks[0];
@@ -837,20 +1011,27 @@ export class CanvasScoreRenderer {
 
     const previousFill = ctx.fillStyle;
     const previousFont = ctx.font;
-    const baselineY = system.gutterTop + MEASURE_HEADER_HEIGHT - GUTTER_TEXT_BASELINE_INSET;
+    const baselineY =
+      system.gutterTop + MEASURE_HEADER_HEIGHT - GUTTER_TEXT_BASELINE_INSET;
 
     for (const measureIndex of windowIndices) {
-      const placement = measures.find((m) => m.measureIndex === measureIndex);
+      const placement = measures.find(m => m.measureIndex === measureIndex);
       const measure = track.measures[measureIndex];
       if (!placement || !measure) continue;
       const box = placement.box;
 
       const selected = options.selectedMeasureIds?.has(measure.id) ?? false;
 
-      ctx.fillStyle = selected ? options.theme.noteSelected : options.theme.foreground;
+      ctx.fillStyle = selected
+        ? options.theme.noteSelected
+        : options.theme.foreground;
       ctx.font = selected ? GUTTER_FONT_SELECTED : GUTTER_FONT;
       // `measure.index` is 0-based; measure numbers are 1-based.
-      ctx.fillText(String(measure.index + 1), box.x + GUTTER_TEXT_INSET, baselineY);
+      ctx.fillText(
+        String(measure.index + 1),
+        box.x + GUTTER_TEXT_INSET,
+        baselineY
+      );
     }
 
     ctx.fillStyle = previousFill;

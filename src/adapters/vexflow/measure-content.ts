@@ -20,8 +20,18 @@ import {
 } from 'vexflow';
 import type { StaveNote, StemmableNote } from 'vexflow';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { KeySignature, Measure, MusicalEvent, TimeSignature, Track } from '@sudobility/music_types';
-import { buildVoiceContent, keySignatureToVexSpec, pitchToVexKey } from './convert.js';
+import type {
+  KeySignature,
+  Measure,
+  MusicalEvent,
+  TimeSignature,
+  Track,
+} from '@sudobility/music_types';
+import {
+  buildVoiceContent,
+  keySignatureToVexSpec,
+  pitchToVexKey,
+} from './convert.js';
 import { displayGroups, drumDisplayGroups } from './display-timing.js';
 import { isFootDrum } from './percussion.js';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
@@ -61,7 +71,10 @@ export type Channel = Array<{ note: StaveNote; meta: NoteMeta }>;
  */
 function beamsFor(tickables: StemmableNote[], stemDirection?: number): Beam[] {
   if (stemDirection === undefined) return Beam.generateBeams(tickables);
-  return Beam.generateBeams(tickables, { flat_beams: true, stem_direction: stemDirection });
+  return Beam.generateBeams(tickables, {
+    flat_beams: true,
+    stem_direction: stemDirection,
+  });
 }
 
 /**
@@ -71,12 +84,16 @@ function beamsFor(tickables: StemmableNote[], stemDirection?: number): Beam[] {
  * split exists so the two can be stemmed in opposite directions — the reason
  * drum charts are readable at a glance.
  */
-function splitHandsAndFeet(events: MusicalEvent[]): { hands: MusicalEvent[]; feet: MusicalEvent[] } {
+function splitHandsAndFeet(events: MusicalEvent[]): {
+  hands: MusicalEvent[];
+  feet: MusicalEvent[];
+} {
   const hands: MusicalEvent[] = [];
   const feet: MusicalEvent[] = [];
   for (const event of events) {
     // Rests belong to the hands: a bar of silence should show one rest, not two.
-    if (isNoteEvent(event) && isFootDrum(pitchToMidi(event.pitch))) feet.push(event);
+    if (isNoteEvent(event) && isFootDrum(pitchToMidi(event.pitch)))
+      feet.push(event);
     else hands.push(event);
   }
   return { hands, feet };
@@ -90,8 +107,13 @@ export function buildMeasureContent(
   prevMeasure: Measure | undefined,
   ppq: number,
   channels: Map<number, Channel>,
-  allMetas: NoteMeta[],
-): { stave: Stave; voices: Voice[]; beams: Beam[]; multiMeasureRest?: MultiMeasureRest } {
+  allMetas: NoteMeta[]
+): {
+  stave: Stave;
+  voices: Voice[];
+  beams: Beam[];
+  multiMeasureRest?: MultiMeasureRest;
+} {
   const { box, isFirstInSystem } = placement;
   // A percussion track's notes name drums, not pitches, which changes both
   // where they sit and whether an accidental could ever apply to them.
@@ -107,12 +129,19 @@ export function buildMeasureContent(
   // notes no accidental can apply to.
   if (
     !isPercussion &&
-    (isFirstInSystem || !prevMeasure || !sameKeySignature(prevMeasure.keySignature, measure.keySignature))
+    (isFirstInSystem ||
+      !prevMeasure ||
+      !sameKeySignature(prevMeasure.keySignature, measure.keySignature))
   ) {
     stave.addKeySignature(keySignatureToVexSpec(measure.keySignature));
   }
-  if (!prevMeasure || !sameTimeSignature(prevMeasure.timeSignature, measure.timeSignature)) {
-    stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`);
+  if (
+    !prevMeasure ||
+    !sameTimeSignature(prevMeasure.timeSignature, measure.timeSignature)
+  ) {
+    stave.addTimeSignature(
+      `${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`
+    );
   }
 
   // Boxed, because a bare letter beside a dynamic or a tempo marking is easy
@@ -156,7 +185,9 @@ export function buildMeasureContent(
     // enough not to crowd the measure number sitting just above it.
     // `setText` returns the stave, not the modifier, so the StaveText has to
     // be fetched back off the stave to restyle it.
-    const staveTexts = stave.getModifiers().filter((m) => m.getCategory() === 'StaveText');
+    const staveTexts = stave
+      .getModifiers()
+      .filter(m => m.getCategory() === 'StaveText');
     staveTexts[staveTexts.length - 1]?.setFont({
       family: 'serif',
       size: CUE_LABEL_FONT_SIZE,
@@ -165,10 +196,15 @@ export function buildMeasureContent(
     });
 
     const { tickables, notes } = buildVoiceContent(
-      displayGroups(measure.cue.events, measure.startTick, measure.durationTicks, ppq),
+      displayGroups(
+        measure.cue.events,
+        measure.startTick,
+        measure.durationTicks,
+        ppq
+      ),
       ppq,
       CUE_GLYPH_SCALE,
-      isPercussion,
+      isPercussion
     );
     if (notes.length === 0) return { stave, voices: [], beams: [] };
 
@@ -178,26 +214,44 @@ export function buildMeasureContent(
     });
     cueVoice.setMode(Voice.Mode.SOFT);
     cueVoice.addTickables(tickables);
-    if (!isPercussion) Accidental.applyAccidentals([cueVoice], keySignatureToVexSpec(measure.keySignature));
+    if (!isPercussion)
+      Accidental.applyAccidentals(
+        [cueVoice],
+        keySignatureToVexSpec(measure.keySignature)
+      );
 
-    return { stave, voices: [cueVoice], beams: beamsFor(tickables, isPercussion ? Stem.UP : undefined) };
+    return {
+      stave,
+      voices: [cueVoice],
+      beams: beamsFor(tickables, isPercussion ? Stem.UP : undefined),
+    };
   }
 
   const voices: Voice[] = [];
   const beams: Beam[] = [];
 
   /** Builds one VexFlow voice, recording its notes under `voiceOrdinal` for ties. */
-  const addVoice = (events: MusicalEvent[], voiceOrdinal: number, stemDirection?: number): void => {
+  const addVoice = (
+    events: MusicalEvent[],
+    voiceOrdinal: number,
+    stemDirection?: number
+  ): void => {
     const { tickables, notes, metas } = buildVoiceContent(
       isPercussion
-        ? drumDisplayGroups(events, measure.startTick, measure.durationTicks, ppq)
+        ? drumDisplayGroups(
+            events,
+            measure.startTick,
+            measure.durationTicks,
+            ppq
+          )
         : displayGroups(events, measure.startTick, measure.durationTicks, ppq),
       ppq,
       undefined,
-      isPercussion,
+      isPercussion
     );
     if (notes.length === 0) return;
-    if (stemDirection !== undefined) for (const note of notes) note.setStemDirection(stemDirection);
+    if (stemDirection !== undefined)
+      for (const note of notes) note.setStemDirection(stemDirection);
 
     const vexVoice = new Voice({
       num_beats: measure.timeSignature.numerator,
@@ -239,7 +293,11 @@ export function buildMeasureContent(
   // an in-key F# in G major), reading each note's spelling straight out of
   // the `keys` string `convert.ts` already built.
   if (voices.length > 0) {
-    if (!isPercussion) Accidental.applyAccidentals(voices, keySignatureToVexSpec(measure.keySignature));
+    if (!isPercussion)
+      Accidental.applyAccidentals(
+        voices,
+        keySignatureToVexSpec(measure.keySignature)
+      );
   }
 
   return { stave, voices, beams };
@@ -257,12 +315,26 @@ export function buildMeasureContent(
  * reason: a same-tick note sharing a channel by coincidence must not be
  * spliced in).
  */
-export function buildTies(channel: Channel): StaveTie[] {
+export function buildTies(
+  channel: Channel,
+  /**
+   * Whether a note was actually drawn this frame.
+   *
+   * A tie is positioned from its two notes' Y values, which only exist once
+   * the note has been drawn — so a tie to a note on a culled (off-screen)
+   * stave throws `NoYValues` inside VexFlow. Filtering here rather than
+   * catching there is what keeps one such pair from taking the rest of the
+   * channel's ties with it.
+   */
+  isDrawn: (note: StaveNote) => boolean = () => true
+): StaveTie[] {
   const ties: StaveTie[] = [];
   for (let i = 0; i < channel.length - 1; i += 1) {
     const a = channel[i];
     const b = channel[i + 1];
-    if (a.meta.isRest || b.meta.isRest || !a.meta.tieStart || !b.meta.tieStop) continue;
+    if (a.meta.isRest || b.meta.isRest || !a.meta.tieStart || !b.meta.tieStop)
+      continue;
+    if (!isDrawn(a.note) || !isDrawn(b.note)) continue;
 
     const firstIndices: number[] = [];
     const lastIndices: number[] = [];
@@ -271,7 +343,10 @@ export function buildTies(channel: Channel): StaveTie[] {
       if (!aKey.tieStart) return;
       const aSpelling = pitchToVexKey(aKey.pitch);
       const bIndex = b.meta.keyTies.findIndex(
-        (bKey, idx) => !usedB.has(idx) && bKey.tieStop && pitchToVexKey(bKey.pitch) === aSpelling,
+        (bKey, idx) =>
+          !usedB.has(idx) &&
+          bKey.tieStop &&
+          pitchToVexKey(bKey.pitch) === aSpelling
       );
       if (bIndex === -1) return;
       usedB.add(bIndex);
@@ -280,7 +355,14 @@ export function buildTies(channel: Channel): StaveTie[] {
     });
 
     if (firstIndices.length === 0) continue;
-    ties.push(new StaveTie({ first_note: a.note, last_note: b.note, first_indices: firstIndices, last_indices: lastIndices }));
+    ties.push(
+      new StaveTie({
+        first_note: a.note,
+        last_note: b.note,
+        first_indices: firstIndices,
+        last_indices: lastIndices,
+      })
+    );
   }
   return ties;
 }
