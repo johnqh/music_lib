@@ -7,13 +7,20 @@
  * is decided here, where it can be tested without a browser.
  */
 import { TempoMap } from '../../domain/time/tempo-map.js';
-import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import { resolveVoice } from '../playback/plan.js';
 import type { Score } from '@sudobility/music_types';
 
-import type { RenderEvent, RenderPlan, RenderTrack } from '@sudobility/music_types';
-export type { RenderEvent, RenderPlan, RenderTrack } from '@sudobility/music_types';
+import type {
+  RenderEvent,
+  RenderPlan,
+  RenderTrack,
+} from '@sudobility/music_types';
+export type {
+  RenderEvent,
+  RenderPlan,
+  RenderTrack,
+} from '@sudobility/music_types';
 
 /** Release tail, so the last note is not cut off mid-decay. */
 const TAIL_SEC = 1;
@@ -33,16 +40,24 @@ const TAIL_SEC = 1;
  * left for the renderer to resolve from `midiProgram`/`instrumentName`: both
  * are the signals live playback uses, and the export sounding different from
  * the thing it is an export *of* is the bug being fixed here.
+ *
+ * That parity is now structural: the notes come from `flattenScoreNotes`, the
+ * same traversal `playbackPlan` uses. Walking the score separately is what let
+ * the two drift over ties.
  */
 export function renderEvents(score: Score): RenderPlan {
   const tempoMap = new TempoMap(score.tempoMap, score.ppq);
-  const anySolo = score.tracks.some((t) => t.solo);
+  const anySolo = score.tracks.some(t => t.solo);
 
-  const tracks: RenderTrack[] = score.tracks.map((track) => {
+  const tracks: RenderTrack[] = score.tracks.map(track => {
     const isPercussion = track.clef === 'percussion';
     // The renderer picks its sample pack from this, and a percussion track's
     // midiProgram addresses a kit rather than an instrument.
-    const voice = resolveVoice(track.midiProgram, isPercussion, track.instrumentName);
+    const voice = resolveVoice(
+      track.midiProgram,
+      isPercussion,
+      track.instrumentName
+    );
     return {
       id: track.id,
       midiProgram: track.midiProgram,
@@ -55,30 +70,31 @@ export function renderEvents(score: Score): RenderPlan {
     };
   });
 
+  // The same traversal live playback uses, so ties are joined here too. They
+  // were not, and a tie re-articulated in the exported file while sustaining
+  // on screen — measured: one note of 960 ticks live, two of 0.5s offline.
+  const silenced = new Set(
+    score.tracks.filter(t => (anySolo ? !t.solo : t.muted)).map(t => t.id)
+  );
   const events: RenderEvent[] = [];
-  for (const track of score.tracks) {
-    if (anySolo ? !track.solo : track.muted) continue;
-
-    for (const measure of track.measures) {
-      for (const voice of measure.voices) {
-        for (const event of voice.events) {
-          if (!isNoteEvent(event)) continue;
-          const startSec = tempoMap.ticksToSeconds(event.startTick);
-          const endSec = tempoMap.ticksToSeconds(event.startTick + event.durationTicks);
-          events.push({
-            trackId: track.id,
-            midi: pitchToMidi(event.pitch),
-            startSec,
-            // Never zero: a rounding error should not silence a note.
-            durationSec: Math.max(0.01, endSec - startSec),
-            velocity: event.velocity / 127,
-          });
-        }
-      }
-    }
+  for (const note of flattenScoreNotes(score)) {
+    if (silenced.has(note.trackId)) continue;
+    const startSec = tempoMap.ticksToSeconds(note.tick);
+    const endSec = tempoMap.ticksToSeconds(note.tick + note.durTicks);
+    events.push({
+      trackId: note.trackId,
+      midi: note.midi,
+      startSec,
+      // Never zero: a rounding error should not silence a note.
+      durationSec: Math.max(0.01, endSec - startSec),
+      velocity: note.velocity / 127,
+    });
   }
 
   events.sort((a, b) => a.startSec - b.startSec);
-  const lastEnd = events.reduce((max, e) => Math.max(max, e.startSec + e.durationSec), 0);
+  const lastEnd = events.reduce(
+    (max, e) => Math.max(max, e.startSec + e.durationSec),
+    0
+  );
   return { tracks, events, durationSec: lastEnd + TAIL_SEC };
 }

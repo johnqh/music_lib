@@ -7,36 +7,23 @@
  * conversion. The engine schedules and sounds; it decides nothing.
  *
  * This is `schedule.ts` from music_io, moved to where its imports already
- * lived. `trackVoiceChannels` comes across as it stands: `ties.ts` exports a
- * `voiceChannel`, but that one takes a single voice ordinal and returns
- * measure-annotated notes for tie-partner lookup, where this needs every
- * ordinal at once with rests included — which is what `joinTiedNotes` eats.
+ * lived. The note traversal itself is `flattenScoreNotes`, shared with
+ * `renderEvents` so live and offline cannot drift over ties again.
  */
-import { isNoteEvent } from '@sudobility/music_types';
 import type {
   AuditionVoice,
   MetronomeClick,
-  MusicalEvent,
-  PlaybackNote,
   PlaybackPlan,
   PlaybackTrack,
   Score,
-  Track,
 } from '@sudobility/music_types';
 import { TempoMap } from '../../domain/time/tempo-map.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { joinTiedNotes } from '../../domain/score/ties.js';
+import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import { beatBoundaries } from '../../domain/time/ticks.js';
 import { gmInstrument } from '../../domain/instruments/gm.js';
 import { gmKitAt } from '../../domain/instruments/gm-kit.js';
 import { isPercussionTrack } from '../../domain/instruments/track-instrument.js';
 
-/**
- * The tracks alone.
- *
- * Separate from `playbackPlan` because a mix change while playing must not
- * rebuild every note — `PlaybackEngine.applyMix` takes only this.
- */
 /**
  * The GM voice a program addresses.
  *
@@ -47,7 +34,11 @@ import { isPercussionTrack } from '../../domain/instruments/track-instrument.js'
  * name must be the kit's, because `gmInstrument(40)` is Violin where kit 40 is
  * Brush.
  */
-export function resolveVoice(program: number, isPercussion: boolean, fallbackName = ''): AuditionVoice {
+export function resolveVoice(
+  program: number,
+  isPercussion: boolean,
+  fallbackName = ''
+): AuditionVoice {
   if (isPercussion) {
     const kit = gmKitAt(program);
     return { program: kit.program, name: kit.name, isPercussion: true };
@@ -59,10 +50,20 @@ export function resolveVoice(program: number, isPercussion: boolean, fallbackNam
   };
 }
 
+/**
+ * The tracks alone.
+ *
+ * Separate from `playbackPlan` because a mix change while playing must not
+ * rebuild every note — `PlaybackEngine.applyMix` takes only this.
+ */
 export function playbackTracks(score: Score): PlaybackTrack[] {
-  return score.tracks.map((track) => {
+  return score.tracks.map(track => {
     const percussion = isPercussionTrack(track);
-    const voice = resolveVoice(track.midiProgram, percussion, track.instrumentName);
+    const voice = resolveVoice(
+      track.midiProgram,
+      percussion,
+      track.instrumentName
+    );
     return {
       id: track.id,
       midiProgram: track.midiProgram,
@@ -76,46 +77,6 @@ export function playbackTracks(score: Score): PlaybackTrack[] {
       voiceName: voice.name,
     };
   });
-}
-
-/**
- * Every voice-ordinal channel of a track: across all measures in tick order,
- * the events at that ordinal position. Voice ids are not stable across a
- * barline, so the ordinal stands in for "the same voice" from bar to bar.
- */
-function trackVoiceChannels(track: Track): MusicalEvent[][] {
-  const maxVoices = track.measures.reduce((max, m) => Math.max(max, m.voices.length), 0);
-  const channels: MusicalEvent[][] = [];
-  for (let voiceIndex = 0; voiceIndex < maxVoices; voiceIndex += 1) {
-    const channel: MusicalEvent[] = [];
-    for (const measure of track.measures) {
-      const voice = measure.voices[voiceIndex];
-      if (voice) channel.push(...voice.events);
-    }
-    channel.sort((a, b) => a.startTick - b.startTick);
-    channels.push(channel);
-  }
-  return channels;
-}
-
-function playbackNotes(score: Score): PlaybackNote[] {
-  const notes: PlaybackNote[] = [];
-  for (const track of score.tracks) {
-    for (const channel of trackVoiceChannels(track)) {
-      for (const event of joinTiedNotes(channel)) {
-        if (!isNoteEvent(event)) continue;
-        notes.push({
-          tick: event.startTick,
-          durTicks: event.durationTicks,
-          midi: pitchToMidi(event.pitch),
-          velocity: event.velocity,
-          trackId: track.id,
-          noteId: event.id,
-        });
-      }
-    }
-  }
-  return notes.sort((a, b) => a.tick - b.tick);
 }
 
 /**
@@ -135,13 +96,16 @@ function metronomeClicks(score: Score): MetronomeClick[] {
 }
 
 export function playbackPlan(score: Score): PlaybackPlan {
-  const notes = playbackNotes(score);
+  const notes = flattenScoreNotes(score);
   return {
     tracks: playbackTracks(score),
     notes,
     clicks: metronomeClicks(score),
     // `TempoMap` satisfies `TempoConversion` structurally, so nothing converts twice.
     tempo: new TempoMap(score.tempoMap, score.ppq),
-    durationTicks: notes.reduce((n, note) => Math.max(n, note.tick + note.durTicks), 0),
+    durationTicks: notes.reduce(
+      (n, note) => Math.max(n, note.tick + note.durTicks),
+      0
+    ),
   };
 }
