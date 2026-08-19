@@ -14,15 +14,15 @@
  * avoid. One store is created for the running app (`useAppStore.ts`), so
  * in practice this is still "the one history manager" spec §37.7 asks for.
  */
-import { HistoryManager } from "../../domain/commands/history.js";
-import type { ScoreCommand } from "../../domain/commands/types.js";
-import type { TransportState } from "./playback-slice.js";
-import type { Score } from "@sudobility/music_types";
-import { scoreWithResolvedKits } from "../../domain/instruments/track-instrument.js";
-import { validateScore } from "../../domain/validation/validator.js";
-import type { ValidationIssue } from "../../domain/validation/issues.js";
-import type { StateCreator } from "zustand";
-import type { AppState } from "../useAppStore.js";
+import { HistoryManager } from '../../domain/commands/history.js';
+import type { ScoreCommand } from '../../domain/commands/types.js';
+import type { TransportState } from './playback-slice.js';
+import type { Score } from '@sudobility/music_types';
+import { scoreWithResolvedKits } from '../../domain/instruments/track-instrument.js';
+import { validateScore } from '../../domain/validation/validator.js';
+import type { ValidationIssue } from '../../domain/validation/issues.js';
+import type { StateCreator } from 'zustand';
+import type { AppState } from '../useAppStore.js';
 
 export type SetScoreOptions = {
   /** Defaults to `true`: loading/replacing the whole score (open project, accept a fresh AI generation, import) starts a clean undo/redo stack. Pass `false` only when the caller has its own reason to keep history spanning the swap. */
@@ -59,13 +59,16 @@ export type ScoreSlice = {
  * have happened. Loosening the rule here without revisiting that will silently
  * play stale music.
  */
-function commandAllowed(cmd: ScoreCommand, playbackState: TransportState): boolean {
-  return playbackState !== "playing" || cmd.kind === "mix";
+function commandAllowed(
+  cmd: ScoreCommand,
+  playbackState: TransportState
+): boolean {
+  return playbackState !== 'playing' || cmd.kind === 'mix';
 }
 
 export const createScoreSlice: StateCreator<
   AppState,
-  [["zustand/immer", never]],
+  [['zustand/immer', never]],
   [],
   ScoreSlice
 > = (set, get) => {
@@ -91,12 +94,12 @@ export const createScoreSlice: StateCreator<
     undoLabel: null,
     redoLabel: null,
 
-    dispatchCommand: (cmd) => {
+    dispatchCommand: cmd => {
       const { score, state } = get();
       if (!score) return;
       if (!commandAllowed(cmd, state)) return;
       const next = historyManager.execute(cmd, score);
-      set((state) => {
+      set(state => {
         state.score = next;
         state.validationIssues = validateScore(next);
         syncHistoryMirrors(state);
@@ -108,10 +111,11 @@ export const createScoreSlice: StateCreator<
       const score = get().score;
       // Undo is always content: it reverses whatever was done, and while
       // playing nothing that needs reversing can have happened.
-      if (!score || get().state === "playing" || !historyManager.canUndo) return;
+      if (!score || get().state === 'playing' || !historyManager.canUndo)
+        return;
       const previous = historyManager.undo(score);
       if (previous === null) return;
-      set((state) => {
+      set(state => {
         state.score = previous;
         state.validationIssues = validateScore(previous);
         syncHistoryMirrors(state);
@@ -121,10 +125,11 @@ export const createScoreSlice: StateCreator<
 
     redo: () => {
       const score = get().score;
-      if (!score || get().state === "playing" || !historyManager.canRedo) return;
+      if (!score || get().state === 'playing' || !historyManager.canRedo)
+        return;
       const next = historyManager.redo(score);
       if (next === null) return;
-      set((state) => {
+      set(state => {
         state.score = next;
         state.validationIssues = validateScore(next);
         syncHistoryMirrors(state);
@@ -142,7 +147,7 @@ export const createScoreSlice: StateCreator<
       // the user did not make; the correction persists with their next one.
       // Identity is preserved when there is nothing to correct.
       const resolved = scoreWithResolvedKits(score);
-      set((state) => {
+      set(state => {
         state.score = resolved;
         state.validationIssues = validateScore(resolved);
         state.caretTick = 0;

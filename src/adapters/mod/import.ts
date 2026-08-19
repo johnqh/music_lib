@@ -21,13 +21,23 @@ import { midiToPitch } from '../../domain/pitch/pitch.js';
 import { effectiveBpm, tempoChanges } from './timing.js';
 import { fillVoiceWithRests } from './fill.js';
 import type { TrackerCell, TrackerModule } from './types.js';
-import type { NoteEvent, Score, TempoEvent, Voice } from '@sudobility/music_types';
+import type {
+  NoteEvent,
+  Score,
+  TempoEvent,
+  Voice,
+} from '@sudobility/music_types';
 
 /** A tracker row is a sixteenth: four to the beat. */
 const ROWS_PER_BEAT = 4;
 const BEATS_PER_MEASURE = 4;
 
-type Placed = { instrument: number; startRow: number; endRow: number; midi: number };
+type Placed = {
+  instrument: number;
+  startRow: number;
+  endRow: number;
+  midi: number;
+};
 
 /**
  * Rows in playback order, honouring `patternBreak`.
@@ -43,7 +53,7 @@ export function flattenRows(module: TrackerModule): TrackerCell[][] {
     if (!pattern) continue;
     for (const row of pattern) {
       flat.push(row);
-      if (row.some((cell) => cell.patternBreak)) break;
+      if (row.some(cell => cell.patternBreak)) break;
     }
   }
   return flat;
@@ -90,7 +100,7 @@ function placeNotes(module: TrackerModule): Placed[] {
 function tempoMapOf(module: TrackerModule, ticksPerRow: number): TempoEvent[] {
   // Given the *flattened* sequence, not one pattern: a change in a later
   // pattern would otherwise be invisible.
-  return tempoChanges(flattenRows(module)).map((change) => ({
+  return tempoChanges(flattenRows(module)).map(change => ({
     id: createId(),
     tick: change.row * ticksPerRow,
     bpm: change.bpm,
@@ -104,37 +114,53 @@ export function trackerToScore(module: TrackerModule): Score {
   // is stable rather than dependent on the instrument bank's layout.
   const usedInstruments: number[] = [];
   for (const note of placed) {
-    if (!usedInstruments.includes(note.instrument)) usedInstruments.push(note.instrument);
+    if (!usedInstruments.includes(note.instrument))
+      usedInstruments.push(note.instrument);
   }
 
   const nameOf = (instrument: number): string => {
-    const found = module.instruments.find((s) => s.index === instrument);
-    return found && found.name.length > 0 ? found.name : `Instrument ${instrument}`;
+    const found = module.instruments.find(s => s.index === instrument);
+    return found && found.name.length > 0
+      ? found.name
+      : `Instrument ${instrument}`;
   };
 
   // Counted from the flattened rows, so a pattern break shortens the score
   // rather than leaving empty bars at the end.
   const totalRows = Math.max(1, flattenRows(module).length);
-  const measures = Math.max(1, Math.ceil(totalRows / (ROWS_PER_BEAT * BEATS_PER_MEASURE)));
+  const measures = Math.max(
+    1,
+    Math.ceil(totalRows / (ROWS_PER_BEAT * BEATS_PER_MEASURE))
+  );
 
   const base = createEmptyScore({
     title: module.title.length > 0 ? module.title : 'Module',
     measures,
     tracks:
       usedInstruments.length > 0
-        ? usedInstruments.map((s) => ({ name: nameOf(s), instrumentName: nameOf(s), clef: 'treble' as const }))
-        : [{ name: 'Module', instrumentName: 'Module', clef: 'treble' as const }],
+        ? usedInstruments.map(s => ({
+            name: nameOf(s),
+            instrumentName: nameOf(s),
+            clef: 'treble' as const,
+          }))
+        : [
+            {
+              name: 'Module',
+              instrumentName: 'Module',
+              clef: 'treble' as const,
+            },
+          ],
   });
 
   const ticksPerRow = base.ppq / ROWS_PER_BEAT;
 
   const tracks = base.tracks.map((track, trackIndex) => {
     const instrument = usedInstruments[trackIndex];
-    const mine = placed.filter((n) => n.instrument === instrument);
+    const mine = placed.filter(n => n.instrument === instrument);
 
-    const withNotes = track.measures.map((measure) => {
+    const withNotes = track.measures.map(measure => {
       const measureEnd = measure.startTick + measure.durationTicks;
-      const here = mine.filter((n) => {
+      const here = mine.filter(n => {
         const tick = n.startRow * ticksPerRow;
         return tick >= measure.startTick && tick < measureEnd;
       });
@@ -151,7 +177,7 @@ export function trackerToScore(module: TrackerModule): Score {
       for (const note of here) {
         const startTick = note.startRow * ticksPerRow;
         const endTick = Math.min(note.endRow * ticksPerRow, measureEnd);
-        let voice = voiceEnds.findIndex((end) => end <= startTick);
+        let voice = voiceEnds.findIndex(end => end <= startTick);
         if (voice === -1) {
           voice = voiceEnds.length;
           voiceEnds.push(0);
@@ -181,7 +207,7 @@ export function trackerToScore(module: TrackerModule): Score {
             measure.durationTicks,
             base.ppq,
             track.id,
-            id,
+            id
           ),
         };
       });

@@ -11,7 +11,12 @@ import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent, Score, Track, UUID } from '@sudobility/music_types';
 import { transformCommand } from './snapshot.js';
 import type { ScoreCommand } from './types.js';
-import { clearDanglingTies, insertNoteIntoTrack, removeNotesFromTrack, withTracks } from './reflow.js';
+import {
+  clearDanglingTies,
+  insertNoteIntoTrack,
+  removeNotesFromTrack,
+  withTracks,
+} from './reflow.js';
 import { makeRoom } from './ripple-commands.js';
 
 /** What happens to music already at the destination. Mirrors the editor's edit mode. */
@@ -32,7 +37,8 @@ function collect(score: Score, ids: ReadonlySet<UUID>): Moving[] {
     for (const measure of track.measures) {
       measure.voices.forEach((voice, voiceIndex) => {
         for (const event of voice.events) {
-          if (isNoteEvent(event) && ids.has(event.id)) found.push({ note: event, voiceIndex });
+          if (isNoteEvent(event) && ids.has(event.id))
+            found.push({ note: event, voiceIndex });
         }
       });
     }
@@ -52,7 +58,7 @@ function occupantsOf(
   track: Track,
   from: number,
   to: number,
-  voices: ReadonlySet<number>,
+  voices: ReadonlySet<number>
 ): UUID[] {
   const ids: UUID[] = [];
   for (const measure of track.measures) {
@@ -62,48 +68,59 @@ function occupantsOf(
       if (!voices.has(voiceIndex)) return;
       for (const event of voice.events) {
         if (!isNoteEvent(event)) continue;
-        if (event.startTick < to && event.startTick + event.durationTicks > from) ids.push(event.id);
+        if (
+          event.startTick < to &&
+          event.startTick + event.durationTicks > from
+        )
+          ids.push(event.id);
       }
     });
   }
   return ids;
 }
 
-function relocateNotes(score: Score, eventIds: readonly UUID[], params: RelocateNotesParams): Score {
+function relocateNotes(
+  score: Score,
+  eventIds: readonly UUID[],
+  params: RelocateNotesParams
+): Score {
   const ids = new Set(eventIds);
   const moving = collect(score, ids);
   if (moving.length === 0) return score;
-  if (!score.tracks.some((t) => t.id === params.targetTrackId)) return score;
+  if (!score.tracks.some(t => t.id === params.targetTrackId)) return score;
 
   // Partners left behind must not keep a tie to a note that has gone.
   const detied = clearDanglingTies(score, ids);
   let working = withTracks(
     detied,
-    detied.tracks.map((track) => removeNotesFromTrack(track, ids)),
+    detied.tracks.map(track => removeNotesFromTrack(track, ids))
   );
 
-  const target = working.tracks.find((t) => t.id === params.targetTrackId)!;
+  const target = working.tracks.find(t => t.id === params.targetTrackId)!;
   const placed = moving.map(({ note, voiceIndex }) => ({
     note,
     voiceIndex,
     startTick: Math.max(
       0,
-      Math.min(note.startTick + params.deltaTicks, lastStart(target, note.durationTicks)),
+      Math.min(
+        note.startTick + params.deltaTicks,
+        lastStart(target, note.durationTicks)
+      )
     ),
   }));
 
-  const from = Math.min(...placed.map((p) => p.startTick));
-  const to = Math.max(...placed.map((p) => p.startTick + p.note.durationTicks));
+  const from = Math.min(...placed.map(p => p.startTick));
+  const to = Math.max(...placed.map(p => p.startTick + p.note.durationTicks));
 
   if (params.collision === 'replace') {
-    const voices = new Set(placed.map((p) => p.voiceIndex));
+    const voices = new Set(placed.map(p => p.voiceIndex));
     const doomed = new Set(occupantsOf(target, from, to, voices));
     if (doomed.size > 0) {
       working = withTracks(
         working,
-        working.tracks.map((t) =>
-          t.id === params.targetTrackId ? removeNotesFromTrack(t, doomed) : t,
-        ),
+        working.tracks.map(t =>
+          t.id === params.targetTrackId ? removeNotesFromTrack(t, doomed) : t
+        )
       );
     }
   } else if (params.collision === 'ripple') {
@@ -113,7 +130,7 @@ function relocateNotes(score: Score, eventIds: readonly UUID[], params: Relocate
   for (const { note, voiceIndex, startTick } of placed) {
     working = withTracks(
       working,
-      working.tracks.map((t) =>
+      working.tracks.map(t =>
         t.id === params.targetTrackId
           ? insertNoteIntoTrack(
               t,
@@ -126,10 +143,10 @@ function relocateNotes(score: Score, eventIds: readonly UUID[], params: Relocate
                 tieStart: undefined,
                 tieStop: undefined,
               },
-              voiceIndex,
+              voiceIndex
             )
-          : t,
-      ),
+          : t
+      )
     );
   }
 
@@ -146,6 +163,9 @@ function relocateNotes(score: Score, eventIds: readonly UUID[], params: Relocate
 export function relocateNotesCommand(
   eventIds: UUID[],
   params: RelocateNotesParams,
+  label: string
 ): ScoreCommand {
-  return transformCommand('Move notes', (score) => relocateNotes(score, eventIds, params));
+  return transformCommand(label, score =>
+    relocateNotes(score, eventIds, params)
+  );
 }

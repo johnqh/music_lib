@@ -1,9 +1,16 @@
-import type { DurationName, Fraction, TimeSignature } from '@sudobility/music_types';
+import type {
+  DurationName,
+  Fraction,
+  TimeSignature,
+} from '@sudobility/music_types';
 import { fraction, fractionToTicks } from './fraction.js';
 
 /** Multiplies a fraction by a positive integer/rational scalar expressed as a fraction. */
 function scaleFraction(f: Fraction, scale: Fraction): Fraction {
-  return fraction(f.numerator * scale.numerator, f.denominator * scale.denominator);
+  return fraction(
+    f.numerator * scale.numerator,
+    f.denominator * scale.denominator
+  );
 }
 
 const DOTTED_SCALE = fraction(3, 2);
@@ -37,13 +44,19 @@ export const DURATIONS: Record<DurationName, Fraction> = {
   'dotted-quarter': scaleFraction(BASE_DURATIONS.quarter, DOTTED_SCALE),
   'dotted-eighth': scaleFraction(BASE_DURATIONS.eighth, DOTTED_SCALE),
   'dotted-sixteenth': scaleFraction(BASE_DURATIONS.sixteenth, DOTTED_SCALE),
-  'dotted-thirtysecond': scaleFraction(BASE_DURATIONS.thirtysecond, DOTTED_SCALE),
+  'dotted-thirtysecond': scaleFraction(
+    BASE_DURATIONS.thirtysecond,
+    DOTTED_SCALE
+  ),
   'triplet-whole': scaleFraction(BASE_DURATIONS.whole, TRIPLET_SCALE),
   'triplet-half': scaleFraction(BASE_DURATIONS.half, TRIPLET_SCALE),
   'triplet-quarter': scaleFraction(BASE_DURATIONS.quarter, TRIPLET_SCALE),
   'triplet-eighth': scaleFraction(BASE_DURATIONS.eighth, TRIPLET_SCALE),
   'triplet-sixteenth': scaleFraction(BASE_DURATIONS.sixteenth, TRIPLET_SCALE),
-  'triplet-thirtysecond': scaleFraction(BASE_DURATIONS.thirtysecond, TRIPLET_SCALE),
+  'triplet-thirtysecond': scaleFraction(
+    BASE_DURATIONS.thirtysecond,
+    TRIPLET_SCALE
+  ),
 };
 
 /** Integer tick length of a named duration at the given PPQ. */
@@ -67,8 +80,11 @@ const DURATION_NAMES = Object.keys(DURATIONS) as DurationName[];
  * values are not constants and a cached map would have to be keyed by it for
  * the sake of eighteen comparisons.
  */
-export function durationNameForTicks(ticks: number, ppq: number): DurationName | null {
-  return DURATION_NAMES.find((name) => ticksFor(name, ppq) === ticks) ?? null;
+export function durationNameForTicks(
+  ticks: number,
+  ppq: number
+): DurationName | null {
+  return DURATION_NAMES.find(name => ticksFor(name, ppq) === ticks) ?? null;
 }
 
 /** Integer tick length of one full measure in the given time signature. */
@@ -91,7 +107,10 @@ function isCompoundMeter(ts: TimeSignature): boolean {
  * three denominator-notes (e.g. 6/8 -> dotted quarter).
  */
 export function beatDurationTicks(ts: TimeSignature, ppq: number): number {
-  const denominatorNoteTicks = fractionToTicks(fraction(1, ts.denominator), ppq);
+  const denominatorNoteTicks = fractionToTicks(
+    fraction(1, ts.denominator),
+    ppq
+  );
   return isCompoundMeter(ts) ? 3 * denominatorNoteTicks : denominatorNoteTicks;
 }
 

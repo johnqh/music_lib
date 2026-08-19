@@ -13,7 +13,12 @@ import { allNotes } from '../../domain/score/queries.js';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import type { Score } from '@sudobility/music_types';
-import { chordScore, stressScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  stressScore,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import { createMusicIo } from '@sudobility/music_io/mocks';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
@@ -28,7 +33,11 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
   const buffer = toArrayBuffer(exportMidi(source, codec));
   const summary = analyzeMidi(buffer, codec);
-  const options = { ...defaultMidiImportOptions(summary), quantizeGrid: 'sixteenth' as const, detectKey: false };
+  const options = {
+    ...defaultMidiImportOptions(summary),
+    quantizeGrid: 'sixteenth' as const,
+    detectKey: false,
+  };
   const { score, warnings } = importMidi(buffer, options, codec);
   return { imported: score, warnings };
 }
@@ -49,8 +58,10 @@ describe.each([
       expect(imported.tempoMap[i].bpm).toBeCloseTo(tempo.bpm, 1);
     });
 
-    const sourceTimeSignatures = source.tracks[0]?.measures.map((m) => m.timeSignature) ?? [];
-    const importedTimeSignatures = imported.tracks[0]?.measures.map((m) => m.timeSignature) ?? [];
+    const sourceTimeSignatures =
+      source.tracks[0]?.measures.map(m => m.timeSignature) ?? [];
+    const importedTimeSignatures =
+      imported.tracks[0]?.measures.map(m => m.timeSignature) ?? [];
     expect(importedTimeSignatures).toEqual(sourceTimeSignatures);
   });
 
@@ -59,28 +70,36 @@ describe.each([
     const { imported } = roundTrip(source);
 
     const sourceNotes = allNotes(source).sort(
-      (a, b) => a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch),
+      (a, b) =>
+        a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch)
     );
     const importedNotes = allNotes(imported).sort(
-      (a, b) => a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch),
+      (a, b) =>
+        a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch)
     );
 
     expect(importedNotes).toHaveLength(sourceNotes.length);
     for (let i = 0; i < sourceNotes.length; i += 1) {
       expect(importedNotes[i].startTick).toBe(sourceNotes[i].startTick);
       expect(importedNotes[i].durationTicks).toBe(sourceNotes[i].durationTicks);
-      expect(pitchToMidi(importedNotes[i].pitch)).toBe(pitchToMidi(sourceNotes[i].pitch));
+      expect(pitchToMidi(importedNotes[i].pitch)).toBe(
+        pitchToMidi(sourceNotes[i].pitch)
+      );
     }
   });
 
   it('produces a score with zero validateScore errors', () => {
     const { imported } = roundTrip(factory());
-    const errors = validateScore(imported).filter((issue) => issue.severity === 'error');
+    const errors = validateScore(imported).filter(
+      issue => issue.severity === 'error'
+    );
     expect(errors).toEqual([]);
   });
 
   it('carries the mandatory "not full notation" warning', () => {
     const { warnings } = roundTrip(factory());
-    expect(warnings.some((w) => /performance timing|approximates/i.test(w))).toBe(true);
+    expect(warnings.some(w => /performance timing|approximates/i.test(w))).toBe(
+      true
+    );
   });
 });

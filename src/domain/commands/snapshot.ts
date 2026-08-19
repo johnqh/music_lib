@@ -16,7 +16,12 @@
  * undo-stack contract `HistoryManager` relies on).
  */
 import type { Draft, Patch } from 'immer';
-import { applyPatches, current, enablePatches, produceWithPatches } from 'immer';
+import {
+  applyPatches,
+  current,
+  enablePatches,
+  produceWithPatches,
+} from 'immer';
 import { createId } from '../score/ids.js';
 import type { Score } from '@sudobility/music_types';
 import type { CommandKind, ScoreCommand } from './types.js';
@@ -33,7 +38,7 @@ enablePatches();
 export function snapshotCommand(
   label: string,
   mutate: (draft: Draft<Score>) => void,
-  kind: CommandKind = 'content',
+  kind: CommandKind = 'content'
 ): ScoreCommand {
   let inversePatches: Patch[] | null = null;
 
@@ -65,14 +70,14 @@ export function snapshotCommand(
 export function transformCommand(
   label: string,
   transform: (score: Score) => Score,
-  kind: CommandKind = 'content',
+  kind: CommandKind = 'content'
 ): ScoreCommand {
   return snapshotCommand(
     label,
-    (draft) => {
+    draft => {
       const next = transform(current(draft) as Score);
       Object.assign(draft, next);
     },
-    kind,
+    kind
   );
 }

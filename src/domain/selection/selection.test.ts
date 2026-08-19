@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from '../score/factory.js';
-import { normalizeSelection, selectionIsRegenerable, selectionSummaryLabel, selectionToRange } from './selection.js';
+import {
+  normalizeSelection,
+  selectionIsRegenerable,
+  selectionSummaryLabel,
+  selectionToRange,
+} from './selection.js';
 import { emptySelection } from './types.js';
 import type { ScoreSelection } from './types.js';
 
 function fixtureScore() {
   // 3 measures, 2 tracks (4/4, 480 ppq -> 1920 ticks/measure).
-  return createEmptyScore({ title: 'S', measures: 3, tracks: [{ name: 'A' }, { name: 'B' }] });
+  return createEmptyScore({
+    title: 'S',
+    measures: 3,
+    tracks: [{ name: 'A' }, { name: 'B' }],
+  });
 }
 
 describe('selectionToRange', () => {
@@ -17,7 +26,11 @@ describe('selectionToRange', () => {
 
   it('returns null when only trackIds are selected (no tick extent)', () => {
     const score = fixtureScore();
-    const sel: ScoreSelection = { eventIds: [], measureIds: [], trackIds: [score.tracks[0].id] };
+    const sel: ScoreSelection = {
+      eventIds: [],
+      measureIds: [],
+      trackIds: [score.tracks[0].id],
+    };
     expect(selectionToRange(score, sel)).toBeNull();
   });
 
@@ -25,7 +38,11 @@ describe('selectionToRange', () => {
     const score = fixtureScore();
     const track = score.tracks[0];
     const event = track.measures[1].voices[0].events[0]; // whole-measure rest in measure 1
-    const sel: ScoreSelection = { eventIds: [event.id], measureIds: [], trackIds: [] };
+    const sel: ScoreSelection = {
+      eventIds: [event.id],
+      measureIds: [],
+      trackIds: [],
+    };
 
     const range = selectionToRange(score, sel);
     expect(range).toEqual({
@@ -39,7 +56,11 @@ describe('selectionToRange', () => {
     const score = fixtureScore();
     const track = score.tracks[1];
     const measure = track.measures[0];
-    const sel: ScoreSelection = { eventIds: [], measureIds: [measure.id], trackIds: [] };
+    const sel: ScoreSelection = {
+      eventIds: [],
+      measureIds: [measure.id],
+      trackIds: [],
+    };
 
     const range = selectionToRange(score, sel);
     expect(range).toEqual({
@@ -92,7 +113,11 @@ describe('selectionToRange', () => {
       eventIds: [],
       measureIds: [],
       trackIds: [],
-      range: { startTick: measureTicks + 10, endTick: measureTicks + 20, trackIds: [track.id] },
+      range: {
+        startTick: measureTicks + 10,
+        endTick: measureTicks + 20,
+        trackIds: [track.id],
+      },
     };
 
     expect(selectionToRange(score, sel)).toEqual({
@@ -119,7 +144,11 @@ describe('selectionToRange', () => {
 
   it('skips stale (nonexistent) event/measure ids when gathering tick anchors', () => {
     const score = fixtureScore();
-    const sel: ScoreSelection = { eventIds: ['missing-event'], measureIds: ['missing-measure'], trackIds: [] };
+    const sel: ScoreSelection = {
+      eventIds: ['missing-event'],
+      measureIds: ['missing-measure'],
+      trackIds: [],
+    };
     expect(selectionToRange(score, sel)).toBeNull();
   });
 });
@@ -150,7 +179,11 @@ describe('normalizeSelection', () => {
       range: { startTick: 100, endTick: 10, trackIds: ['t1', 't1'] },
     };
 
-    expect(normalizeSelection(score, sel).range).toEqual({ startTick: 10, endTick: 100, trackIds: ['t1'] });
+    expect(normalizeSelection(score, sel).range).toEqual({
+      startTick: 10,
+      endTick: 100,
+      trackIds: ['t1'],
+    });
   });
 });
 
@@ -163,14 +196,20 @@ describe('selectionIsRegenerable', () => {
   it('is true for a selection that resolves to a valid in-bounds full-measure range', () => {
     const score = fixtureScore();
     const track = score.tracks[0];
-    const sel: ScoreSelection = { eventIds: [], measureIds: [track.measures[0].id], trackIds: [] };
+    const sel: ScoreSelection = {
+      eventIds: [],
+      measureIds: [track.measures[0].id],
+      trackIds: [],
+    };
     expect(selectionIsRegenerable(score, sel)).toBe(true);
   });
 
   it('is false when the range extends past the end of the score', () => {
     const score = fixtureScore();
     const track = score.tracks[0];
-    const endTick = score.tracks[0].measures[track.measures.length - 1].startTick + track.measures[0].durationTicks;
+    const endTick =
+      score.tracks[0].measures[track.measures.length - 1].startTick +
+      track.measures[0].durationTicks;
     const sel: ScoreSelection = {
       eventIds: [],
       measureIds: [],
@@ -192,30 +231,61 @@ describe('selectionIsRegenerable', () => {
   });
 });
 
+/**
+ * The words this suite reads back.
+ *
+ * `selectionSummaryLabel` no longer owns any, so the test plays the consumer;
+ * the wording matches what the function used to build, which keeps these
+ * assertions about *selection logic* rather than about English.
+ */
+const SUMMARY_COPY = {
+  notes: (n: number) => `${n} note(s) selected`,
+  measures: (n: number) => `${n} measure(s) selected`,
+  tracks: (n: number) => `${n} track(s) selected`,
+  none: 'No selection',
+  regenerated: (summary: string) => `${summary}, regenerated`,
+};
+
 describe('selectionSummaryLabel regenerated variant', () => {
   const sel = { eventIds: ['a', 'b'], measureIds: [], trackIds: [] };
 
   it('marks a regenerated note selection', () => {
-    expect(selectionSummaryLabel(sel, true)).toBe('2 note(s) selected, regenerated');
+    expect(selectionSummaryLabel(sel, SUMMARY_COPY, true)).toBe(
+      '2 note(s) selected, regenerated'
+    );
   });
 
   it('is unchanged when not regenerated', () => {
-    expect(selectionSummaryLabel(sel, false)).toBe('2 note(s) selected');
-    expect(selectionSummaryLabel(sel)).toBe('2 note(s) selected');
+    expect(selectionSummaryLabel(sel, SUMMARY_COPY, false)).toBe(
+      '2 note(s) selected'
+    );
+    expect(selectionSummaryLabel(sel, SUMMARY_COPY)).toBe('2 note(s) selected');
   });
 
   it('marks measure and track selections too', () => {
-    expect(selectionSummaryLabel({ eventIds: [], measureIds: ['m'], trackIds: [] }, true)).toBe(
-      '1 measure(s) selected, regenerated',
-    );
-    expect(selectionSummaryLabel({ eventIds: [], measureIds: [], trackIds: ['t'] }, true)).toBe(
-      '1 track(s) selected, regenerated',
-    );
+    expect(
+      selectionSummaryLabel(
+        { eventIds: [], measureIds: ['m'], trackIds: [] },
+        SUMMARY_COPY,
+        true
+      )
+    ).toBe('1 measure(s) selected, regenerated');
+    expect(
+      selectionSummaryLabel(
+        { eventIds: [], measureIds: [], trackIds: ['t'] },
+        SUMMARY_COPY,
+        true
+      )
+    ).toBe('1 track(s) selected, regenerated');
   });
 
   it('does not mark an empty selection', () => {
-    expect(selectionSummaryLabel({ eventIds: [], measureIds: [], trackIds: [] }, true)).toBe(
-      'No selection',
-    );
+    expect(
+      selectionSummaryLabel(
+        { eventIds: [], measureIds: [], trackIds: [] },
+        SUMMARY_COPY,
+        true
+      )
+    ).toBe('No selection');
   });
 });

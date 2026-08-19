@@ -31,7 +31,11 @@ export type DetectedGrid = {
  * at each level; the finest entry (1/12 beat) is the grid that contains both
  * sixteenths and eighth triplets, for files that use the two together.
  */
-const CANDIDATES: Array<{ grid: DurationName; triplet: boolean; beats: number }> = [
+const CANDIDATES: Array<{
+  grid: DurationName;
+  triplet: boolean;
+  beats: number;
+}> = [
   { grid: 'quarter', triplet: false, beats: 1 },
   { grid: 'quarter', triplet: true, beats: 2 / 3 },
   { grid: 'eighth', triplet: false, beats: 1 / 2 },
@@ -62,7 +66,8 @@ const REQUIRED_FIT = 0.98;
 function fits(onsetBeats: number[], gridBeats: number): boolean {
   let on = 0;
   for (const beat of onsetBeats) {
-    const offset = Math.abs(beat / gridBeats - Math.round(beat / gridBeats)) * gridBeats;
+    const offset =
+      Math.abs(beat / gridBeats - Math.round(beat / gridBeats)) * gridBeats;
     if (offset <= TOLERANCE_BEATS) on += 1;
   }
   return on / onsetBeats.length >= REQUIRED_FIT;
@@ -83,7 +88,7 @@ function fits(onsetBeats: number[], gridBeats: number): boolean {
  */
 export function detectGrid(positions: number[], ppq: number): DetectedGrid {
   if (positions.length === 0 || ppq <= 0) return FALLBACK_GRID;
-  const onsetBeats = positions.map((tick) => tick / ppq);
-  const match = CANDIDATES.find((candidate) => fits(onsetBeats, candidate.beats));
+  const onsetBeats = positions.map(tick => tick / ppq);
+  const match = CANDIDATES.find(candidate => fits(onsetBeats, candidate.beats));
   return match ? { grid: match.grid, triplet: match.triplet } : FALLBACK_GRID;
 }

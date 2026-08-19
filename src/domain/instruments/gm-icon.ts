@@ -143,7 +143,10 @@ const VOICE: InstrumentIconArt = {
       kind: 'path',
       d: 'M12 3 C10.3 3 9 4.3 9 6 L9 11 C9 12.7 10.3 14 12 14 C13.7 14 15 12.7 15 11 L15 6 C15 4.3 13.7 3 12 3 Z',
     },
-    { kind: 'path', d: 'M6.5 10.5 C6.5 15 9 17.5 12 17.5 C15 17.5 17.5 15 17.5 10.5' },
+    {
+      kind: 'path',
+      d: 'M6.5 10.5 C6.5 15 9 17.5 12 17.5 C15 17.5 17.5 15 17.5 10.5',
+    },
     { kind: 'path', d: 'M12 17.5 L12 21' },
     { kind: 'path', d: 'M8.5 21 L15.5 21' },
   ],
@@ -250,7 +253,10 @@ const DRUM: InstrumentIconArt = {
     { kind: 'path', d: 'M4 8 L4 16' },
     { kind: 'path', d: 'M20 8 L20 16' },
     { kind: 'path', d: 'M4 10.5 L8 15.5 L12 10.5 L16 15.5 L20 10.5' },
-    { kind: 'path', d: 'M4 16 C4 17.66 7.58 19 12 19 C16.42 19 20 17.66 20 16' },
+    {
+      kind: 'path',
+      d: 'M4 16 C4 17.66 7.58 19 12 19 C16.42 19 20 17.66 20 16',
+    },
   ],
 };
 
@@ -337,5 +343,7 @@ export function gmInstrumentIcon(program: number): InstrumentIconArt {
   const picked = PROGRAM_ICON[program];
   if (picked) return picked;
   // An out-of-range program has no family; fall back rather than draw blank.
-  return gmInstrument(program) ? FAMILY_ICON[gmFamilyOf(program)] : FAMILY_ICON.piano;
+  return gmInstrument(program)
+    ? FAMILY_ICON[gmFamilyOf(program)]
+    : FAMILY_ICON.piano;
 }

@@ -7,8 +7,13 @@ import { scoreToTracker } from './export.js';
 
 /** A score with one note per entry, placed on the first track's first measure. */
 function scoreWithNotes(
-  notes: Array<{ midi: number; startTick: number; durationTicks: number; voice?: number }>,
-  opts: { tracks?: number; measures?: number } = {},
+  notes: Array<{
+    midi: number;
+    startTick: number;
+    durationTicks: number;
+    voice?: number;
+  }>,
+  opts: { tracks?: number; measures?: number } = {}
 ): Score {
   const base = createEmptyScore({
     title: 'Test',
@@ -37,12 +42,18 @@ function scoreWithNotes(
   }
   const voices = [...byVoice.entries()].map(([i, events]) => {
     const id = measure.voices[i]?.id ?? createId();
-    return { id, name: `Voice ${i + 1}`, events: events.map((e) => ({ ...e, voiceId: id })) };
+    return {
+      id,
+      name: `Voice ${i + 1}`,
+      events: events.map(e => ({ ...e, voiceId: id })),
+    };
   });
   return {
     ...base,
     tracks: base.tracks.map((t, i) =>
-      i === 0 ? { ...t, measures: [{ ...measure, voices }, ...t.measures.slice(1)] } : t,
+      i === 0
+        ? { ...t, measures: [{ ...measure, voices }, ...t.measures.slice(1)] }
+        : t
     ),
   };
 }
@@ -50,20 +61,26 @@ function scoreWithNotes(
 describe('scoreToTracker', () => {
   it('places a note on the row its tick lands on', () => {
     // ppq 480, rowsPerBeat 4 -> 120 ticks per row. Tick 240 is row 2.
-    const score = scoreWithNotes([{ midi: 60, startTick: 240, durationTicks: 120 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 240, durationTicks: 120 },
+    ]);
     const { module } = scoreToTracker(score, { format: 'xm' });
     expect(module.patterns[0][2][0].note).toBe(60);
     expect(module.patterns[0][2][0].instrument).toBe(1);
   });
 
   it('writes a release on the row the note ends', () => {
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 240 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 0, durationTicks: 240 },
+    ]);
     const { module } = scoreToTracker(score, { format: 'xm' });
     expect(module.patterns[0][2][0].note).toBe('off');
   });
 
   it('reports nothing lost for a score that fits', () => {
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 0, durationTicks: 480 },
+    ]);
     const { report } = scoreToTracker(score, { format: 'xm' });
     expect(report).toEqual({
       clampedNotes: 0,
@@ -77,7 +94,9 @@ describe('scoreToTracker', () => {
     // MIDI 30 is below MOD's 36. An octave up is 42 — deliberately not 36,
     // because pinning to the boundary would also produce 36 from 24 and the
     // test could not tell the two rules apart.
-    const score = scoreWithNotes([{ midi: 30, startTick: 0, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 30, startTick: 0, durationTicks: 480 },
+    ]);
     const { module, report } = scoreToTracker(score, { format: 'mod' });
     expect(report.clampedNotes).toBe(1);
     expect(module.patterns[0][0][0].note).toBe(42);
@@ -85,14 +104,18 @@ describe('scoreToTracker', () => {
 
   it('clamps a note above the format range by whole octaves', () => {
     // MIDI 96 is above MOD's 71. Two octaves down is 72 — still above — so 60.
-    const score = scoreWithNotes([{ midi: 96, startTick: 0, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 96, startTick: 0, durationTicks: 480 },
+    ]);
     const { module, report } = scoreToTracker(score, { format: 'mod' });
     expect(report.clampedNotes).toBe(1);
     expect(module.patterns[0][0][0].note).toBe(60);
   });
 
   it('does not clamp the same note in a format that can hold it', () => {
-    const score = scoreWithNotes([{ midi: 24, startTick: 0, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 24, startTick: 0, durationTicks: 480 },
+    ]);
     const { module, report } = scoreToTracker(score, { format: 'it' });
     expect(report.clampedNotes).toBe(0);
     expect(module.patterns[0][0][0].note).toBe(24);
@@ -100,13 +123,17 @@ describe('scoreToTracker', () => {
 
   it('counts a note that does not land on a row', () => {
     // 60 ticks is half a row at ppq 480.
-    const score = scoreWithNotes([{ midi: 60, startTick: 60, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 60, durationTicks: 480 },
+    ]);
     const { report } = scoreToTracker(score, { format: 'xm' });
     expect(report.quantisedNotes).toBe(1);
   });
 
   it('drops a note shorter than one row and counts it', () => {
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 30 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 0, durationTicks: 30 },
+    ]);
     const { report } = scoreToTracker(score, { format: 'xm' });
     expect(report.droppedShortNotes).toBe(1);
     expect(report.quantisedNotes).toBe(0);
@@ -127,7 +154,12 @@ describe('scoreToTracker', () => {
   it('drops voices past the format channel limit and counts them', () => {
     // Five voices on one track cannot fit MOD's four channels.
     const score = scoreWithNotes(
-      [0, 1, 2, 3, 4].map((v) => ({ midi: 60 + v, startTick: 0, durationTicks: 480, voice: v })),
+      [0, 1, 2, 3, 4].map(v => ({
+        midi: 60 + v,
+        startTick: 0,
+        durationTicks: 480,
+        voice: v,
+      }))
     );
     const { module, report } = scoreToTracker(score, { format: 'mod' });
     expect(module.channels).toBe(4);
@@ -135,21 +167,32 @@ describe('scoreToTracker', () => {
   });
 
   it('names one instrument slot per track', () => {
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 480 }], { tracks: 2 });
+    const score = scoreWithNotes(
+      [{ midi: 60, startTick: 0, durationTicks: 480 }],
+      { tracks: 2 }
+    );
     const { module } = scoreToTracker(score, { format: 'xm' });
     expect(module.instruments).toHaveLength(2);
-    expect(module.instruments[0]).toEqual({ index: 1, name: 'Acoustic Grand Piano' });
+    expect(module.instruments[0]).toEqual({
+      index: 1,
+      name: 'Acoustic Grand Piano',
+    });
   });
 
   it('reports the format it was asked for', () => {
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 480 }]);
+    const score = scoreWithNotes([
+      { midi: 60, startTick: 0, durationTicks: 480 },
+    ]);
     expect(scoreToTracker(score, { format: 'xm' }).module.format).toBe('xm');
     expect(scoreToTracker(score, { format: 'mod' }).module.format).toBe('mod');
   });
 
   it('cuts patterns into 64 rows and orders them in sequence', () => {
     // 8 bars of 4/4 at 16 rows a bar is 128 rows: two full patterns.
-    const score = scoreWithNotes([{ midi: 60, startTick: 0, durationTicks: 480 }], { measures: 8 });
+    const score = scoreWithNotes(
+      [{ midi: 60, startTick: 0, durationTicks: 480 }],
+      { measures: 8 }
+    );
     const { module } = scoreToTracker(score, { format: 'xm' });
     expect(module.patterns).toHaveLength(2);
     for (const p of module.patterns) expect(p).toHaveLength(64);
@@ -164,8 +207,12 @@ describe('speed and tempo', () => {
       measures: 1,
       tracks: [{ name: 'A', instrumentName: 'Piano', clef: 'treble' as const }],
     });
-    const score: Score = { ...base, tempoMap: [{ id: 'tempo-0', tick: 0, bpm }] };
-    const cell = scoreToTracker(score, { format: 'xm' }).module.patterns[0][0][0];
+    const score: Score = {
+      ...base,
+      tempoMap: [{ id: 'tempo-0', tick: 0, bpm }],
+    };
+    const cell = scoreToTracker(score, { format: 'xm' }).module
+      .patterns[0][0][0];
     return { speed: cell.speed, bpm: cell.bpm };
   };
 

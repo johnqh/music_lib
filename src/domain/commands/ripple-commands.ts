@@ -34,8 +34,11 @@ export type RippleInsertParams = {
  */
 function growToFit(score: Score, trackId: UUID, neededTicks: number): Score {
   const lastNoteEnd = allNotes(score)
-    .filter((note) => note.trackId === trackId)
-    .reduce((end, note) => Math.max(end, note.startTick + note.durationTicks), 0);
+    .filter(note => note.trackId === trackId)
+    .reduce(
+      (end, note) => Math.max(end, note.startTick + note.durationTicks),
+      0
+    );
 
   let next = score;
   // Bounded by the arithmetic, not by trust: each pass adds a whole measure,
@@ -53,17 +56,29 @@ function growToFit(score: Score, trackId: UUID, neededTicks: number): Score {
  * music out of the way, growing the score if it runs off the end" behaviour,
  * and duplicating it would let the two drift.
  */
-export function makeRoom(score: Score, trackId: UUID, atTick: number, ticks: number): Score {
+export function makeRoom(
+  score: Score,
+  trackId: UUID,
+  atTick: number,
+  ticks: number
+): Score {
   const grown = growToFit(score, trackId, ticks);
 
   // Gathered by id rather than by span: `moveNotesCommand` is the primitive
   // that already knows how to re-place notes and reflow their measures.
   const displaced = allNotes(grown)
-    .filter((note) => note.trackId === trackId && note.startTick >= atTick)
-    .map((note) => note.id);
+    .filter(note => note.trackId === trackId && note.startTick >= atTick)
+    .map(note => note.id);
   if (displaced.length === 0) return grown;
 
-  return moveNotesCommand(displaced, { deltaTicks: ticks, deltaSemitones: 0 }).execute(grown);
+  return moveNotesCommand(
+    displaced,
+    {
+      deltaTicks: ticks,
+      deltaSemitones: 0,
+    },
+    'Move notes'
+  ).execute(grown);
 }
 
 /**
@@ -80,15 +95,29 @@ export function makeRoom(score: Score, trackId: UUID, atTick: number, ticks: num
  * there are none; guarding anyway keeps this honest if it is ever called on a
  * span that still has content.
  */
-export function closeGap(score: Score, trackId: UUID, fromTick: number, ticks: number): Score {
+export function closeGap(
+  score: Score,
+  trackId: UUID,
+  fromTick: number,
+  ticks: number
+): Score {
   if (ticks <= 0) return score;
 
   const displaced = allNotes(score)
-    .filter((note) => note.trackId === trackId && note.startTick >= fromTick + ticks)
-    .map((note) => note.id);
+    .filter(
+      note => note.trackId === trackId && note.startTick >= fromTick + ticks
+    )
+    .map(note => note.id);
   if (displaced.length === 0) return score;
 
-  return moveNotesCommand(displaced, { deltaTicks: -ticks, deltaSemitones: 0 }).execute(score);
+  return moveNotesCommand(
+    displaced,
+    {
+      deltaTicks: -ticks,
+      deltaSemitones: 0,
+    },
+    'Move notes'
+  ).execute(score);
 }
 
 /**
@@ -99,18 +128,29 @@ export function closeGap(score: Score, trackId: UUID, fromTick: number, ticks: n
  * accompaniment — that is what inserting into one part means, and it is the
  * reason the mode exists.
  */
-export function insertWithRippleCommand(params: RippleInsertParams): ScoreCommand {
-  return transformCommand('Insert note', (score) => {
-    const shifted = makeRoom(score, params.trackId, params.startTick, params.durationTicks);
+export function insertWithRippleCommand(
+  params: RippleInsertParams,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const shifted = makeRoom(
+      score,
+      params.trackId,
+      params.startTick,
+      params.durationTicks
+    );
 
-    return addNoteCommand({
-      trackId: params.trackId,
-      measureId: params.measureId,
-      voiceIndex: params.voiceIndex,
-      pitch: params.pitch,
-      startTick: params.startTick,
-      durationTicks: params.durationTicks,
-      ...(params.articulation ? { articulation: params.articulation } : {}),
-    }).execute(shifted);
+    return addNoteCommand(
+      {
+        trackId: params.trackId,
+        measureId: params.measureId,
+        voiceIndex: params.voiceIndex,
+        pitch: params.pitch,
+        startTick: params.startTick,
+        durationTicks: params.durationTicks,
+        ...(params.articulation ? { articulation: params.articulation } : {}),
+      },
+      'Add note'
+    ).execute(shifted);
   });
 }

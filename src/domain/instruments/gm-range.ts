@@ -97,5 +97,7 @@ const PROGRAM_RANGE: Record<number, MidiRange> = {
 export function gmInstrumentRange(program: number): MidiRange {
   const override = PROGRAM_RANGE[program];
   if (override) return override;
-  return gmInstrument(program) ? FAMILY_RANGE[gmFamilyOf(program)] : FULL_KEYBOARD;
+  return gmInstrument(program)
+    ? FAMILY_RANGE[gmFamilyOf(program)]
+    : FULL_KEYBOARD;
 }

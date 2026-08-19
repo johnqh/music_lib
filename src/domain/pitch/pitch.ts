@@ -1,4 +1,9 @@
-import type { Accidental, KeySignature, Pitch, PitchStep } from '@sudobility/music_types';
+import type {
+  Accidental,
+  KeySignature,
+  Pitch,
+  PitchStep,
+} from '@sudobility/music_types';
 
 /** Semitone offset from C for each natural pitch step (no accidental). */
 const NATURAL_STEP_SEMITONES: Record<PitchStep, number> = {
@@ -17,7 +22,12 @@ const C4_OCTAVE = 4;
 
 /** Converts a `Pitch` to its MIDI note number (C4 = 60, A4 = 69). */
 export function pitchToMidi(p: Pitch): number {
-  return MIDI_C4 + (p.octave - C4_OCTAVE) * 12 + NATURAL_STEP_SEMITONES[p.step] + p.accidental;
+  return (
+    MIDI_C4 +
+    (p.octave - C4_OCTAVE) * 12 +
+    NATURAL_STEP_SEMITONES[p.step] +
+    p.accidental
+  );
 }
 
 /** step/accidental spelling for each pitch class 0-11, preferring sharps. */
@@ -83,7 +93,11 @@ export function pitchToString(p: Pitch): string {
 }
 
 /** Whether a pitch's MIDI value falls within an inclusive range. */
-export function isPitchInRange(p: Pitch, lowestMidi: number, highestMidi: number): boolean {
+export function isPitchInRange(
+  p: Pitch,
+  lowestMidi: number,
+  highestMidi: number
+): boolean {
   const midi = pitchToMidi(p);
   return midi >= lowestMidi && midi <= highestMidi;
 }

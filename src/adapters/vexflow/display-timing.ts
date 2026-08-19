@@ -82,10 +82,12 @@ export function snappedOnsetTicks(
   events: MusicalEvent[],
   measureStartTick: number,
   measureDurationTicks: number,
-  ppq: number,
+  ppq: number
 ): number[] {
   if (events.length === 0 || measureDurationTicks <= 0) return [];
-  return snappedOnsets(events, measureStartTick, measureDurationTicks, ppq).map((o) => o.start);
+  return snappedOnsets(events, measureStartTick, measureDurationTicks, ppq).map(
+    o => o.start
+  );
 }
 
 /**
@@ -98,7 +100,7 @@ function snappedOnsets(
   events: MusicalEvent[],
   measureStartTick: number,
   measureDurationTicks: number,
-  ppq: number,
+  ppq: number
 ): Array<{ start: number; events: MusicalEvent[] }> {
   const grid = displayGridTicks(ppq);
 
@@ -116,7 +118,10 @@ function snappedOnsets(
   const atBarline: MusicalEvent[] = [];
   const byStart = new Map<number, MusicalEvent[]>();
   for (const event of events) {
-    const snapped = Math.max(0, Math.round((event.startTick - measureStartTick) / grid) * grid);
+    const snapped = Math.max(
+      0,
+      Math.round((event.startTick - measureStartTick) / grid) * grid
+    );
     if (snapped >= measureDurationTicks) {
       atBarline.push(event);
       continue;
@@ -133,12 +138,14 @@ function snappedOnsets(
     else byStart.set(last, [event]);
   }
 
-  return [...byStart.keys()]
-    .sort((a, b) => a - b)
-    // A rest that snapped onto a note's step would draw a rest through a
-    // sounding note, so notes win their step and the rest simply vanishes —
-    // it was silence that turned out to be shorter than the grid.
-    .map((start) => ({ start, events: preferNotes(byStart.get(start)!) }));
+  return (
+    [...byStart.keys()]
+      .sort((a, b) => a - b)
+      // A rest that snapped onto a note's step would draw a rest through a
+      // sounding note, so notes win their step and the rest simply vanishes —
+      // it was silence that turned out to be shorter than the grid.
+      .map(start => ({ start, events: preferNotes(byStart.get(start)!) }))
+  );
 }
 
 /**
@@ -159,13 +166,19 @@ export function displayGroups(
   events: MusicalEvent[],
   measureStartTick: number,
   measureDurationTicks: number,
-  ppq: number,
+  ppq: number
 ): DisplayGroup[] {
   if (events.length === 0 || measureDurationTicks <= 0) return [];
-  const onsets = snappedOnsets(events, measureStartTick, measureDurationTicks, ppq);
+  const onsets = snappedOnsets(
+    events,
+    measureStartTick,
+    measureDurationTicks,
+    ppq
+  );
   return onsets.map((onset, index) => ({
     events: onset.events,
-    durationTicks: (onsets[index + 1]?.start ?? measureDurationTicks) - onset.start,
+    durationTicks:
+      (onsets[index + 1]?.start ?? measureDurationTicks) - onset.start,
   }));
 }
 
@@ -197,15 +210,21 @@ export function drumDisplayGroups(
   events: MusicalEvent[],
   measureStartTick: number,
   measureDurationTicks: number,
-  ppq: number,
+  ppq: number
 ): DisplayGroup[] {
   if (events.length === 0 || measureDurationTicks <= 0) return [];
-  const onsets = snappedOnsets(events, measureStartTick, measureDurationTicks, ppq);
+  const onsets = snappedOnsets(
+    events,
+    measureStartTick,
+    measureDurationTicks,
+    ppq
+  );
   const groups: DisplayGroup[] = [];
 
   // Time before the first hit still has to be accounted for, or the voice
   // would be short and every stave would disagree about the bar's length.
-  if (onsets[0].start > 0) groups.push({ events: [], durationTicks: onsets[0].start });
+  if (onsets[0].start > 0)
+    groups.push({ events: [], durationTicks: onsets[0].start });
 
   onsets.forEach((onset, index) => {
     const until = onsets[index + 1]?.start ?? measureDurationTicks;
@@ -217,7 +236,8 @@ export function drumDisplayGroups(
       ? Math.min(available, LONGEST_FILLED_QUARTERS * ppq)
       : available;
     groups.push({ events: onset.events, durationTicks: sounded });
-    if (available > sounded) groups.push({ events: [], durationTicks: available - sounded });
+    if (available > sounded)
+      groups.push({ events: [], durationTicks: available - sounded });
   });
 
   return groups;

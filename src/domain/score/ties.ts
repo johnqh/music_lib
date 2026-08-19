@@ -1,12 +1,21 @@
 import { createId } from './ids.js';
 import { findEvent, findTrack } from './queries.js';
-import type { MusicalEvent, NoteEvent, Pitch, Score, Track, UUID } from '@sudobility/music_types';
+import type {
+  MusicalEvent,
+  NoteEvent,
+  Pitch,
+  Score,
+  Track,
+  UUID,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { splitAtBoundaries } from '../time/durations.js';
 
 /** Whether two pitches have identical spelling (step, accidental, and octave). */
 function samePitch(a: Pitch, b: Pitch): boolean {
-  return a.step === b.step && a.accidental === b.accidental && a.octave === b.octave;
+  return (
+    a.step === b.step && a.accidental === b.accidental && a.octave === b.octave
+  );
 }
 
 /**
@@ -25,8 +34,15 @@ function samePitch(a: Pitch, b: Pitch): boolean {
  * before/while inserting it (the same normalization `fragment.ts`'s
  * `replaceFragment` performs).
  */
-export function splitNoteAcrossMeasures(note: NoteEvent, measureBoundaries: number[]): NoteEvent[] {
-  const segments = splitAtBoundaries(note.startTick, note.durationTicks, measureBoundaries);
+export function splitNoteAcrossMeasures(
+  note: NoteEvent,
+  measureBoundaries: number[]
+): NoteEvent[] {
+  const segments = splitAtBoundaries(
+    note.startTick,
+    note.durationTicks,
+    measureBoundaries
+  );
   if (segments.length <= 1) {
     return [note];
   }
@@ -73,11 +89,15 @@ export function joinTiedNotes(events: MusicalEvent[]): MusicalEvent[] {
           isNoteEvent(candidate) &&
           Boolean(candidate.tieStop) &&
           candidate.startTick === merged.startTick + merged.durationTicks &&
-          samePitch(candidate.pitch, merged.pitch),
+          samePitch(candidate.pitch, merged.pitch)
       );
       if (!next) break;
       consumed.add(next.id);
-      merged = { ...merged, durationTicks: merged.durationTicks + next.durationTicks, tieStart: next.tieStart };
+      merged = {
+        ...merged,
+        durationTicks: merged.durationTicks + next.durationTicks,
+        tieStart: next.tieStart,
+      };
     }
 
     result.push(merged);
@@ -96,7 +116,9 @@ export type ChannelCandidate = { event: NoteEvent; measureIndex: number };
  */
 function locateVoiceIndex(track: Track, noteId: UUID): number {
   for (const measure of track.measures) {
-    const voiceIndex = measure.voices.findIndex((voice) => voice.events.some((e) => e.id === noteId));
+    const voiceIndex = measure.voices.findIndex(voice =>
+      voice.events.some(e => e.id === noteId)
+    );
     if (voiceIndex !== -1) return voiceIndex;
   }
   return -1;
@@ -122,7 +144,10 @@ function locateVoiceIndex(track: Track, noteId: UUID): number {
  * itself rebuilds a channel from scratch) per tied note — see that
  * function's doc comment for the super-linear-worst-case history.
  */
-export function voiceChannel(track: Track, voiceIndex: number): ChannelCandidate[] {
+export function voiceChannel(
+  track: Track,
+  voiceIndex: number
+): ChannelCandidate[] {
   const channel: ChannelCandidate[] = [];
   track.measures.forEach((measure, measureIndex) => {
     const voice = measure.voices[voiceIndex];
@@ -131,7 +156,10 @@ export function voiceChannel(track: Track, voiceIndex: number): ChannelCandidate
       if (isNoteEvent(event)) channel.push({ event, measureIndex });
     }
   });
-  channel.sort((a, b) => a.measureIndex - b.measureIndex || a.event.startTick - b.event.startTick);
+  channel.sort(
+    (a, b) =>
+      a.measureIndex - b.measureIndex || a.event.startTick - b.event.startTick
+  );
   return channel;
 }
 
@@ -141,26 +169,32 @@ export function voiceChannel(track: Track, voiceIndex: number): ChannelCandidate
  * adjacency, so an unrelated same-tick note (e.g. a coincidental chord
  * tone sharing `note`'s channel) can't be picked up by accident.
  */
-function findForwardPartner(channel: ChannelCandidate[], note: NoteEvent): NoteEvent | undefined {
+function findForwardPartner(
+  channel: ChannelCandidate[],
+  note: NoteEvent
+): NoteEvent | undefined {
   if (!note.tieStart) return undefined;
   return channel.find(
-    (c) =>
+    c =>
       c.event.id !== note.id &&
       c.event.startTick === note.startTick + note.durationTicks &&
       Boolean(c.event.tieStop) &&
-      samePitch(c.event.pitch, note.pitch),
+      samePitch(c.event.pitch, note.pitch)
   )?.event;
 }
 
 /** The note in `channel` that ties into `note` (its `tieStop` partner); see `findForwardPartner`. */
-function findBackwardPartner(channel: ChannelCandidate[], note: NoteEvent): NoteEvent | undefined {
+function findBackwardPartner(
+  channel: ChannelCandidate[],
+  note: NoteEvent
+): NoteEvent | undefined {
   if (!note.tieStop) return undefined;
   return channel.find(
-    (c) =>
+    c =>
       c.event.id !== note.id &&
       c.event.startTick + c.event.durationTicks === note.startTick &&
       Boolean(c.event.tieStart) &&
-      samePitch(c.event.pitch, note.pitch),
+      samePitch(c.event.pitch, note.pitch)
   )?.event;
 }
 

@@ -1,4 +1,3 @@
-
 // jsdom does not implement the Pointer Capture APIs. Historically needed
 // because music_app's volume/pan sliders were MUI's <Slider>, which called
 // these unconditionally while handling a pointerdown/pointerup drag (only
@@ -10,7 +9,11 @@
 // `src/test/drag-slider.ts`), which don't call these APIs from application
 // code -- kept here defensively (harmless no-op) in case any future adapter
 // or consuming app's test suite still exercises a real pointer-capture path.
-for (const method of ['hasPointerCapture', 'setPointerCapture', 'releasePointerCapture'] as const) {
+for (const method of [
+  'hasPointerCapture',
+  'setPointerCapture',
+  'releasePointerCapture',
+] as const) {
   if (typeof Element !== 'undefined' && !Element.prototype[method]) {
     Object.defineProperty(Element.prototype, method, {
       value: (): boolean => false,

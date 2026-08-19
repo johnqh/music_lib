@@ -18,14 +18,21 @@
  * subscriber that cares about position must not wake when a note starts, and
  * the caret and the piano keyboard genuinely care about different things.
  */
-import type { SoundingNote, TransportPlaybackState } from '@sudobility/music_types';
+import type {
+  SoundingNote,
+  TransportPlaybackState,
+} from '@sudobility/music_types';
 
 export type Unsubscribe = () => void;
 
 export class PlaybackBus {
   private readonly positionListeners = new Set<(tick: number) => void>();
-  private readonly soundingListeners = new Set<(notes: readonly SoundingNote[]) => void>();
-  private readonly transportListeners = new Set<(state: TransportPlaybackState) => void>();
+  private readonly soundingListeners = new Set<
+    (notes: readonly SoundingNote[]) => void
+  >();
+  private readonly transportListeners = new Set<
+    (state: TransportPlaybackState) => void
+  >();
 
   /** The last values published, so a subscriber joining mid-playback is not blind until the next event. */
   private lastPosition = 0;

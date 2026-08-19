@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { chordScore, stressScore, twinkleScore, twoTrackScore } from './fixtures.js';
+import {
+  chordScore,
+  stressScore,
+  twinkleScore,
+  twoTrackScore,
+} from './fixtures.js';
 import { parseScore } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { allNotes } from '../domain/score/queries.js';
@@ -31,7 +36,7 @@ describe('twoTrackScore', () => {
   it('has a treble melody track and a bass line track', () => {
     const score = twoTrackScore();
     expect(score.tracks).toHaveLength(2);
-    expect(score.tracks.map((t) => t.clef).sort()).toEqual(['bass', 'treble']);
+    expect(score.tracks.map(t => t.clef).sort()).toEqual(['bass', 'treble']);
     expect(() => parseScore(score)).not.toThrow();
   });
 
@@ -47,7 +52,9 @@ describe('chordScore', () => {
     for (const measure of score.tracks[0].measures) {
       const [voice] = measure.voices;
       expect(voice.events.length).toBeGreaterThan(1);
-      const startTicks = new Set(voice.events.filter(isNoteEvent).map((e) => e.startTick));
+      const startTicks = new Set(
+        voice.events.filter(isNoteEvent).map(e => e.startTick)
+      );
       expect(startTicks.size).toBe(1); // all notes in the chord start together
     }
   });
@@ -90,8 +97,13 @@ describe('stressScore', () => {
       score.tracks.length +
       score.tracks.reduce(
         (sum, t) =>
-          sum + t.measures.length + t.measures.reduce((s, m) => s + m.voices.length + allEventCount(m), 0),
-        0,
+          sum +
+          t.measures.length +
+          t.measures.reduce(
+            (s, m) => s + m.voices.length + allEventCount(m),
+            0
+          ),
+        0
       );
     expect(ids.size).toBe(totalCount);
   });
@@ -105,6 +117,8 @@ describe('stressScore', () => {
   });
 });
 
-function allEventCount(measure: ReturnType<typeof stressScore>['tracks'][number]['measures'][number]): number {
+function allEventCount(
+  measure: ReturnType<typeof stressScore>['tracks'][number]['measures'][number]
+): number {
   return measure.voices.reduce((sum, v) => sum + v.events.length, 0);
 }

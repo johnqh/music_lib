@@ -13,8 +13,10 @@ import type { ScoreCommand } from './types.js';
 import { snapshotCommand } from './snapshot.js';
 
 /** 1-based inclusive [min, max] measure index label span across every track in `fragment`, or `null` if it has no measures. */
-function measureIndexSpan(fragment: ScoreFragment): { first: number; last: number } | null {
-  const indices = fragment.tracks.flatMap((t) => t.measures.map((m) => m.index));
+function measureIndexSpan(
+  fragment: ScoreFragment
+): { first: number; last: number } | null {
+  const indices = fragment.tracks.flatMap(t => t.measures.map(m => m.index));
   if (indices.length === 0) return null;
   return { first: Math.min(...indices) + 1, last: Math.max(...indices) + 1 };
 }
@@ -28,12 +30,17 @@ function measureIndexSpan(fragment: ScoreFragment): { first: number; last: numbe
  * label is derived from the fragment's own measure indices, so no `Score`
  * needs to be passed in at construction time.
  */
-export function replaceRegionCommand(range: ScoreRange, newFragment: ScoreFragment): ScoreCommand {
+export function replaceRegionCommand(
+  range: ScoreRange,
+  newFragment: ScoreFragment
+): ScoreCommand {
   const fragment: ScoreFragment = { ...newFragment, range };
   const span = measureIndexSpan(fragment);
-  const label = span ? `Regenerate measures ${span.first}–${span.last}` : 'Regenerate measures';
+  const label = span
+    ? `Regenerate measures ${span.first}–${span.last}`
+    : 'Regenerate measures';
 
-  return snapshotCommand(label, (draft) => {
+  return snapshotCommand(label, draft => {
     const next = replaceFragment(current(draft) as Score, fragment);
     Object.assign(draft, next);
   });
@@ -44,8 +51,11 @@ export function replaceRegionCommand(range: ScoreRange, newFragment: ScoreFragme
  * imported MIDI/MusicXML file), as a single undoable command per spec
  * §15/§17.
  */
-export function importScoreCommand(newScore: Score): ScoreCommand {
-  return snapshotCommand('Import score', (draft) => {
+export function importScoreCommand(
+  newScore: Score,
+  label: string
+): ScoreCommand {
+  return snapshotCommand(label, draft => {
     Object.assign(draft, newScore);
   });
 }

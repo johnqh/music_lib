@@ -29,7 +29,10 @@ export async function loadPrefs(storage: PrefsStorage): Promise<DevicePrefs> {
   }
 }
 
-export async function savePrefs(storage: PrefsStorage, prefs: DevicePrefs): Promise<void> {
+export async function savePrefs(
+  storage: PrefsStorage,
+  prefs: DevicePrefs
+): Promise<void> {
   try {
     await storage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {

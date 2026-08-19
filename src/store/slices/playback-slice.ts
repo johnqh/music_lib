@@ -6,12 +6,12 @@
  * controller to call as playback advances. No Tone/VexFlow import belongs
  * anywhere in this file.
  */
-import type { StateCreator } from "zustand";
-import type { PlaybackLoadState } from "@sudobility/music_types";
-import type { ScoreRange } from "../../domain/selection/types.js";
-import type { AppState } from "../useAppStore.js";
+import type { StateCreator } from 'zustand';
+import type { PlaybackLoadState } from '@sudobility/music_types';
+import type { ScoreRange } from '../../domain/selection/types.js';
+import type { AppState } from '../useAppStore.js';
 
-export type TransportState = "stopped" | "playing" | "paused";
+export type TransportState = 'stopped' | 'playing' | 'paused';
 
 export type PlaybackSlice = {
   /** Named `state` (not `transportState`) to match the spec's exact field name for this property. */
@@ -52,50 +52,50 @@ export type PlaybackSlice = {
 
 export const createPlaybackSlice: StateCreator<
   AppState,
-  [["zustand/immer", never]],
+  [['zustand/immer', never]],
   [],
   PlaybackSlice
-> = (set) => ({
-  state: "stopped",
+> = set => ({
+  state: 'stopped',
   caretTick: 0,
   loopRange: null,
   tempoMultiplier: 1,
   metronome: false,
-  synthLoad: { status: "idle" },
+  synthLoad: { status: 'idle' },
   masterVolume: 1,
 
-  setPlaybackState: (state) => {
-    set((draft) => {
+  setPlaybackState: state => {
+    set(draft => {
       draft.state = state;
     });
   },
-  setSynthLoad: (state) => {
-    set((draft) => {
+  setSynthLoad: state => {
+    set(draft => {
       draft.synthLoad = state;
     });
   },
-  setCaretTick: (tick) => {
-    set((draft) => {
+  setCaretTick: tick => {
+    set(draft => {
       draft.caretTick = tick;
     });
   },
-  setLoopRange: (range) => {
-    set((draft) => {
+  setLoopRange: range => {
+    set(draft => {
       draft.loopRange = range;
     });
   },
-  setTempoMultiplier: (multiplier) => {
-    set((draft) => {
+  setTempoMultiplier: multiplier => {
+    set(draft => {
       draft.tempoMultiplier = multiplier;
     });
   },
-  setMetronome: (enabled) => {
-    set((draft) => {
+  setMetronome: enabled => {
+    set(draft => {
       draft.metronome = enabled;
     });
   },
-  setMasterVolume: (volume) => {
-    set((draft) => {
+  setMasterVolume: volume => {
+    set(draft => {
       draft.masterVolume = volume;
     });
   },

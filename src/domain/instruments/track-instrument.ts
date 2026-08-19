@@ -38,7 +38,9 @@ export function isPercussionTrack(track: Pick<Track, 'clef'>): boolean {
  * The notes worth showing for `track` — General MIDI's drum range on a
  * percussion track, the instrument's compass otherwise.
  */
-export function trackKeyboardRange(track: Pick<Track, 'clef' | 'midiProgram'>): MidiRange {
+export function trackKeyboardRange(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): MidiRange {
   if (isPercussionTrack(track)) return { ...GM_PERCUSSION_RANGE };
   return gmInstrumentRange(track.midiProgram);
 }
@@ -51,7 +53,9 @@ export function trackKeyboardRange(track: Pick<Track, 'clef' | 'midiProgram'>): 
  * pieces that are all struck separately. Nothing about a kit address says
  * otherwise.
  */
-export function trackMaxPolyphony(track: Pick<Track, 'clef' | 'midiProgram'>): number {
+export function trackMaxPolyphony(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): number {
   if (isPercussionTrack(track)) return UNLIMITED_POLYPHONY;
   return gmMaxPolyphony(track.midiProgram);
 }
@@ -63,7 +67,9 @@ export function trackMaxPolyphony(track: Pick<Track, 'clef' | 'midiProgram'>): n
  * transposing one does not move a part into a reader's key — it renames every
  * drum in it.
  */
-export function trackWrittenTransposition(track: Pick<Track, 'clef' | 'midiProgram'>): number {
+export function trackWrittenTransposition(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): number {
   if (isPercussionTrack(track)) return 0;
   return gmWrittenTransposition(track.midiProgram);
 }
@@ -76,17 +82,27 @@ export function trackWrittenTransposition(track: Pick<Track, 'clef' | 'midiProgr
  * to is Brush. Off a percussion track the program is already an instrument and
  * is returned untouched.
  */
-export function trackProgramForClef(track: Pick<Track, 'clef' | 'midiProgram'>): number {
-  return isPercussionTrack(track) ? gmKitAt(track.midiProgram).program : track.midiProgram;
+export function trackProgramForClef(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): number {
+  return isPercussionTrack(track)
+    ? gmKitAt(track.midiProgram).program
+    : track.midiProgram;
 }
 
 /** The icon for `track` — a kit on a percussion track, its instrument's art otherwise. */
-export function trackInstrumentIcon(track: Pick<Track, 'clef' | 'midiProgram'>): InstrumentIconArt {
-  return isPercussionTrack(track) ? gmKitIcon() : gmInstrumentIcon(track.midiProgram);
+export function trackInstrumentIcon(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): InstrumentIconArt {
+  return isPercussionTrack(track)
+    ? gmKitIcon()
+    : gmInstrumentIcon(track.midiProgram);
 }
 
 /** What to call `track`'s sound: its kit's name on a percussion track, its instrument's otherwise. */
-export function trackInstrumentLabel(track: Pick<Track, 'clef' | 'midiProgram'>): string {
+export function trackInstrumentLabel(
+  track: Pick<Track, 'clef' | 'midiProgram'>
+): string {
   if (isPercussionTrack(track)) return gmKitAt(track.midiProgram).name;
   return gmInstrument(track.midiProgram)?.name ?? 'Instrument';
 }
@@ -110,14 +126,15 @@ export function trackInstrumentLabel(track: Pick<Track, 'clef' | 'midiProgram'>)
  */
 export function scoreWithResolvedKits(score: Score): Score {
   const needsWork = score.tracks.some(
-    (track) => isPercussionTrack(track) && gmKit(track.midiProgram) === null,
+    track => isPercussionTrack(track) && gmKit(track.midiProgram) === null
   );
   if (!needsWork) return score;
 
   return {
     ...score,
-    tracks: score.tracks.map((track) => {
-      if (!isPercussionTrack(track) || gmKit(track.midiProgram) !== null) return track;
+    tracks: score.tracks.map(track => {
+      if (!isPercussionTrack(track) || gmKit(track.midiProgram) !== null)
+        return track;
       const kit = gmKitAt(track.midiProgram);
       return { ...track, midiProgram: kit.program, instrumentName: kit.name };
     }),

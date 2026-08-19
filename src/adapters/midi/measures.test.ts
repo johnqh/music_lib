@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { assembleTrackMeasures, buildMeasureSpans, DEFAULT_TIME_SIGNATURE } from './measures.js';
+import {
+  assembleTrackMeasures,
+  buildMeasureSpans,
+  DEFAULT_TIME_SIGNATURE,
+} from './measures.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent } from '@sudobility/music_types';
 import { validateScore } from '../../domain/validation/validator.js';
@@ -9,7 +13,9 @@ const PPQ = 480;
 const C_MAJOR = { fifths: 0, mode: 'major' as const };
 const TRACK_ID = 'track-1';
 
-function note(overrides: Partial<NoteEvent> & Pick<NoteEvent, 'startTick' | 'durationTicks'>): NoteEvent {
+function note(
+  overrides: Partial<NoteEvent> & Pick<NoteEvent, 'startTick' | 'durationTicks'>
+): NoteEvent {
   return {
     id: `note-${overrides.startTick}-${Math.random()}`,
     pitch: { step: 'C', accidental: 0, octave: 4 },
@@ -23,7 +29,14 @@ function note(overrides: Partial<NoteEvent> & Pick<NoteEvent, 'startTick' | 'dur
 describe('buildMeasureSpans', () => {
   it('produces one default-meter measure for an empty file', () => {
     const spans = buildMeasureSpans([], PPQ, 0);
-    expect(spans).toEqual([{ index: 0, startTick: 0, durationTicks: 1920, timeSignature: DEFAULT_TIME_SIGNATURE }]);
+    expect(spans).toEqual([
+      {
+        index: 0,
+        startTick: 0,
+        durationTicks: 1920,
+        timeSignature: DEFAULT_TIME_SIGNATURE,
+      },
+    ]);
   });
 
   it('produces enough measures to cover endTick when there are no time signature changes', () => {
@@ -32,7 +45,12 @@ describe('buildMeasureSpans', () => {
     expect(spans[0].startTick).toBe(0);
     expect(spans[1].startTick).toBe(1920);
     expect(spans[2].startTick).toBe(3840);
-    expect(spans.every((s) => s.timeSignature.numerator === 4 && s.timeSignature.denominator === 4)).toBe(true);
+    expect(
+      spans.every(
+        s =>
+          s.timeSignature.numerator === 4 && s.timeSignature.denominator === 4
+      )
+    ).toBe(true);
   });
 
   it('switches meter at a time signature change tick', () => {
@@ -49,8 +67,17 @@ describe('buildMeasureSpans', () => {
   });
 
   it('synthesizes a default-meter origin segment when the first change is not at tick 0', () => {
-    const spans = buildMeasureSpans([{ tick: 1920, timeSignature: { numerator: 3, denominator: 4 } }], PPQ, 1920 + 1440);
-    expect(spans[0]).toEqual({ index: 0, startTick: 0, durationTicks: 1920, timeSignature: DEFAULT_TIME_SIGNATURE });
+    const spans = buildMeasureSpans(
+      [{ tick: 1920, timeSignature: { numerator: 3, denominator: 4 } }],
+      PPQ,
+      1920 + 1440
+    );
+    expect(spans[0]).toEqual({
+      index: 0,
+      startTick: 0,
+      durationTicks: 1920,
+      timeSignature: DEFAULT_TIME_SIGNATURE,
+    });
     expect(spans[1].timeSignature).toEqual({ numerator: 3, denominator: 4 });
   });
 });
@@ -106,14 +133,35 @@ describe('assembleTrackMeasures', () => {
 
   it('produces multiple voices for polyphonic lanes, all satisfying validateScore', () => {
     const spans = buildMeasureSpans([], PPQ, 1920);
-    const laneA = [note({ startTick: 0, durationTicks: 1920, pitch: { step: 'C', accidental: 0, octave: 5 } })];
-    const laneB = [note({ startTick: 0, durationTicks: 1920, pitch: { step: 'C', accidental: 0, octave: 3 } })];
-    const measures = assembleTrackMeasures([laneA, laneB], spans, C_MAJOR, TRACK_ID);
+    const laneA = [
+      note({
+        startTick: 0,
+        durationTicks: 1920,
+        pitch: { step: 'C', accidental: 0, octave: 5 },
+      }),
+    ];
+    const laneB = [
+      note({
+        startTick: 0,
+        durationTicks: 1920,
+        pitch: { step: 'C', accidental: 0, octave: 3 },
+      }),
+    ];
+    const measures = assembleTrackMeasures(
+      [laneA, laneB],
+      spans,
+      C_MAJOR,
+      TRACK_ID
+    );
     expect(measures[0].voices).toHaveLength(2);
 
-    const score = createEmptyScore({ title: 'T', measures: 0, tracks: [{ name: 'Piano', id: TRACK_ID }] });
+    const score = createEmptyScore({
+      title: 'T',
+      measures: 0,
+      tracks: [{ name: 'Piano', id: TRACK_ID }],
+    });
     score.tracks[0].measures = measures;
-    const errors = validateScore(score).filter((i) => i.severity === 'error');
+    const errors = validateScore(score).filter(i => i.severity === 'error');
     expect(errors).toEqual([]);
   });
 });

@@ -6,13 +6,13 @@
  * is a server-side job now, which applies its own result, so a client-side
  * preview had nothing to preview and nobody to accept it.
  */
-import type { StateCreator } from "zustand";
-import { ApiGenerationProvider, type StoreContext } from "../context.js";
-import type { GenerateScoreRequest } from "@sudobility/music_types";
-import type { ScoreSelection } from "../../domain/selection/types.js";
-import type { AppState } from "../useAppStore.js";
+import type { StateCreator } from 'zustand';
+import { ApiGenerationProvider, type StoreContext } from '../context.js';
+import type { GenerateScoreRequest } from '@sudobility/music_types';
+import type { ScoreSelection } from '../../domain/selection/types.js';
+import type { AppState } from '../useAppStore.js';
 
-export type GenerationMode = "generate" | "regenerate";
+export type GenerationMode = 'generate' | 'regenerate';
 
 /**
  * `mode` reflects the current selection (spec: "mode ... derived from
@@ -28,13 +28,13 @@ export type GenerationMode = "generate" | "regenerate";
  * code that ever touches its own field.
  */
 export function deriveGenerationMode(
-  selection: ScoreSelection,
+  selection: ScoreSelection
 ): GenerationMode {
   const hasContent =
     selection.eventIds.length > 0 ||
     selection.measureIds.length > 0 ||
     selection.range !== undefined;
-  return hasContent ? "regenerate" : "generate";
+  return hasContent ? 'regenerate' : 'generate';
 }
 
 export type GenerationSlice = {
@@ -59,8 +59,8 @@ export type GenerationSlice = {
 };
 
 export function createGenerationSlice(
-  context: StoreContext,
-): StateCreator<AppState, [["zustand/immer", never]], [], GenerationSlice> {
+  context: StoreContext
+): StateCreator<AppState, [['zustand/immer', never]], [], GenerationSlice> {
   const provider = context.provider ?? new ApiGenerationProvider(context);
   return (set, get) => {
     // `requestToken`/`abortController` guard against out-of-order responses:
@@ -96,20 +96,20 @@ export function createGenerationSlice(
     }
 
     return {
-      mode: "generate",
+      mode: 'generate',
       pending: false,
       lastRequest: null,
       error: null,
 
-      syncModeFromSelection: (selection) => {
-        set((state) => {
+      syncModeFromSelection: selection => {
+        set(state => {
           state.mode = deriveGenerationMode(selection);
         });
       },
 
-      generate: async (params) => {
+      generate: async params => {
         const { token, signal } = beginRequest();
-        set((state) => {
+        set(state => {
           state.pending = true;
           state.error = null;
         });
@@ -119,7 +119,7 @@ export function createGenerationSlice(
           // Server-side sanitize already ran (music_api); the provider re-parsed the shape.
           const score = result.score;
           get().setScore(score, { resetHistory: true });
-          set((state) => {
+          set(state => {
             state.pending = false;
             state.lastRequest = params;
           });
@@ -127,12 +127,12 @@ export function createGenerationSlice(
         } catch (error) {
           if (token !== requestToken) return; // superseded; the newer call now owns pending/error
           if (isAbortError(error)) {
-            set((state) => {
+            set(state => {
               state.pending = false;
             });
             return;
           }
-          set((state) => {
+          set(state => {
             state.pending = false;
             state.error = errorMessage(error);
           });
@@ -141,7 +141,7 @@ export function createGenerationSlice(
 
       cancel: () => {
         abortController?.abort();
-        set((state) => {
+        set(state => {
           state.pending = false;
         });
       },
@@ -152,10 +152,10 @@ export function createGenerationSlice(
 /** True for the `AbortError` a `MusicGenerationProvider` call rejects with when its `AbortSignal` fires (both the mock provider's `throwIfAborted` and the DOM `fetch`/`AbortController` convention use this name). Cancellations from `beginRequest()` superseding an in-flight call are intentionally silent — never surfaced via `error` — since they reflect the *user* moving on to a newer request, not a failure. */
 function isAbortError(error: unknown): boolean {
   return (
-    typeof error === "object" &&
+    typeof error === 'object' &&
     error !== null &&
-    "name" in error &&
-    (error as { name: unknown }).name === "AbortError"
+    'name' in error &&
+    (error as { name: unknown }).name === 'AbortError'
   );
 }
 

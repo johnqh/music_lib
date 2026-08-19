@@ -29,7 +29,7 @@ describe('TempoMap', () => {
         { id: 'a', tick: 0, bpm: 120 },
         { id: 'b', tick: 4 * PPQ, bpm: 60 },
       ],
-      PPQ,
+      PPQ
     );
 
     expect(map.bpmAt(0)).toBe(120);
@@ -44,7 +44,7 @@ describe('TempoMap', () => {
         { id: 'a', tick: 0, bpm: 120 },
         { id: 'b', tick: 4 * PPQ, bpm: 60 },
       ],
-      PPQ,
+      PPQ
     );
 
     // first whole note at 120bpm = 2s
@@ -68,17 +68,19 @@ describe('TempoMap', () => {
         { id: 'a', tick: 0, bpm: 120 },
         { id: 'b', tick: 4 * PPQ, bpm: 60 },
       ],
-      PPQ,
+      PPQ
     );
     const unsorted = new TempoMap(
       [
         { id: 'b', tick: 4 * PPQ, bpm: 60 },
         { id: 'a', tick: 0, bpm: 120 },
       ],
-      PPQ,
+      PPQ
     );
 
-    expect(unsorted.ticksToSeconds(8 * PPQ)).toBeCloseTo(sorted.ticksToSeconds(8 * PPQ));
+    expect(unsorted.ticksToSeconds(8 * PPQ)).toBeCloseTo(
+      sorted.ticksToSeconds(8 * PPQ)
+    );
   });
 
   it('extrapolates past the last tempo event using its bpm', () => {
@@ -94,7 +96,7 @@ describe('TempoMap', () => {
         { id: 'b', tick: 4 * PPQ, bpm: 90 },
         { id: 'c', tick: 10 * PPQ, bpm: 150 },
       ],
-      PPQ,
+      PPQ
     );
 
     for (const tick of [0, 100, 4 * PPQ, 4 * PPQ + 500, 10 * PPQ, 12 * PPQ]) {

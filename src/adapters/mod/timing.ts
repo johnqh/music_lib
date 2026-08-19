@@ -51,7 +51,11 @@ export function tempoChanges(rows: readonly TrackerCell[][]): TempoChange[] {
     for (const cell of cells) {
       // Already normalised by the decoder: which effect carries which knob is
       // format knowledge and does not belong here.
-      if (cell.speed !== undefined && cell.speed !== 0 && speed !== cell.speed) {
+      if (
+        cell.speed !== undefined &&
+        cell.speed !== 0 &&
+        speed !== cell.speed
+      ) {
         speed = cell.speed;
         moved = true;
       }

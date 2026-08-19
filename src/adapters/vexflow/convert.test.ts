@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { KeySignature, MusicalEvent, NoteEvent, Pitch, RestEvent } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  MusicalEvent,
+  NoteEvent,
+  Pitch,
+  RestEvent,
+} from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 import {
   buildVoiceContent,
@@ -17,22 +23,30 @@ import type { DisplayGroup } from './display-timing.js';
  * it was written with.
  */
 function recorded(events: MusicalEvent[]): DisplayGroup[] {
-  return groupSimultaneous(events).map((group) => ({
+  return groupSimultaneous(events).map(group => ({
     events: group,
     durationTicks: group[0].durationTicks,
   }));
 }
 
-
 const PPQ = 480;
 
-function pitch(step: Pitch['step'], accidental: Pitch['accidental'], octave: number): Pitch {
+function pitch(
+  step: Pitch['step'],
+  accidental: Pitch['accidental'],
+  octave: number
+): Pitch {
   return { step, accidental, octave };
 }
 
-function note(overrides: Partial<NoteEvent> & Pick<NoteEvent, 'startTick' | 'durationTicks' | 'pitch'>): NoteEvent {
+function note(
+  overrides: Partial<NoteEvent> &
+    Pick<NoteEvent, 'startTick' | 'durationTicks' | 'pitch'>
+): NoteEvent {
   return {
-    id: overrides.id ?? `note-${overrides.startTick}-${overrides.pitch.step}${overrides.pitch.octave}`,
+    id:
+      overrides.id ??
+      `note-${overrides.startTick}-${overrides.pitch.step}${overrides.pitch.octave}`,
     velocity: 80,
     voiceId: 'voice-1',
     trackId: 'track-1',
@@ -40,7 +54,9 @@ function note(overrides: Partial<NoteEvent> & Pick<NoteEvent, 'startTick' | 'dur
   };
 }
 
-function rest(overrides: Partial<RestEvent> & Pick<RestEvent, 'startTick' | 'durationTicks'>): RestEvent {
+function rest(
+  overrides: Partial<RestEvent> & Pick<RestEvent, 'startTick' | 'durationTicks'>
+): RestEvent {
   return {
     id: overrides.id ?? `rest-${overrides.startTick}`,
     voiceId: 'voice-1',
@@ -64,11 +80,26 @@ describe('pitchToVexKey', () => {
 
 describe('ticksToVexDuration', () => {
   it('maps exact named durations', () => {
-    expect(ticksToVexDuration(ticksFor('quarter', PPQ), PPQ)).toEqual({ code: 'q', dots: 0 });
-    expect(ticksToVexDuration(ticksFor('eighth', PPQ), PPQ)).toEqual({ code: '8', dots: 0 });
-    expect(ticksToVexDuration(ticksFor('dotted-quarter', PPQ), PPQ)).toEqual({ code: 'q', dots: 1 });
-    expect(ticksToVexDuration(ticksFor('whole', PPQ), PPQ)).toEqual({ code: 'w', dots: 0 });
-    expect(ticksToVexDuration(ticksFor('sixteenth', PPQ), PPQ)).toEqual({ code: '16', dots: 0 });
+    expect(ticksToVexDuration(ticksFor('quarter', PPQ), PPQ)).toEqual({
+      code: 'q',
+      dots: 0,
+    });
+    expect(ticksToVexDuration(ticksFor('eighth', PPQ), PPQ)).toEqual({
+      code: '8',
+      dots: 0,
+    });
+    expect(ticksToVexDuration(ticksFor('dotted-quarter', PPQ), PPQ)).toEqual({
+      code: 'q',
+      dots: 1,
+    });
+    expect(ticksToVexDuration(ticksFor('whole', PPQ), PPQ)).toEqual({
+      code: 'w',
+      dots: 0,
+    });
+    expect(ticksToVexDuration(ticksFor('sixteenth', PPQ), PPQ)).toEqual({
+      code: '16',
+      dots: 0,
+    });
   });
 
   it('approximates a non-standard remainder to the nearest renderable duration', () => {
@@ -116,15 +147,33 @@ describe('buildVoiceContent', () => {
   it('builds one StaveNote per non-chord note with matching id and duration', () => {
     const quarter = ticksFor('quarter', PPQ);
     const events: NoteEvent[] = [
-      note({ id: 'n1', startTick: 0, durationTicks: quarter, pitch: pitch('C', 0, 4) }),
-      note({ id: 'n2', startTick: quarter, durationTicks: quarter, pitch: pitch('D', 0, 4) }),
+      note({
+        id: 'n1',
+        startTick: 0,
+        durationTicks: quarter,
+        pitch: pitch('C', 0, 4),
+      }),
+      note({
+        id: 'n2',
+        startTick: quarter,
+        durationTicks: quarter,
+        pitch: pitch('D', 0, 4),
+      }),
     ];
 
     const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes).toHaveLength(2);
     expect(metas).toHaveLength(2);
-    expect(metas[0]).toMatchObject({ vexId: 'n1', eventIds: ['n1'], isRest: false });
-    expect(metas[1]).toMatchObject({ vexId: 'n2', eventIds: ['n2'], isRest: false });
+    expect(metas[0]).toMatchObject({
+      vexId: 'n1',
+      eventIds: ['n1'],
+      isRest: false,
+    });
+    expect(metas[1]).toMatchObject({
+      vexId: 'n2',
+      eventIds: ['n2'],
+      isRest: false,
+    });
     expect(notes[0].getDuration()).toBe('q');
     expect(notes[0].getKeys()).toEqual(['c/4']);
   });
@@ -132,9 +181,24 @@ describe('buildVoiceContent', () => {
   it('groups simultaneous notes into a single chord StaveNote', () => {
     const half = ticksFor('half', PPQ);
     const events: NoteEvent[] = [
-      note({ id: 'c1', startTick: 0, durationTicks: half, pitch: pitch('C', 0, 4) }),
-      note({ id: 'c2', startTick: 0, durationTicks: half, pitch: pitch('E', 0, 4) }),
-      note({ id: 'c3', startTick: 0, durationTicks: half, pitch: pitch('G', 0, 4) }),
+      note({
+        id: 'c1',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('C', 0, 4),
+      }),
+      note({
+        id: 'c2',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('E', 0, 4),
+      }),
+      note({
+        id: 'c3',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('G', 0, 4),
+      }),
     ];
 
     const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
@@ -146,7 +210,9 @@ describe('buildVoiceContent', () => {
   });
 
   it('renders rests using the rest type', () => {
-    const events: RestEvent[] = [rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) })];
+    const events: RestEvent[] = [
+      rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) }),
+    ];
     const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes).toHaveLength(1);
     expect(notes[0].isRest()).toBe(true);
@@ -159,25 +225,44 @@ describe('buildVoiceContent', () => {
     // 5 sixteenth notes (5 * 120 = 600 ticks) isn't a single named duration;
     // decomposeDuration greedily splits it into dotted-quarter + sixteenth.
     const ticks = 5 * ticksFor('sixteenth', PPQ);
-    const events: NoteEvent[] = [note({ id: 'long', startTick: 0, durationTicks: ticks, pitch: pitch('C', 0, 4) })];
+    const events: NoteEvent[] = [
+      note({
+        id: 'long',
+        startTick: 0,
+        durationTicks: ticks,
+        pitch: pitch('C', 0, 4),
+      }),
+    ];
 
     const { notes, metas } = buildVoiceContent(recorded(events), PPQ);
     expect(notes.length).toBeGreaterThan(1);
-    expect(metas.every((m) => m.eventIds[0] === 'long')).toBe(true);
+    expect(metas.every(m => m.eventIds[0] === 'long')).toBe(true);
     // First segment ties forward, last segment ties backward, ids are unique.
     expect(metas[0].tieStart).toBe(true);
     expect(metas[0].tieStop).toBe(false);
     expect(metas[metas.length - 1].tieStart).toBe(false);
     expect(metas[metas.length - 1].tieStop).toBe(true);
-    const ids = new Set(metas.map((m) => m.vexId));
+    const ids = new Set(metas.map(m => m.vexId));
     expect(ids.size).toBe(metas.length);
   });
 
   it('preserves a genuine domain tie (tieStart/tieStop) on a single-segment note', () => {
     const quarter = ticksFor('quarter', PPQ);
     const events: NoteEvent[] = [
-      note({ id: 'a', startTick: 0, durationTicks: quarter, pitch: pitch('C', 0, 4), tieStart: true }),
-      note({ id: 'b', startTick: quarter, durationTicks: quarter, pitch: pitch('C', 0, 4), tieStop: true }),
+      note({
+        id: 'a',
+        startTick: 0,
+        durationTicks: quarter,
+        pitch: pitch('C', 0, 4),
+        tieStart: true,
+      }),
+      note({
+        id: 'b',
+        startTick: quarter,
+        durationTicks: quarter,
+        pitch: pitch('C', 0, 4),
+        tieStop: true,
+      }),
     ];
     const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].tieStart).toBe(true);
@@ -197,7 +282,9 @@ describe('buildVoiceContent', () => {
       }),
     ];
     const { notes } = buildVoiceContent(recorded(events), PPQ);
-    const modifierCategories = notes[0].getModifiers().map((m) => m.getCategory());
+    const modifierCategories = notes[0]
+      .getModifiers()
+      .map(m => m.getCategory());
     expect(modifierCategories).not.toContain('Accidental');
     expect(modifierCategories).toContain('Articulation');
     // The accidental is still spelled into the key string, which is what
@@ -208,9 +295,26 @@ describe('buildVoiceContent', () => {
   it('builds per-key tie metadata parallel to a chord, keyed by pitch', () => {
     const half = ticksFor('half', PPQ);
     const events: NoteEvent[] = [
-      note({ id: 'c1', startTick: 0, durationTicks: half, pitch: pitch('C', 0, 4), tieStart: true }),
-      note({ id: 'c2', startTick: 0, durationTicks: half, pitch: pitch('E', 0, 4) }),
-      note({ id: 'c3', startTick: 0, durationTicks: half, pitch: pitch('G', 0, 4), tieStart: true }),
+      note({
+        id: 'c1',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('C', 0, 4),
+        tieStart: true,
+      }),
+      note({
+        id: 'c2',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('E', 0, 4),
+      }),
+      note({
+        id: 'c3',
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch('G', 0, 4),
+        tieStart: true,
+      }),
     ];
     const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].keyTies).toEqual([
@@ -224,7 +328,9 @@ describe('buildVoiceContent', () => {
   });
 
   it('rests have no key ties', () => {
-    const events: RestEvent[] = [rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) })];
+    const events: RestEvent[] = [
+      rest({ id: 'r1', startTick: 0, durationTicks: ticksFor('quarter', PPQ) }),
+    ];
     const { metas } = buildVoiceContent(recorded(events), PPQ);
     expect(metas[0].keyTies).toEqual([]);
   });

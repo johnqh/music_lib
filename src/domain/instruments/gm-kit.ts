@@ -43,7 +43,7 @@ export const GM_KITS: readonly GmKit[] = [
 
 /** The kit at exactly `program`, or `null` where no kit is defined there. */
 export function gmKit(program: number): GmKit | null {
-  return GM_KITS.find((kit) => kit.program === program) ?? null;
+  return GM_KITS.find(kit => kit.program === program) ?? null;
 }
 
 /**

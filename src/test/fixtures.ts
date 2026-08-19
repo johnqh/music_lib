@@ -43,14 +43,14 @@ function buildMelodyMeasures(
   timeSignature: TimeSignature,
   keySignature: KeySignature,
   trackId: string,
-  ids: IdFactory,
+  ids: IdFactory
 ): Measure[] {
   const measureTicks = measureDurationTicks(timeSignature, ppq);
   return measuresOfNotes.map((notes, index) => {
     const startTick = index * measureTicks;
     const voiceId = ids.next('voice');
     let cursor = startTick;
-    const events: NoteEvent[] = notes.map((spec) => {
+    const events: NoteEvent[] = notes.map(spec => {
       const durationTicks = ticksFor(spec.duration, ppq);
       const event: NoteEvent = {
         id: ids.next('note'),
@@ -83,13 +83,13 @@ function buildChordMeasures(
   timeSignature: TimeSignature,
   keySignature: KeySignature,
   trackId: string,
-  ids: IdFactory,
+  ids: IdFactory
 ): Measure[] {
   const measureTicks = measureDurationTicks(timeSignature, ppq);
   return chordsByMeasure.map((pitches, index) => {
     const startTick = index * measureTicks;
     const voiceId = ids.next('voice');
-    const events: NoteEvent[] = pitches.map((pitch) => ({
+    const events: NoteEvent[] = pitches.map(pitch => ({
       id: ids.next('note'),
       pitch,
       startTick,
@@ -122,8 +122,14 @@ export function twinkleScore(): Score {
   const ids = makeIdFactory();
   const ppq = 480;
 
-  const q = (step: PitchStep, octave = 4): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'quarter' });
-  const h = (step: PitchStep, octave = 4): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'half' });
+  const q = (step: PitchStep, octave = 4): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'quarter',
+  });
+  const h = (step: PitchStep, octave = 4): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'half',
+  });
 
   const measures: NoteSpec[][] = [
     [q('C'), q('C'), q('G'), q('G')],
@@ -148,7 +154,14 @@ export function twinkleScore(): Score {
     pan: 0,
     muted: false,
     solo: false,
-    measures: buildMelodyMeasures(measures, ppq, FOUR_FOUR, C_MAJOR, trackId, ids),
+    measures: buildMelodyMeasures(
+      measures,
+      ppq,
+      FOUR_FOUR,
+      C_MAJOR,
+      trackId,
+      ids
+    ),
   };
 
   return {
@@ -170,8 +183,14 @@ export function twoTrackScore(): Score {
   const ids = makeIdFactory();
   const ppq = 480;
 
-  const q = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'quarter' });
-  const w = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'whole' });
+  const q = (step: PitchStep, octave: number): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'quarter',
+  });
+  const w = (step: PitchStep, octave: number): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'whole',
+  });
 
   const trebleMeasures: NoteSpec[][] = [
     [q('C', 4), q('D', 4), q('E', 4), q('F', 4)],
@@ -179,7 +198,12 @@ export function twoTrackScore(): Score {
     [q('C', 4), q('D', 4), q('E', 4), q('F', 4)],
     [q('G', 4), q('F', 4), q('E', 4), q('D', 4)],
   ];
-  const bassMeasures: NoteSpec[][] = [[w('C', 2)], [w('G', 2)], [w('C', 2)], [w('G', 2)]];
+  const bassMeasures: NoteSpec[][] = [
+    [w('C', 2)],
+    [w('G', 2)],
+    [w('C', 2)],
+    [w('G', 2)],
+  ];
 
   const trebleId = ids.next('track');
   const bassId = ids.next('track');
@@ -195,7 +219,14 @@ export function twoTrackScore(): Score {
     pan: 0,
     muted: false,
     solo: false,
-    measures: buildMelodyMeasures(trebleMeasures, ppq, FOUR_FOUR, C_MAJOR, trebleId, ids),
+    measures: buildMelodyMeasures(
+      trebleMeasures,
+      ppq,
+      FOUR_FOUR,
+      C_MAJOR,
+      trebleId,
+      ids
+    ),
   };
   const bass: Track = {
     id: bassId,
@@ -208,14 +239,25 @@ export function twoTrackScore(): Score {
     pan: 0,
     muted: false,
     solo: false,
-    measures: buildMelodyMeasures(bassMeasures, ppq, FOUR_FOUR, C_MAJOR, bassId, ids),
+    measures: buildMelodyMeasures(
+      bassMeasures,
+      ppq,
+      FOUR_FOUR,
+      C_MAJOR,
+      bassId,
+      ids
+    ),
   };
 
   return {
     id: ids.next('score'),
     version: 1,
     ppq,
-    metadata: { title: 'Two Track Demo', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    metadata: {
+      title: 'Two Track Demo',
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    },
     tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
     tracks: [treble, bass],
   };
@@ -233,7 +275,10 @@ export function threeTrackScore(): Score {
   const ids = makeIdFactory();
   const ppq = 480;
 
-  const q = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'quarter' });
+  const q = (step: PitchStep, octave: number): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'quarter',
+  });
   const measures: NoteSpec[][] = [
     [q('C', 4), q('D', 4), q('E', 4), q('F', 4)],
     [q('G', 4), q('F', 4), q('E', 4), q('D', 4)],
@@ -252,7 +297,14 @@ export function threeTrackScore(): Score {
       pan: 0,
       muted: false,
       solo: false,
-      measures: buildMelodyMeasures(measures, ppq, FOUR_FOUR, C_MAJOR, trackId, ids),
+      measures: buildMelodyMeasures(
+        measures,
+        ppq,
+        FOUR_FOUR,
+        C_MAJOR,
+        trackId,
+        ids
+      ),
     };
   });
 
@@ -260,7 +312,11 @@ export function threeTrackScore(): Score {
     id: ids.next('score'),
     version: 1,
     ppq,
-    metadata: { title: 'Three Track Demo', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    metadata: {
+      title: 'Three Track Demo',
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    },
     tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
     tracks,
   };
@@ -277,14 +333,25 @@ export function denseVsSparseScore(): Score {
   const ids = makeIdFactory();
   const ppq = 480;
 
-  const s = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'sixteenth' });
-  const w = (step: PitchStep, octave: number): NoteSpec => ({ pitch: naturalPitch(step, octave), duration: 'whole' });
+  const s = (step: PitchStep, octave: number): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'sixteenth',
+  });
+  const w = (step: PitchStep, octave: number): NoteSpec => ({
+    pitch: naturalPitch(step, octave),
+    duration: 'whole',
+  });
 
   const runUp: NoteSpec[] = (['C', 'D', 'E', 'F', 'G', 'A', 'B'] as PitchStep[])
-    .flatMap((step) => [s(step, 4), s(step, 4)])
+    .flatMap(step => [s(step, 4), s(step, 4)])
     .concat([s('C', 5), s('C', 5)]);
   const denseMeasures: NoteSpec[][] = [runUp, runUp, runUp, runUp];
-  const sparseMeasures: NoteSpec[][] = [[w('C', 2)], [w('G', 2)], [w('C', 2)], [w('G', 2)]];
+  const sparseMeasures: NoteSpec[][] = [
+    [w('C', 2)],
+    [w('G', 2)],
+    [w('C', 2)],
+    [w('G', 2)],
+  ];
 
   const denseId = ids.next('track');
   const sparseId = ids.next('track');
@@ -300,7 +367,14 @@ export function denseVsSparseScore(): Score {
     pan: 0,
     muted: false,
     solo: false,
-    measures: buildMelodyMeasures(denseMeasures, ppq, FOUR_FOUR, C_MAJOR, denseId, ids),
+    measures: buildMelodyMeasures(
+      denseMeasures,
+      ppq,
+      FOUR_FOUR,
+      C_MAJOR,
+      denseId,
+      ids
+    ),
   };
   const sparse: Track = {
     id: sparseId,
@@ -313,14 +387,25 @@ export function denseVsSparseScore(): Score {
     pan: 0,
     muted: false,
     solo: false,
-    measures: buildMelodyMeasures(sparseMeasures, ppq, FOUR_FOUR, C_MAJOR, sparseId, ids),
+    measures: buildMelodyMeasures(
+      sparseMeasures,
+      ppq,
+      FOUR_FOUR,
+      C_MAJOR,
+      sparseId,
+      ids
+    ),
   };
 
   return {
     id: ids.next('score'),
     version: 1,
     ppq,
-    metadata: { title: 'Dense vs Sparse', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    metadata: {
+      title: 'Dense vs Sparse',
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    },
     tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 120 }],
     tracks: [dense, sparse],
   };
@@ -357,7 +442,11 @@ export function chordScore(): Score {
     id: ids.next('score'),
     version: 1,
     ppq,
-    metadata: { title: 'Chord Progression Demo', createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP },
+    metadata: {
+      title: 'Chord Progression Demo',
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    },
     tempoMap: [{ id: ids.next('tempo'), tick: 0, bpm: 90 }],
     tracks: [track],
   };

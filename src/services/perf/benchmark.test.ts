@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_BENCHMARK_SIZES, runBenchmark, toBenchmarkTable } from './benchmark.js';
+import {
+  DEFAULT_BENCHMARK_SIZES,
+  runBenchmark,
+  toBenchmarkTable,
+} from './benchmark.js';
 import { createMusicIo } from '@sudobility/music_io/mocks';
 
 const codec = createMusicIo().midiCodec;
@@ -22,9 +26,11 @@ describe('runBenchmark', () => {
       expect(sizeReport.noteCount).toBeGreaterThan(0);
       // Both the whole-score note total (trackCount * measureCount * 4, per
       // stressScore's own doc comment) and every timing being present.
-      expect(sizeReport.noteCount).toBe(SMALL_SIZES[i].trackCount * SMALL_SIZES[i].measureCount * 4);
+      expect(sizeReport.noteCount).toBe(
+        SMALL_SIZES[i].trackCount * SMALL_SIZES[i].measureCount * 4
+      );
 
-      const names = sizeReport.timings.map((t) => t.name);
+      const names = sizeReport.timings.map(t => t.name);
       expect(names).toEqual([
         'validateScore',
         'quantizeEvents (whole score)',
@@ -47,13 +53,19 @@ describe('runBenchmark', () => {
     // Only assert shape/size count here (not timings) — DEFAULT_BENCHMARK_SIZES
     // includes a 20-track x 500-measure score, too slow to run per test.
     expect(DEFAULT_BENCHMARK_SIZES.length).toBeGreaterThan(0);
-    expect(DEFAULT_BENCHMARK_SIZES.some((s) => s.trackCount >= 20 && s.measureCount >= 500)).toBe(true);
+    expect(
+      DEFAULT_BENCHMARK_SIZES.some(
+        s => s.trackCount >= 20 && s.measureCount >= 500
+      )
+    ).toBe(true);
   });
 
   it('is deterministic in shape/content given the same sizes (stressScore has no randomness)', () => {
     const a = runBenchmark(codec, SMALL_SIZES);
     const b = runBenchmark(codec, SMALL_SIZES);
-    expect(a.sizes.map((s) => s.noteCount)).toEqual(b.sizes.map((s) => s.noteCount));
+    expect(a.sizes.map(s => s.noteCount)).toEqual(
+      b.sizes.map(s => s.noteCount)
+    );
   });
 });
 
@@ -77,6 +89,8 @@ describe('toBenchmarkTable', () => {
   });
 
   it('returns an empty array for an empty report', () => {
-    expect(toBenchmarkTable({ generatedAt: new Date().toISOString(), sizes: [] })).toEqual([]);
+    expect(
+      toBenchmarkTable({ generatedAt: new Date().toISOString(), sizes: [] })
+    ).toEqual([]);
   });
 });

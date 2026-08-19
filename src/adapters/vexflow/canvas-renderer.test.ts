@@ -1,10 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Formatter, Stave, StaveNote } from 'vexflow';
 import { CanvasScoreRenderer, trackInfoRowLayout } from './canvas-renderer.js';
-import { STAVE_TOP_LINE_OFFSET, TRACK_INFO_WIDTH, computeLayout } from './layout.js';
+import {
+  STAVE_TOP_LINE_OFFSET,
+  TRACK_INFO_WIDTH,
+  computeLayout,
+} from './layout.js';
 import type { RenderTheme } from './types.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
-import { denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  denseVsSparseScore,
+  stressScore,
+  testRenderTheme,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import { allNotes } from '../../domain/score/queries.js';
 import type { Score } from '@sudobility/music_types';
 
@@ -24,10 +34,14 @@ describe('CanvasScoreRenderer', () => {
     const renderer = new CanvasScoreRenderer();
     const result = renderer.render(score, createMock2DContext(), OPTS);
     const expectedVisible = plan.systems
-      .filter((s) => s.yBottom >= 0 && s.yTop <= 400)
-      .flatMap((s) => s.measureIndices);
-    expect([...result.drawnMeasureIndices].sort((a, b) => a - b)).toEqual(expectedVisible);
-    expect(result.drawnMeasureIndices.size).toBeLessThan(score.tracks[0].measures.length);
+      .filter(s => s.yBottom >= 0 && s.yTop <= 400)
+      .flatMap(s => s.measureIndices);
+    expect([...result.drawnMeasureIndices].sort((a, b) => a - b)).toEqual(
+      expectedVisible
+    );
+    expect(result.drawnMeasureIndices.size).toBeLessThan(
+      score.tracks[0].measures.length
+    );
   });
 
   it('records a bbox for every note event in the drawn window', () => {
@@ -84,7 +98,7 @@ describe('CanvasScoreRenderer', () => {
       devicePixelRatio: 2,
       viewport: { top: 50, bottom: 450 },
     });
-    const transforms = ctx.ops.filter((o) => o.method === 'setTransform');
+    const transforms = ctx.ops.filter(o => o.method === 'setTransform');
     // identity (for the clear) first, then the draw transform.
     expect(transforms[1]?.args).toEqual([4, 0, 0, 4, 0, -200]); // z*dpr = 4; offset = -top*z*dpr
   });
@@ -98,7 +112,10 @@ describe('CanvasScoreRenderer: unbounded-scale regression', () => {
     renderer.render(big, ctx, OPTS); // warm the layout cache (the one allowed O(n) pass)
     const t0 = performance.now();
     for (let i = 0; i < 20; i += 1) {
-      renderer.render(big, ctx, { ...OPTS, viewport: { top: i * 100, bottom: i * 100 + 400 } });
+      renderer.render(big, ctx, {
+        ...OPTS,
+        viewport: { top: i * 100, bottom: i * 100 + 400 },
+      });
     }
     const perFrame = (performance.now() - t0) / 20;
     // Generous CI budget; the point is catching an O(score) regression
@@ -110,10 +127,14 @@ describe('CanvasScoreRenderer: unbounded-scale regression', () => {
 describe('CanvasScoreRenderer: cross-track timeline sync', () => {
   it('keeps a dense track tick-aligned with, and inside the same barlines as, a sparse track', () => {
     const score = denseVsSparseScore(); // 16 sixteenths/measure over 1 whole/measure
-    const result = new CanvasScoreRenderer().render(score, createMock2DContext(), {
-      ...OPTS,
-      viewport: { top: 0, bottom: 1_000_000 },
-    });
+    const result = new CanvasScoreRenderer().render(
+      score,
+      createMock2DContext(),
+      {
+        ...OPTS,
+        viewport: { top: 0, bottom: 1_000_000 },
+      }
+    );
 
     for (let m = 0; m < score.tracks[0].measures.length; m += 1) {
       const denseMeasure = score.tracks[0].measures[m];
@@ -122,8 +143,12 @@ describe('CanvasScoreRenderer: cross-track timeline sync', () => {
       // Simultaneous events (same startTick) share a tick context under the
       // joint per-measure formatter, so their x positions must agree (small
       // tolerance: notehead glyph widths differ between whole and sixteenth).
-      const denseFirst = result.idToBBox.get(denseMeasure.voices[0].events[0].id)!;
-      const sparseWhole = result.idToBBox.get(sparseMeasure.voices[0].events[0].id)!;
+      const denseFirst = result.idToBBox.get(
+        denseMeasure.voices[0].events[0].id
+      )!;
+      const sparseWhole = result.idToBBox.get(
+        sparseMeasure.voices[0].events[0].id
+      )!;
       expect(denseFirst).toBeDefined();
       expect(sparseWhole).toBeDefined();
       expect(Math.abs(denseFirst.x - sparseWhole.x)).toBeLessThanOrEqual(10);
@@ -146,15 +171,21 @@ describe('CanvasScoreRenderer: continuous-mode horizontal windowing', () => {
 
   it('draws only the measures intersecting the horizontal viewport', () => {
     const score = stressScore(1, 200);
-    const result = new CanvasScoreRenderer().render(score, createMock2DContext(), {
-      ...CONTINUOUS,
-      viewport: { top: 0, bottom: 400, left: 1000, right: 1900 },
-    });
+    const result = new CanvasScoreRenderer().render(
+      score,
+      createMock2DContext(),
+      {
+        ...CONTINUOUS,
+        viewport: { top: 0, bottom: 400, left: 1000, right: 1900 },
+      }
+    );
     const expected = result.plan.trackLayouts[0].measures
-      .filter((m) => m.box.x + m.box.width >= 1000 && m.box.x <= 1900)
-      .map((m) => m.measureIndex);
+      .filter(m => m.box.x + m.box.width >= 1000 && m.box.x <= 1900)
+      .map(m => m.measureIndex);
     expect(expected.length).toBeGreaterThan(0);
-    expect([...result.drawnMeasureIndices].sort((a, b) => a - b)).toEqual(expected);
+    expect([...result.drawnMeasureIndices].sort((a, b) => a - b)).toEqual(
+      expected
+    );
     expect(result.drawnMeasureIndices.size).toBeLessThan(200);
   });
 
@@ -174,7 +205,7 @@ describe('CanvasScoreRenderer: continuous-mode horizontal windowing', () => {
       ...CONTINUOUS,
       viewport: { top: 0, bottom: 400, left: 300, right: 1200 },
     });
-    const transforms = ctx.ops.filter((o) => o.method === 'setTransform');
+    const transforms = ctx.ops.filter(o => o.method === 'setTransform');
     expect(transforms[1]?.args).toEqual([1, 0, 0, 1, -300, 0]);
   });
 
@@ -185,7 +216,9 @@ describe('CanvasScoreRenderer: continuous-mode horizontal windowing', () => {
       ...OPTS,
       viewport: { top: 0, bottom: 10_000 },
     });
-    expect(result.drawnMeasureIndices.size).toBe(score.tracks[0].measures.length);
+    expect(result.drawnMeasureIndices.size).toBe(
+      score.tracks[0].measures.length
+    );
   });
 });
 
@@ -195,14 +228,19 @@ describe('note and stave coloring', () => {
    * still delegating to the real implementation — the point is to observe
    * the colors, not to stub out styling.
    */
-  type StyleCall = { fillStyle?: string; strokeStyle?: string; lineWidth?: number; shadowBlur?: number };
+  type StyleCall = {
+    fillStyle?: string;
+    strokeStyle?: string;
+    lineWidth?: number;
+    shadowBlur?: number;
+  };
   function captureStyles(cls: typeof Stave | typeof StaveNote) {
     const calls: StyleCall[] = [];
     const proto = cls.prototype as { setStyle: (style: StyleCall) => unknown };
     const original = proto.setStyle;
     const spy = vi.spyOn(proto, 'setStyle').mockImplementation(function (
       this: unknown,
-      style: StyleCall,
+      style: StyleCall
     ) {
       calls.push(style);
       return original.call(this, style);
@@ -223,8 +261,8 @@ describe('note and stave coloring', () => {
     });
     restore();
 
-    expect(calls.some((s) => s.fillStyle === THEME.noteSelected)).toBe(true);
-    expect(calls.some((s) => s.fillStyle === THEME.noteNormal)).toBe(true);
+    expect(calls.some(s => s.fillStyle === THEME.noteSelected)).toBe(true);
+    expect(calls.some(s => s.fillStyle === THEME.noteNormal)).toBe(true);
   });
 
   it('colors every note normal when no map is supplied', () => {
@@ -232,11 +270,14 @@ describe('note and stave coloring', () => {
     const renderer = new CanvasScoreRenderer();
     const { calls, restore } = captureStyles(StaveNote);
 
-    renderer.render(score, createMock2DContext(), { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
     restore();
 
     expect(calls.length).toBeGreaterThan(0);
-    expect(calls.every((s) => s.fillStyle === THEME.noteNormal)).toBe(true);
+    expect(calls.every(s => s.fillStyle === THEME.noteNormal)).toBe(true);
   });
 
   it('sets stroke as well as fill, so stems and flags take the color too', () => {
@@ -252,7 +293,13 @@ describe('note and stave coloring', () => {
     });
     restore();
 
-    expect(calls.some((s) => s.fillStyle === THEME.notePlaying && s.strokeStyle === THEME.notePlaying)).toBe(true);
+    expect(
+      calls.some(
+        s =>
+          s.fillStyle === THEME.notePlaying &&
+          s.strokeStyle === THEME.notePlaying
+      )
+    ).toBe(true);
   });
 
   it('styles the active track stave differently from the others', () => {
@@ -267,7 +314,7 @@ describe('note and stave coloring', () => {
     });
     restore();
 
-    const strokes = calls.map((s) => s.strokeStyle);
+    const strokes = calls.map(s => s.strokeStyle);
     expect(strokes).toContain(THEME.staveActive);
     expect(strokes).toContain(THEME.staveInactive);
   });
@@ -277,13 +324,16 @@ describe('note and stave coloring', () => {
     const renderer = new CanvasScoreRenderer();
     const { calls, restore } = captureStyles(Stave);
 
-    renderer.render(score, createMock2DContext(), { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, createMock2DContext(), {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
     restore();
 
-    const strokes = calls.map((s) => s.strokeStyle);
+    const strokes = calls.map(s => s.strokeStyle);
     expect(strokes.length).toBeGreaterThan(0);
     expect(strokes).not.toContain(THEME.staveActive);
-    expect(strokes.every((s) => s === THEME.staveInactive)).toBe(true);
+    expect(strokes.every(s => s === THEME.staveInactive)).toBe(true);
   });
 });
 
@@ -293,9 +343,14 @@ describe('measure-number gutter drawing', () => {
     const renderer = new CanvasScoreRenderer();
     const ctx = createMock2DContext();
 
-    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
-    const texts = ctx.ops.filter((o) => o.method === 'fillText').map((o) => String(o.args[0]));
+    const texts = ctx.ops
+      .filter(o => o.method === 'fillText')
+      .map(o => String(o.args[0]));
     expect(texts).toContain('1');
     expect(texts).toContain('2');
   });
@@ -305,9 +360,14 @@ describe('measure-number gutter drawing', () => {
     const renderer = new CanvasScoreRenderer();
     const ctx = createMock2DContext();
 
-    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
-    const texts = ctx.ops.filter((o) => o.method === 'fillText').map((o) => String(o.args[0]));
+    const texts = ctx.ops
+      .filter(o => o.method === 'fillText')
+      .map(o => String(o.args[0]));
     expect(texts).not.toContain('0');
   });
 
@@ -322,12 +382,10 @@ describe('measure-number gutter drawing', () => {
     const ctx = createMock2DContext();
 
     const rects: Array<{ fill: string; args: number[] }> = [];
-    (ctx as unknown as { fillRect: (...a: number[]) => void }).fillRect = function (
-      this: { fillStyle: string },
-      ...args: number[]
-    ) {
-      rects.push({ fill: this.fillStyle, args });
-    };
+    (ctx as unknown as { fillRect: (...a: number[]) => void }).fillRect =
+      function (this: { fillStyle: string }, ...args: number[]) {
+        rects.push({ fill: this.fillStyle, args });
+      };
 
     renderer.render(score, ctx, {
       ...OPTS,
@@ -336,8 +394,10 @@ describe('measure-number gutter drawing', () => {
     });
 
     const system = plan.systems[0];
-    const box = plan.trackLayouts[0].measures.find((m) => m.measureIndex === 0)!.box;
-    const tint = rects.find((r) => r.fill === THEME.noteSelected);
+    const box = plan.trackLayouts[0].measures.find(
+      m => m.measureIndex === 0
+    )!.box;
+    const tint = rects.find(r => r.fill === THEME.noteSelected);
     expect(tint).toBeDefined();
     const [x, y, width, height] = tint!.args;
     expect(x).toBe(box.x);
@@ -361,8 +421,10 @@ describe('measure-number gutter drawing', () => {
       selectedMeasureIds: new Set([measureId]),
     });
 
-    const firstFillRect = ctx.ops.findIndex((o) => o.method === 'fillRect');
-    const firstNoteDraw = ctx.ops.findIndex((o) => o.method === 'fillText' || o.method === 'stroke');
+    const firstFillRect = ctx.ops.findIndex(o => o.method === 'fillRect');
+    const firstNoteDraw = ctx.ops.findIndex(
+      o => o.method === 'fillText' || o.method === 'stroke'
+    );
     expect(firstFillRect).toBeGreaterThanOrEqual(0);
     expect(firstFillRect).toBeLessThan(firstNoteDraw);
   });
@@ -376,7 +438,9 @@ describe('measure-number gutter drawing', () => {
     // fillStyle is a property write, so the mock's op log can't correlate it
     // with the fillRect that used it — capture it at call time instead.
     const fills: string[] = [];
-    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: { fillStyle: string }) {
+    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: {
+      fillStyle: string;
+    }) {
       fills.push(this.fillStyle);
     };
 
@@ -395,11 +459,16 @@ describe('measure-number gutter drawing', () => {
     const ctx = createMock2DContext();
 
     const fills: string[] = [];
-    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: { fillStyle: string }) {
+    (ctx as unknown as { fillRect: () => void }).fillRect = function (this: {
+      fillStyle: string;
+    }) {
       fills.push(this.fillStyle);
     };
 
-    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
     expect(fills).not.toContain(THEME.noteSelected);
   });
@@ -410,19 +479,28 @@ describe('measure-number gutter drawing', () => {
     const renderer = new CanvasScoreRenderer();
     const ctx = createMock2DContext();
 
-    renderer.render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    renderer.render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
     // The score wraps across several systems, so each number must land in
     // *its own* system's band — not merely somewhere above the first stave.
     const numbers = ctx.ops
-      .filter((o) => o.method === 'fillText' && /^\d+$/.test(String(o.args[0])))
-      .map((o) => ({ text: String(o.args[0]), y: Number(o.args[2]) }));
+      .filter(o => o.method === 'fillText' && /^\d+$/.test(String(o.args[0])))
+      .map(o => ({ text: String(o.args[0]), y: Number(o.args[2]) }));
     expect(numbers.length).toBeGreaterThan(0);
 
-    const bands = plan.systems.map((s) => ({ top: s.gutterTop, bottom: s.yTop }));
+    const bands = plan.systems.map(s => ({
+      top: s.gutterTop,
+      bottom: s.yTop,
+    }));
     for (const { text, y } of numbers) {
-      const inSomeBand = bands.some((b) => y >= b.top && y <= b.bottom);
-      expect(inSomeBand, `measure ${text} drawn at y=${y}, outside every gutter band`).toBe(true);
+      const inSomeBand = bands.some(b => y >= b.top && y <= b.bottom);
+      expect(
+        inSomeBand,
+        `measure ${text} drawn at y=${y}, outside every gutter band`
+      ).toBe(true);
     }
   });
 });
@@ -430,10 +508,17 @@ describe('measure-number gutter drawing', () => {
 describe('non-color state redundancy (spec §27)', () => {
   /** Records every `setStyle` call on StaveNote for one render. */
   function captureNoteStyles() {
-    const calls: Array<{ lineWidth?: number; shadowBlur?: number; fillStyle?: string }> = [];
+    const calls: Array<{
+      lineWidth?: number;
+      shadowBlur?: number;
+      fillStyle?: string;
+    }> = [];
     const proto = StaveNote.prototype as { setStyle: (s: object) => unknown };
     const original = proto.setStyle;
-    const spy = vi.spyOn(proto, 'setStyle').mockImplementation(function (this: unknown, style: object) {
+    const spy = vi.spyOn(proto, 'setStyle').mockImplementation(function (
+      this: unknown,
+      style: object
+    ) {
       calls.push(style);
       return original.call(this, style);
     });
@@ -453,8 +538,8 @@ describe('non-color state redundancy (spec §27)', () => {
     });
     restore();
 
-    const selected = calls.find((s) => s.fillStyle === THEME.noteSelected)!;
-    const normal = calls.find((s) => s.fillStyle === THEME.noteNormal)!;
+    const selected = calls.find(s => s.fillStyle === THEME.noteSelected)!;
+    const normal = calls.find(s => s.fillStyle === THEME.noteNormal)!;
     expect(selected.lineWidth).toBeGreaterThan(normal.lineWidth!);
   });
 
@@ -471,7 +556,7 @@ describe('non-color state redundancy (spec §27)', () => {
     });
     restore();
 
-    expect(calls.every((s) => s.shadowBlur === undefined)).toBe(true);
+    expect(calls.every(s => s.shadowBlur === undefined)).toBe(true);
   });
 
   it('emphasises playing notes too, so playback is followable in grayscale', () => {
@@ -487,7 +572,7 @@ describe('non-color state redundancy (spec §27)', () => {
     });
     restore();
 
-    const playing = calls.find((s) => s.fillStyle === THEME.notePlaying)!;
+    const playing = calls.find(s => s.fillStyle === THEME.notePlaying)!;
     expect(playing.lineWidth).toBeGreaterThan(1);
   });
 });
@@ -516,7 +601,10 @@ describe('trackInfoRowLayout', () => {
       [14, 28],
     ]) {
       const row = trackInfoRowLayout(0, cap, icon);
-      expect(row.iconTop + icon / 2).toBeCloseTo(row.textBaseline - cap / 2, 10);
+      expect(row.iconTop + icon / 2).toBeCloseTo(
+        row.textBaseline - cap / 2,
+        10
+      );
     }
   });
 });
@@ -524,14 +612,31 @@ describe('trackInfoRowLayout', () => {
 describe('track-info gutter drawing', () => {
   /** Captures fillText calls plus the fillStyle in force at each one. */
   function captureText(ctx: ReturnType<typeof createMock2DContext>) {
-    const calls: Array<{ text: string; x: number; y: number; style: unknown; baseline: unknown }> =
-      [];
-    (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText =
-      function (this: { fillStyle: unknown; textBaseline: unknown }, text, x, y) {
-        // `textBaseline` captured at call time: it decides whether `y` is the
-        // top of the text or its baseline, so the number alone means nothing.
-        calls.push({ text: String(text), x, y, style: this.fillStyle, baseline: this.textBaseline });
-      };
+    const calls: Array<{
+      text: string;
+      x: number;
+      y: number;
+      style: unknown;
+      baseline: unknown;
+    }> = [];
+    (
+      ctx as unknown as { fillText: (t: string, x: number, y: number) => void }
+    ).fillText = function (
+      this: { fillStyle: unknown; textBaseline: unknown },
+      text,
+      x,
+      y
+    ) {
+      // `textBaseline` captured at call time: it decides whether `y` is the
+      // top of the text or its baseline, so the number alone means nothing.
+      calls.push({
+        text: String(text),
+        x,
+        y,
+        style: this.fillStyle,
+        baseline: this.textBaseline,
+      });
+    };
     return calls;
   }
 
@@ -540,9 +645,12 @@ describe('track-info gutter drawing', () => {
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
-    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
-    const drawn = texts.map((t) => t.text);
+    const drawn = texts.map(t => t.text);
     for (const track of score.tracks) {
       expect(drawn).toContain(track.name);
       expect(drawn).toContain(track.instrumentName);
@@ -559,11 +667,16 @@ describe('track-info gutter drawing', () => {
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
-    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
     const box = plan.trackLayouts[0].measures[0].box;
     const staveTopLine = box.y + STAVE_TOP_LINE_OFFSET;
-    const instrument = texts.find((t) => t.text === score.tracks[0].instrumentName)!;
+    const instrument = texts.find(
+      t => t.text === score.tracks[0].instrumentName
+    )!;
     const capHeight = ctx.measureText('H').actualBoundingBoxAscent;
 
     // Alphabetic baseline: the capitals rise `capHeight` above it, so their
@@ -578,12 +691,17 @@ describe('track-info gutter drawing', () => {
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
-    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
     const box = plan.trackLayouts[0].measures[0].box;
     const staveTopLine = box.y + STAVE_TOP_LINE_OFFSET;
-    const name = texts.find((t) => t.text === score.tracks[0].name)!;
-    const instrument = texts.find((t) => t.text === score.tracks[0].instrumentName)!;
+    const name = texts.find(t => t.text === score.tracks[0].name)!;
+    const instrument = texts.find(
+      t => t.text === score.tracks[0].instrumentName
+    )!;
 
     expect(name.y).toBeLessThan(instrument.y);
     expect(name.y).toBeLessThanOrEqual(staveTopLine); // clear of the staff
@@ -596,13 +714,11 @@ describe('track-info gutter drawing', () => {
     const ctx = createMock2DContext();
     const fonts: string[] = [];
     const realFillText = ctx.fillText.bind(ctx);
-    (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText = function (
-      this: { font: string },
-      text,
-      x,
-      y,
-    ) {
-      if (String(text) === 'Treble' || String(text) === 'Piano') fonts.push(this.font);
+    (
+      ctx as unknown as { fillText: (t: string, x: number, y: number) => void }
+    ).fillText = function (this: { font: string }, text, x, y) {
+      if (String(text) === 'Treble' || String(text) === 'Piano')
+        fonts.push(this.font);
       realFillText(text, x, y);
     };
 
@@ -631,21 +747,29 @@ describe('track-info gutter drawing', () => {
     // One name per drawn system, which is what an engraved score does.
     const systems = result.plan.systems.length;
     expect(systems).toBeGreaterThan(1);
-    expect(texts.filter((t) => t.text === score.tracks[0].name)).toHaveLength(systems);
+    expect(texts.filter(t => t.text === score.tracks[0].name)).toHaveLength(
+      systems
+    );
   });
 
   it('marks a muted track M and a soloed track S', () => {
     const score = twoTrackScore();
     const muted = {
       ...score,
-      tracks: [{ ...score.tracks[0], muted: true }, { ...score.tracks[1], solo: true }],
+      tracks: [
+        { ...score.tracks[0], muted: true },
+        { ...score.tracks[1], solo: true },
+      ],
     };
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
-    new CanvasScoreRenderer().render(muted, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(muted, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
-    const drawn = texts.map((t) => t.text);
+    const drawn = texts.map(t => t.text);
     expect(drawn).toContain('M');
     expect(drawn).toContain('S');
   });
@@ -661,8 +785,8 @@ describe('track-info gutter drawing', () => {
       activeTrackId: score.tracks[1].id,
     });
 
-    const active = texts.find((t) => t.text === score.tracks[1].name)!;
-    const inactive = texts.find((t) => t.text === score.tracks[0].name)!;
+    const active = texts.find(t => t.text === score.tracks[1].name)!;
+    const inactive = texts.find(t => t.text === score.tracks[0].name)!;
     expect(active.style).toBe(THEME.staveActive);
     expect(inactive.style).toBe(THEME.staveInactive);
   });
@@ -689,7 +813,9 @@ describe('track-info gutter drawing', () => {
       viewport: { top: 0, bottom: 10_000, left: 600, right: 1500 },
     });
 
-    expect(b.find((t) => t.text === name)!.x).toBe(a.find((t) => t.text === name)!.x);
+    expect(b.find(t => t.text === name)!.x).toBe(
+      a.find(t => t.text === name)!.x
+    );
   });
 
   it('clears the gutter region rather than filling it with a colour', () => {
@@ -699,9 +825,14 @@ describe('track-info gutter drawing', () => {
     const score = twinkleScore();
     const ctx = createMock2DContext();
 
-    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
-    const clears = ctx.ops.filter((o) => o.method === 'clearRect').map((o) => o.args[2]);
+    const clears = ctx.ops
+      .filter(o => o.method === 'clearRect')
+      .map(o => o.args[2]);
     expect(clears).toContain(TRACK_INFO_WIDTH);
   });
 
@@ -710,19 +841,23 @@ describe('track-info gutter drawing', () => {
     const ctx = createMock2DContext();
     const texts = captureText(ctx);
 
-    new CanvasScoreRenderer().render(score, ctx, { ...OPTS, viewport: { top: 0, bottom: 10_000 } });
+    new CanvasScoreRenderer().render(score, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 10_000 },
+    });
 
     // The gutter draws last, so everything after its final clearRect is the
     // gutter's own drawing — which is where the icon has to be.
     const isGutterClear = (o: (typeof ctx.ops)[number]) =>
       o.method === 'clearRect' && o.args[2] === TRACK_INFO_WIDTH;
-    const gutterStart = ctx.ops.length - 1 - [...ctx.ops].reverse().findIndex(isGutterClear);
+    const gutterStart =
+      ctx.ops.length - 1 - [...ctx.ops].reverse().findIndex(isGutterClear);
     const gutterOps = ctx.ops.slice(gutterStart);
 
-    const iconOrigin = gutterOps.find((o) => o.method === 'translate');
-    const name = texts.find((t) => t.text === score.tracks[0].instrumentName);
+    const iconOrigin = gutterOps.find(o => o.method === 'translate');
+    const name = texts.find(t => t.text === score.tracks[0].instrumentName);
     expect(iconOrigin, 'icon is placed with a translate').toBeDefined();
-    expect(gutterOps.some((o) => o.method === 'stroke')).toBe(true);
+    expect(gutterOps.some(o => o.method === 'stroke')).toBe(true);
     // Icon first, so it reads as a label for the text beside it.
     expect(iconOrigin!.args[0] as number).toBeLessThan(name!.x);
   });
@@ -733,7 +868,9 @@ describe('track-info gutter drawing', () => {
     const score = twoTrackScore();
     const ctx = createMock2DContext();
     const strokes: unknown[] = [];
-    (ctx as unknown as { stroke: () => void }).stroke = function (this: { strokeStyle: unknown }) {
+    (ctx as unknown as { stroke: () => void }).stroke = function (this: {
+      strokeStyle: unknown;
+    }) {
       strokes.push(this.strokeStyle);
     };
 
@@ -754,7 +891,10 @@ describe('inactive-track dimming', () => {
   function captureNoteStyles() {
     const original = StaveNote.prototype.setStyle;
     const styles: Array<Record<string, unknown>> = [];
-    StaveNote.prototype.setStyle = function (this: StaveNote, style: Record<string, unknown>) {
+    StaveNote.prototype.setStyle = function (
+      this: StaveNote,
+      style: Record<string, unknown>
+    ) {
       styles.push(style);
       return original.call(this, style);
     } as typeof original;
@@ -772,7 +912,7 @@ describe('inactive-track dimming', () => {
     });
     restore();
 
-    const fills = styles.map((s) => s.fillStyle);
+    const fills = styles.map(s => s.fillStyle);
     expect(fills).toContain(THEME.noteNormal);
     expect(fills).toContain(THEME.noteInactive);
   });
@@ -790,7 +930,7 @@ describe('inactive-track dimming', () => {
     restore();
 
     expect(styles.length).toBeGreaterThan(0);
-    expect(styles.map((s) => s.fillStyle)).not.toContain(THEME.noteInactive);
+    expect(styles.map(s => s.fillStyle)).not.toContain(THEME.noteInactive);
   });
 
   it("dims a stave's clef and time signature with the rest of its track", () => {
@@ -817,9 +957,11 @@ describe('inactive-track dimming', () => {
 
   it('keeps a selected note its selected colour even off the active track', () => {
     const score = stressScore(2, 2);
-    const offActive = allNotes(score).filter((n) => score.tracks[1].measures.some((m) =>
-      m.voices.some((v) => v.events.some((e) => e.id === n.id)),
-    ));
+    const offActive = allNotes(score).filter(n =>
+      score.tracks[1].measures.some(m =>
+        m.voices.some(v => v.events.some(e => e.id === n.id))
+      )
+    );
     expect(offActive.length).toBeGreaterThan(0);
     const { styles, restore } = captureNoteStyles();
 
@@ -831,7 +973,7 @@ describe('inactive-track dimming', () => {
     });
     restore();
 
-    expect(styles.map((s) => s.fillStyle)).toContain(THEME.noteSelected);
+    expect(styles.map(s => s.fillStyle)).toContain(THEME.noteSelected);
   });
 });
 
@@ -845,8 +987,8 @@ describe('showTrackInfo', () => {
       showTrackInfo,
     });
     return ctx.ops
-      .filter((op) => op.method === 'fillText')
-      .map((op) => String(op.args[0]))
+      .filter(op => op.method === 'fillText')
+      .map(op => String(op.args[0]))
       .join(' ');
   }
 
@@ -881,10 +1023,10 @@ describe('multi-measure rests', () => {
     const score = twinkleScore();
     return {
       ...score,
-      tracks: score.tracks.map((t) => ({
+      tracks: score.tracks.map(t => ({
         ...t,
         measures: t.measures.map((m, i) =>
-          i === 1 ? { ...m, multiMeasureRestCount: 24, voices: [] } : m,
+          i === 1 ? { ...m, multiMeasureRestCount: 24, voices: [] } : m
         ),
       })),
     };
@@ -897,7 +1039,9 @@ describe('multi-measure rests', () => {
       ...OPTS,
       viewport: { top: 0, bottom: 5000 },
     });
-    return ctx.ops.filter((op) => op.method === 'bezierCurveTo' || op.method === 'lineTo').length;
+    return ctx.ops.filter(
+      op => op.method === 'bezierCurveTo' || op.method === 'lineTo'
+    ).length;
   }
 
   it('draws the numeral, not just the rest bar', () => {
@@ -909,10 +1053,10 @@ describe('multi-measure rests', () => {
       const score = twinkleScore();
       return {
         ...score,
-        tracks: score.tracks.map((t) => ({
+        tracks: score.tracks.map(t => ({
           ...t,
           measures: t.measures.map((m, i) =>
-            i === 1 ? { ...m, multiMeasureRestCount: count, voices: [] } : m,
+            i === 1 ? { ...m, multiMeasureRestCount: count, voices: [] } : m
           ),
         })),
       };
@@ -921,7 +1065,6 @@ describe('multi-measure rests', () => {
     expect(drawOps(withCount(24))).toBeGreaterThan(drawOps(withCount(2)));
   });
 
-
   it('still gives the collapsed measure a box to sit in', () => {
     const ctx = createMock2DContext();
     const score = collapsedScore();
@@ -929,7 +1072,9 @@ describe('multi-measure rests', () => {
       ...OPTS,
       viewport: { top: 0, bottom: 5000 },
     });
-    expect(result.measureIdToBBox.has(score.tracks[0].measures[1].id)).toBe(true);
+    expect(result.measureIdToBBox.has(score.tracks[0].measures[1].id)).toBe(
+      true
+    );
   });
 
   it('still draws the ordinary measures around it', () => {
@@ -951,8 +1096,10 @@ describe('rehearsal marks', () => {
       viewport: { top: 0, bottom: 5000 },
     });
     return {
-      texts: ctx.ops.filter((op) => op.method === 'fillText').map((op) => String(op.args[0])),
-      rects: ctx.ops.filter((op) => op.method === 'rect').length,
+      texts: ctx.ops
+        .filter(op => op.method === 'fillText')
+        .map(op => String(op.args[0])),
+      rects: ctx.ops.filter(op => op.method === 'rect').length,
     };
   }
 
@@ -960,9 +1107,11 @@ describe('rehearsal marks', () => {
   function withMark(score: Score, label: string): Score {
     return {
       ...score,
-      tracks: score.tracks.map((t) => ({
+      tracks: score.tracks.map(t => ({
         ...t,
-        measures: t.measures.map((m, i) => (i === 1 ? { ...m, rehearsalMark: label } : m)),
+        measures: t.measures.map((m, i) =>
+          i === 1 ? { ...m, rehearsalMark: label } : m
+        ),
       })),
     };
   }
@@ -978,7 +1127,7 @@ describe('rehearsal marks', () => {
   it('draws a doubled letter whole', () => {
     // "AA", not "A" twice or "A" truncated.
     const marked = drawn(withMark(twinkleScore(), 'AA'));
-    expect(marked.texts.filter((t) => t === 'AA')).toHaveLength(1);
+    expect(marked.texts.filter(t => t === 'AA')).toHaveLength(1);
   });
 
   it('boxes it', () => {
@@ -993,10 +1142,12 @@ describe('rehearsal marks', () => {
     const score = twinkleScore();
     const restWithMark: Score = {
       ...score,
-      tracks: score.tracks.map((t) => ({
+      tracks: score.tracks.map(t => ({
         ...t,
         measures: t.measures.map((m, i) =>
-          i === 1 ? { ...m, rehearsalMark: 'C', multiMeasureRestCount: 8, voices: [] } : m,
+          i === 1
+            ? { ...m, rehearsalMark: 'C', multiMeasureRestCount: 8, voices: [] }
+            : m
         ),
       })),
     };
@@ -1011,16 +1162,26 @@ describe('cue labels', () => {
     const score = twinkleScore();
     const cued: Score = {
       ...score,
-      tracks: score.tracks.map((t) => ({
+      tracks: score.tracks.map(t => ({
         ...t,
         measures: t.measures.map((m, i) =>
-          i === 1 ? { ...m, cue: { label: 'Flute', events: m.voices[0]?.events ?? [] } } : m,
+          i === 1
+            ? {
+                ...m,
+                cue: { label: 'Flute', events: m.voices[0]?.events ?? [] },
+              }
+            : m
         ),
       })),
     };
     const ctx = createMock2DContext();
-    new CanvasScoreRenderer().render(cued, ctx, { ...OPTS, viewport: { top: 0, bottom: 5000 } });
-    const texts = ctx.ops.filter((op) => op.method === 'fillText').map((op) => String(op.args[0]));
+    new CanvasScoreRenderer().render(cued, ctx, {
+      ...OPTS,
+      viewport: { top: 0, bottom: 5000 },
+    });
+    const texts = ctx.ops
+      .filter(op => op.method === 'fillText')
+      .map(op => String(op.args[0]));
     expect(texts).toContain('Flute');
   });
 });
@@ -1035,11 +1196,11 @@ function withDenserLowerTrack(score: Score): Score {
         ? track
         : {
             ...track,
-            measures: track.measures.map((measure) => ({
+            measures: track.measures.map(measure => ({
               ...measure,
-              voices: measure.voices.map((voice) => ({
+              voices: measure.voices.map(voice => ({
                 ...voice,
-                events: voice.events.flatMap((event) => [
+                events: voice.events.flatMap(event => [
                   { ...event, durationTicks: event.durationTicks / 2 },
                   {
                     ...event,
@@ -1050,7 +1211,7 @@ function withDenserLowerTrack(score: Score): Score {
                 ]),
               })),
             })),
-          },
+          }
     ),
   };
 }
@@ -1059,7 +1220,10 @@ describe('CanvasScoreRenderer: per-stave culling', () => {
   /** A viewport tall enough for only the first few staves of a many-track score. */
   function renderWindow(score: Score, top: number, bottom: number) {
     const renderer = new CanvasScoreRenderer();
-    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const ctx = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     const result = renderer.render(score, ctx, {
       zoom: 1,
       layoutMode: 'page',
@@ -1078,8 +1242,14 @@ describe('CanvasScoreRenderer: per-stave culling', () => {
     // the whole column — the formatter sees every track so that geometry cannot
     // depend on what is scrolled into view.
     const score = stressScore(24, 2);
-    const wide = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
-    const narrow = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const wide = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
+    const narrow = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     const opts = (bottom: number) => ({
       zoom: 1,
       layoutMode: 'page' as const,
@@ -1091,7 +1261,8 @@ describe('CanvasScoreRenderer: per-stave culling', () => {
     new CanvasScoreRenderer().render(score, wide, opts(100000));
     new CanvasScoreRenderer().render(score, narrow, opts(300));
 
-    const ops = (c: CanvasRenderingContext2D) => (c as unknown as { ops: unknown[] }).ops.length;
+    const ops = (c: CanvasRenderingContext2D) =>
+      (c as unknown as { ops: unknown[] }).ops.length;
     expect(ops(narrow)).toBeGreaterThan(0);
     expect(ops(narrow)).toBeLessThan(ops(wide) / 2);
   });
@@ -1109,10 +1280,14 @@ describe('CanvasScoreRenderer: per-stave culling', () => {
     const windowed = renderWindow(score, 0, 260);
 
     const deltas: number[] = [];
-    const shared = [...windowed.idToBBox.keys()].filter((id) => full.idToBBox.has(id));
+    const shared = [...windowed.idToBBox.keys()].filter(id =>
+      full.idToBBox.has(id)
+    );
     expect(shared.length).toBeGreaterThan(0);
     for (const id of shared) {
-      deltas.push(Math.abs(windowed.idToBBox.get(id)!.x - full.idToBBox.get(id)!.x));
+      deltas.push(
+        Math.abs(windowed.idToBBox.get(id)!.x - full.idToBBox.get(id)!.x)
+      );
     }
     console.log('MAXDELTA', Math.max(...deltas));
   });
@@ -1135,7 +1310,10 @@ describe('CanvasScoreRenderer: frame reuse', () => {
     // twelve-track sixteenth-note score — to change one notehead's colour.
     const score = stressScore(6, 8);
     const renderer = new CanvasScoreRenderer();
-    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const ctx = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     const first = renderer.render(score, ctx, frameOpts());
     const anyNoteId = [...first.idToBBox.keys()][0];
 
@@ -1143,7 +1321,7 @@ describe('CanvasScoreRenderer: frame reuse', () => {
     renderer.render(
       score,
       ctx,
-      frameOpts({ noteColors: new Map([[anyNoteId, 'playing']]) }),
+      frameOpts({ noteColors: new Map([[anyNoteId, 'playing']]) })
     );
 
     expect(buildSpy).not.toHaveBeenCalled();
@@ -1152,16 +1330,25 @@ describe('CanvasScoreRenderer: frame reuse', () => {
   it('still paints the new colour when it reuses the frame', () => {
     const score = stressScore(4, 4);
     const renderer = new CanvasScoreRenderer();
-    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const ctx = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     const first = renderer.render(score, ctx, frameOpts());
     const noteId = [...first.idToBBox.keys()][0];
 
     const styled: unknown[] = [];
-    const spy = vi.spyOn(StaveNote.prototype, 'setStyle').mockImplementation(function (this: unknown, s) {
-      styled.push(s);
-      return this as StaveNote;
-    });
-    renderer.render(score, ctx, frameOpts({ noteColors: new Map([[noteId, 'playing']]) }));
+    const spy = vi
+      .spyOn(StaveNote.prototype, 'setStyle')
+      .mockImplementation(function (this: unknown, s) {
+        styled.push(s);
+        return this as StaveNote;
+      });
+    renderer.render(
+      score,
+      ctx,
+      frameOpts({ noteColors: new Map([[noteId, 'playing']]) })
+    );
     spy.mockRestore();
 
     expect(styled.length).toBeGreaterThan(0);
@@ -1170,11 +1357,18 @@ describe('CanvasScoreRenderer: frame reuse', () => {
   it('rebuilds when the viewport moves, because the window is different music', () => {
     const score = stressScore(4, 40);
     const renderer = new CanvasScoreRenderer();
-    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const ctx = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     renderer.render(score, ctx, frameOpts());
 
     const buildSpy = vi.spyOn(Formatter.prototype, 'format');
-    renderer.render(score, ctx, frameOpts({ viewport: { top: 900, bottom: 1700, left: 0, right: 1200 } }));
+    renderer.render(
+      score,
+      ctx,
+      frameOpts({ viewport: { top: 900, bottom: 1700, left: 0, right: 1200 } })
+    );
 
     expect(buildSpy).toHaveBeenCalled();
   });
@@ -1182,7 +1376,10 @@ describe('CanvasScoreRenderer: frame reuse', () => {
   it('rebuilds when the score changes', () => {
     const score = stressScore(4, 4);
     const renderer = new CanvasScoreRenderer();
-    const ctx = createMock2DContext(1200, 800) as unknown as CanvasRenderingContext2D;
+    const ctx = createMock2DContext(
+      1200,
+      800
+    ) as unknown as CanvasRenderingContext2D;
     renderer.render(score, ctx, frameOpts());
 
     const buildSpy = vi.spyOn(Formatter.prototype, 'format');

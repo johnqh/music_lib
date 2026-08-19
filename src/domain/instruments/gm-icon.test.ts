@@ -6,7 +6,9 @@ import { parseIconPath } from './icon-art.js';
 describe('gmInstrumentIcon', () => {
   it('gives every one of the 128 programs art with at least one shape', () => {
     for (const instrument of GM_INSTRUMENTS) {
-      expect(gmInstrumentIcon(instrument.program).shapes.length).toBeGreaterThan(0);
+      expect(
+        gmInstrumentIcon(instrument.program).shapes.length
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -19,8 +21,10 @@ describe('gmInstrumentIcon', () => {
   });
 
   it('shares one piece of art across a family with no hand-picked entries', () => {
-    const family = GM_INSTRUMENTS.filter((i) => i.family === 'synth-effects');
-    expect(new Set(family.map((i) => gmInstrumentIcon(i.program).name)).size).toBe(1);
+    const family = GM_INSTRUMENTS.filter(i => i.family === 'synth-effects');
+    expect(
+      new Set(family.map(i => gmInstrumentIcon(i.program).name)).size
+    ).toBe(1);
   });
 
   it('falls back rather than returning nothing outside the range', () => {
@@ -34,7 +38,8 @@ describe('gmInstrumentIcon', () => {
     // machine whose track happened to use that program.
     for (const instrument of GM_INSTRUMENTS) {
       for (const shape of gmInstrumentIcon(instrument.program).shapes) {
-        if (shape.kind === 'path') expect(() => parseIconPath(shape.d)).not.toThrow();
+        if (shape.kind === 'path')
+          expect(() => parseIconPath(shape.d)).not.toThrow();
       }
     }
   });
@@ -50,10 +55,20 @@ describe('gmInstrumentIcon', () => {
 
       for (const shape of art.shapes) {
         if (shape.kind === 'circle') {
-          expect(shape.cx - shape.r, `${art.name} circle`).toBeGreaterThanOrEqual(0);
-          expect(shape.cy - shape.r, `${art.name} circle`).toBeGreaterThanOrEqual(0);
-          expect(shape.cx + shape.r, `${art.name} circle`).toBeLessThanOrEqual(24);
-          expect(shape.cy + shape.r, `${art.name} circle`).toBeLessThanOrEqual(24);
+          expect(
+            shape.cx - shape.r,
+            `${art.name} circle`
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            shape.cy - shape.r,
+            `${art.name} circle`
+          ).toBeGreaterThanOrEqual(0);
+          expect(shape.cx + shape.r, `${art.name} circle`).toBeLessThanOrEqual(
+            24
+          );
+          expect(shape.cy + shape.r, `${art.name} circle`).toBeLessThanOrEqual(
+            24
+          );
           continue;
         }
         for (const segment of parseIconPath(shape.d)) {

@@ -7,7 +7,11 @@ describe('createMock2DContext', () => {
     ctx.beginPath();
     ctx.moveTo(1, 2);
     ctx.fillRect(0, 0, 10, 10);
-    expect(ctx.ops.map((o) => o.method)).toEqual(['beginPath', 'moveTo', 'fillRect']);
+    expect(ctx.ops.map(o => o.method)).toEqual([
+      'beginPath',
+      'moveTo',
+      'fillRect',
+    ]);
     expect(ctx.ops[2].args).toEqual([0, 0, 10, 10]);
   });
 

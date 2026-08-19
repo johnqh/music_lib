@@ -29,7 +29,12 @@ export const ICON_STROKE_WIDTH = 1.6;
 
 export type IconShape =
   | { readonly kind: 'path'; readonly d: string }
-  | { readonly kind: 'circle'; readonly cx: number; readonly cy: number; readonly r: number };
+  | {
+      readonly kind: 'circle';
+      readonly cx: number;
+      readonly cy: number;
+      readonly r: number;
+    };
 
 /** One instrument's line art. `name` is a stable id — useful in tests and debugging, never shown. */
 export type InstrumentIconArt = {
@@ -40,7 +45,15 @@ export type InstrumentIconArt = {
 export type PathSegment =
   | { kind: 'move'; x: number; y: number }
   | { kind: 'line'; x: number; y: number }
-  | { kind: 'cubic'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
+  | {
+      kind: 'cubic';
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      x: number;
+      y: number;
+    }
   | { kind: 'quad'; x1: number; y1: number; x: number; y: number }
   | { kind: 'close' };
 
@@ -56,7 +69,15 @@ function segmentFor(command: string, n: readonly number[]): PathSegment {
     case 'L':
       return { kind: 'line', x: n[0], y: n[1] };
     case 'C':
-      return { kind: 'cubic', x1: n[0], y1: n[1], x2: n[2], y2: n[3], x: n[4], y: n[5] };
+      return {
+        kind: 'cubic',
+        x1: n[0],
+        y1: n[1],
+        x2: n[2],
+        y2: n[3],
+        x: n[4],
+        y: n[5],
+      };
     default:
       return { kind: 'quad', x1: n[0], y1: n[1], x: n[2], y: n[3] };
   }
@@ -84,7 +105,8 @@ export function parseIconPath(d: string): PathSegment[] {
         throw new Error(`Unsupported icon path command "${command}" in "${d}"`);
       }
     }
-    if (command == null) throw new Error(`Icon path must start with a command: "${d}"`);
+    if (command == null)
+      throw new Error(`Icon path must start with a command: "${d}"`);
 
     const arity = COMMAND_ARITY[command];
     if (arity === 0) {
@@ -97,7 +119,9 @@ export function parseIconPath(d: string): PathSegment[] {
 
     const operands = tokens.slice(i, i + arity).map(Number);
     if (operands.length < arity || operands.some(Number.isNaN)) {
-      throw new Error(`Icon path command "${command}" wants ${arity} numbers in "${d}"`);
+      throw new Error(
+        `Icon path command "${command}" wants ${arity} numbers in "${d}"`
+      );
     }
     i += arity;
     segments.push(segmentFor(command, operands));

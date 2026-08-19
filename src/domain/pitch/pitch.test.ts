@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isPitchInRange, midiToPitch, pitchToMidi, pitchToString } from './pitch.js';
+import {
+  isPitchInRange,
+  midiToPitch,
+  pitchToMidi,
+  pitchToString,
+} from './pitch.js';
 import type { Pitch } from '@sudobility/music_types';
 
 describe('pitchToMidi', () => {
@@ -29,7 +34,7 @@ describe('pitchToMidi', () => {
         step: 'G',
         accidental: 0,
         octave: 4,
-      }),
+      })
     );
   });
 });
@@ -45,17 +50,29 @@ describe('midiToPitch', () => {
 
   it('spells midi 61 as C#4 in G major (1 sharp)', () => {
     const gMajor = { fifths: 1, mode: 'major' as const };
-    expect(midiToPitch(61, gMajor)).toEqual({ step: 'C', accidental: 1, octave: 4 });
+    expect(midiToPitch(61, gMajor)).toEqual({
+      step: 'C',
+      accidental: 1,
+      octave: 4,
+    });
   });
 
   it('spells midi 61 as Db4 in Ab major (4 flats)', () => {
     const abMajor = { fifths: -4, mode: 'major' as const };
-    expect(midiToPitch(61, abMajor)).toEqual({ step: 'D', accidental: -1, octave: 4 });
+    expect(midiToPitch(61, abMajor)).toEqual({
+      step: 'D',
+      accidental: -1,
+      octave: 4,
+    });
   });
 
   it('spells midi 70 as Bb4 in F major (1 flat)', () => {
     const fMajor = { fifths: -1, mode: 'major' as const };
-    expect(midiToPitch(70, fMajor)).toEqual({ step: 'B', accidental: -1, octave: 4 });
+    expect(midiToPitch(70, fMajor)).toEqual({
+      step: 'B',
+      accidental: -1,
+      octave: 4,
+    });
   });
 
   it('round-trips through pitchToMidi', () => {
@@ -83,7 +100,9 @@ describe('pitchToString', () => {
   });
 
   it('formats a double flat pitch', () => {
-    expect(pitchToString({ step: 'B', accidental: -2, octave: 4 })).toBe('Bbb4');
+    expect(pitchToString({ step: 'B', accidental: -2, octave: 4 })).toBe(
+      'Bbb4'
+    );
   });
 
   it('formats a negative octave', () => {

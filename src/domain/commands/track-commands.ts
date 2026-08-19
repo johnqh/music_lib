@@ -24,20 +24,20 @@ import type { ScoreCommand } from './types.js';
  *
  * Ids are regenerated so a track appended twice cannot collide with itself.
  */
-export function appendTrackCommand(track: Track): ScoreCommand {
-  return transformCommand('Add track', (score) => {
+export function appendTrackCommand(track: Track, label: string): ScoreCommand {
+  return transformCommand(label, score => {
     const reference = score.tracks[0];
     if (!reference) return score;
 
     const id = createId();
     const measures = reference.measures.map((template, index) => {
       const source = track.measures[index];
-      const voices = (source?.voices ?? []).map((voice) => {
+      const voices = (source?.voices ?? []).map(voice => {
         const voiceId = createId();
         return {
           id: voiceId,
           name: voice.name,
-          events: voice.events.map((event) => ({
+          events: voice.events.map(event => ({
             ...event,
             id: createId(),
             voiceId,

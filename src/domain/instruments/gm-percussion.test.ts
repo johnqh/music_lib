@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { GM_PERCUSSION, GM_PERCUSSION_RANGE, gmPercussion, gmPercussionName } from './gm-percussion.js';
+import {
+  GM_PERCUSSION,
+  GM_PERCUSSION_RANGE,
+  gmPercussion,
+  gmPercussionName,
+} from './gm-percussion.js';
 import { hasPercussionMapping } from '../../adapters/vexflow/percussion.js';
 
 describe('gmPercussion', () => {
   it('covers every note in the General MIDI percussion range, with no gaps', () => {
     // A gap is a key on the keyboard that sounds a drum and cannot say which.
-    const covered = GM_PERCUSSION.map((d) => d.midi);
+    const covered = GM_PERCUSSION.map(d => d.midi);
     const expected = [];
-    for (let midi = GM_PERCUSSION_RANGE.min; midi <= GM_PERCUSSION_RANGE.max; midi += 1) {
+    for (
+      let midi = GM_PERCUSSION_RANGE.min;
+      midi <= GM_PERCUSSION_RANGE.max;
+      midi += 1
+    ) {
       expected.push(midi);
     }
     expect(covered).toEqual(expected);
@@ -18,11 +27,14 @@ describe('gmPercussion', () => {
     // one of them knows about and the other does not is drawn on the staff and
     // then labelled with nothing, or labelled and then drawn nowhere.
     for (const drum of GM_PERCUSSION) {
-      expect(hasPercussionMapping(drum.midi), `${drum.name} is drawn`).toBe(true);
+      expect(hasPercussionMapping(drum.midi), `${drum.name} is drawn`).toBe(
+        true
+      );
     }
     // And the other direction: nothing is drawn that this table cannot name.
     for (let midi = 0; midi < 128; midi += 1) {
-      if (hasPercussionMapping(midi)) expect(gmPercussion(midi), `note ${midi}`).not.toBeNull();
+      if (hasPercussionMapping(midi))
+        expect(gmPercussion(midi), `note ${midi}`).not.toBeNull();
     }
   });
 
@@ -31,7 +43,10 @@ describe('gmPercussion', () => {
     // row of whites and one of blacks, and within a row the labels sit one
     // white key apart. Longer than this and neighbouring drums run together.
     for (const drum of GM_PERCUSSION) {
-      expect(drum.short.length, `${drum.name} -> "${drum.short}"`).toBeLessThanOrEqual(7);
+      expect(
+        drum.short.length,
+        `${drum.name} -> "${drum.short}"`
+      ).toBeLessThanOrEqual(7);
       expect(drum.short.length).toBeGreaterThan(0);
     }
   });

@@ -129,6 +129,8 @@ describe('fractionToTicks', () => {
   });
 
   it('rounds to the nearest integer tick when not evenly divisible', () => {
-    expect(fractionToTicks(fraction(1, 3), 480)).toBe(Math.round((1 / 3) * 4 * 480));
+    expect(fractionToTicks(fraction(1, 3), 480)).toBe(
+      Math.round((1 / 3) * 4 * 480)
+    );
   });
 });

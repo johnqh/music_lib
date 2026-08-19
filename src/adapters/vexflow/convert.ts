@@ -44,7 +44,11 @@ export function pitchToVexKey(pitch: Pitch): string {
 }
 
 /** Non-triplet `DurationName`s mapped to VexFlow's duration code, largest first (matches `decomposeDuration`'s candidate order). */
-const VEX_DURATION_CODES: Array<{ name: DurationName; code: string; dots: 0 | 1 }> = [
+const VEX_DURATION_CODES: Array<{
+  name: DurationName;
+  code: string;
+  dots: 0 | 1;
+}> = [
   { name: 'whole', code: 'w', dots: 0 },
   { name: 'dotted-whole', code: 'w', dots: 1 },
   { name: 'half', code: 'h', dots: 0 },
@@ -87,7 +91,23 @@ export function ticksToVexDuration(ticks: number, ppq: number): VexDuration {
   return { code: best.code, dots: best.dots };
 }
 
-const MAJOR_KEYS_BY_FIFTHS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+const MAJOR_KEYS_BY_FIFTHS = [
+  'Cb',
+  'Gb',
+  'Db',
+  'Ab',
+  'Eb',
+  'Bb',
+  'F',
+  'C',
+  'G',
+  'D',
+  'A',
+  'E',
+  'B',
+  'F#',
+  'C#',
+];
 const MINOR_KEYS_BY_FIFTHS = [
   'Abm',
   'Ebm',
@@ -110,7 +130,9 @@ const MINOR_KEYS_BY_FIFTHS = [
 export function keySignatureToVexSpec(ks: KeySignature): string {
   const clamped = Math.max(-7, Math.min(7, ks.fifths));
   const index = clamped + 7;
-  return ks.mode === 'minor' ? MINOR_KEYS_BY_FIFTHS[index] : MAJOR_KEYS_BY_FIFTHS[index];
+  return ks.mode === 'minor'
+    ? MINOR_KEYS_BY_FIFTHS[index]
+    : MAJOR_KEYS_BY_FIFTHS[index];
 }
 
 const ARTICULATION_CODE: Record<DomainArticulation, string> = {
@@ -196,7 +218,7 @@ export function buildVoiceContent(
    * cross noteheads, per `percussion.ts`. A drum's "pitch" says which drum was
    * struck, so drawn literally a kick lands six ledger lines below the staff.
    */
-  isPercussion = false,
+  isPercussion = false
 ): VoiceContent {
   const tickables: StemmableNote[] = [];
   const notes: StaveNote[] = [];
@@ -229,10 +251,10 @@ export function buildVoiceContent(
 
       const keys = isRest
         ? [REST_KEY]
-        : group.map((e) =>
+        : group.map(e =>
             isPercussion
               ? percussionVexKey(pitchToMidi((e as NoteEvent).pitch))
-              : pitchToVexKey((e as NoteEvent).pitch),
+              : pitchToVexKey((e as NoteEvent).pitch)
           );
 
       const staveNote = new StaveNote({
@@ -266,7 +288,10 @@ export function buildVoiceContent(
         group.forEach((event, keyIndex) => {
           const noteEvent = event as NoteEvent;
           if (noteEvent.articulation) {
-            staveNote.addModifier(new Articulation(ARTICULATION_CODE[noteEvent.articulation]), keyIndex);
+            staveNote.addModifier(
+              new Articulation(ARTICULATION_CODE[noteEvent.articulation]),
+              keyIndex
+            );
           }
         });
       }
@@ -275,7 +300,9 @@ export function buildVoiceContent(
       // primary event id for the first segment (the common, non-decomposed
       // case) so `#vf-<eventId>` resolves directly; later segments (only
       // reached for the non-standard-duration fallback) get a suffix.
-      const vexId = isFirstSegment ? first.id : `${first.id}::seg${segmentIndex}`;
+      const vexId = isFirstSegment
+        ? first.id
+        : `${first.id}::seg${segmentIndex}`;
       staveNote.setAttribute('id', vexId);
 
       // Every segment of a decomposed (non-standard-duration) note repeats
@@ -285,7 +312,7 @@ export function buildVoiceContent(
       // underlying domain event's own tieStart/tieStop.
       const keyTies: KeyTie[] = isRest
         ? []
-        : group.map((event) => {
+        : group.map(event => {
             const noteEvent = event as NoteEvent;
             return {
               pitch: noteEvent.pitch,
@@ -293,14 +320,14 @@ export function buildVoiceContent(
               tieStop: !isFirstSegment || Boolean(noteEvent.tieStop),
             };
           });
-      const tieStart = keyTies.some((k) => k.tieStart);
-      const tieStop = keyTies.some((k) => k.tieStop);
+      const tieStart = keyTies.some(k => k.tieStart);
+      const tieStop = keyTies.some(k => k.tieStop);
 
       tickables.push(staveNote);
       notes.push(staveNote);
       metas.push({
         vexId,
-        eventIds: group.map((e) => e.id),
+        eventIds: group.map(e => e.id),
         tieStart,
         tieStop,
         isRest,

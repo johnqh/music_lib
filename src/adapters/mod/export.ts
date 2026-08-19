@@ -15,7 +15,11 @@
  * Pure: no bytes, no platform, no store. `TrackerCodec.encode` turns the result
  * into a file.
  */
-import type { Score, TrackerCell, TrackerModule } from '@sudobility/music_types';
+import type {
+  Score,
+  TrackerCell,
+  TrackerModule,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { TRACKER_LIMITS, type WritableTrackerFormat } from './limits.js';
@@ -47,7 +51,10 @@ export type TrackerFitReport = {
   quantisedNotes: number;
 };
 
-export type TrackerExportResult = { module: TrackerModule; report: TrackerFitReport };
+export type TrackerExportResult = {
+  module: TrackerModule;
+  report: TrackerFitReport;
+};
 
 /** True when nothing was lost — the case that must not cost the user a click. */
 export function isCleanFit(report: TrackerFitReport): boolean {
@@ -67,13 +74,19 @@ export function isCleanFit(report: TrackerFitReport): boolean {
  * may hold 20-400 BPM, so a slow score raises the speed and a fast one lowers
  * it. Every score-legal BPM lands in 32-255 under one of the three.
  */
-export function speedAndTempoFor(bpm: number): { speed: number; tempo: number } {
+export function speedAndTempoFor(bpm: number): {
+  speed: number;
+  tempo: number;
+} {
   for (const speed of SPEED_CHOICES) {
     const tempo = Math.round((bpm * speed) / 6);
     if (tempo >= MIN_TEMPO && tempo <= MAX_TEMPO) return { speed, tempo };
   }
   // Unreachable for a valid score; clamp rather than emit an illegal byte.
-  return { speed: 6, tempo: Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, Math.round(bpm))) };
+  return {
+    speed: 6,
+    tempo: Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, Math.round(bpm))),
+  };
 }
 
 const emptyCell = (): TrackerCell => ({ instrument: 0, note: null });
@@ -93,7 +106,10 @@ function clampToRange(midi: number, lowest: number, highest: number): number {
   return Math.min(highest, Math.max(lowest, value));
 }
 
-export function scoreToTracker(score: Score, options: TrackerExportOptions): TrackerExportResult {
+export function scoreToTracker(
+  score: Score,
+  options: TrackerExportOptions
+): TrackerExportResult {
   const limits = TRACKER_LIMITS[options.format];
   const rowsPerBeat = options.rowsPerBeat ?? DEFAULT_ROWS_PER_BEAT;
   const ticksPerRow = score.ppq / rowsPerBeat;
@@ -111,7 +127,10 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
   let nextChannel = 0;
   const channelOfVoice: Array<Map<number, number>> = [];
   for (const track of score.tracks) {
-    const widest = track.measures.reduce((n, m) => Math.max(n, m.voices.length), 0);
+    const widest = track.measures.reduce(
+      (n, m) => Math.max(n, m.voices.length),
+      0
+    );
     const map = new Map<number, number>();
     for (let v = 0; v < widest; v += 1) {
       if (nextChannel < limits.channels) {
@@ -132,11 +151,16 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
       lastTick = Math.max(lastTick, measure.startTick + measure.durationTicks);
     }
   }
-  const totalRows = Math.max(ROWS_PER_PATTERN, Math.ceil(lastTick / ticksPerRow));
+  const totalRows = Math.max(
+    ROWS_PER_PATTERN,
+    Math.ceil(lastTick / ticksPerRow)
+  );
   const patternCount = Math.ceil(totalRows / ROWS_PER_PATTERN);
 
   const patterns: TrackerCell[][][] = Array.from({ length: patternCount }, () =>
-    Array.from({ length: ROWS_PER_PATTERN }, () => Array.from({ length: channels }, emptyCell)),
+    Array.from({ length: ROWS_PER_PATTERN }, () =>
+      Array.from({ length: channels }, emptyCell)
+    )
   );
   const cellAt = (row: number, channel: number): TrackerCell | null => {
     const p = Math.floor(row / ROWS_PER_PATTERN);
@@ -157,7 +181,9 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
           if (!isNoteEvent(event)) continue;
 
           const startRow = Math.round(event.startTick / ticksPerRow);
-          const endRow = Math.round((event.startTick + event.durationTicks) / ticksPerRow);
+          const endRow = Math.round(
+            (event.startTick + event.durationTicks) / ticksPerRow
+          );
           if (endRow <= startRow) {
             report.droppedShortNotes += 1;
             continue;
@@ -165,7 +191,11 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
           if (event.startTick % ticksPerRow !== 0) report.quantisedNotes += 1;
 
           const sounding = pitchToMidi(event.pitch);
-          const midi = clampToRange(sounding, limits.lowestMidi, limits.highestMidi);
+          const midi = clampToRange(
+            sounding,
+            limits.lowestMidi,
+            limits.highestMidi
+          );
           if (midi !== sounding) report.clampedNotes += 1;
 
           const start = cellAt(startRow, channel);
@@ -184,7 +214,10 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
 
   // Tempo. The first entry sets both knobs in row 0; later ones move whichever
   // the BPM needs, which `tempoChanges` on the import side reads back.
-  const tempoMap = score.tempoMap.length > 0 ? score.tempoMap : [{ tick: 0, bpm: DEFAULT_BPM }];
+  const tempoMap =
+    score.tempoMap.length > 0
+      ? score.tempoMap
+      : [{ tick: 0, bpm: DEFAULT_BPM }];
   for (const entry of tempoMap) {
     const row = Math.round(entry.tick / ticksPerRow);
     const cell = cellAt(row, 0);
@@ -201,7 +234,10 @@ export function scoreToTracker(score: Score, options: TrackerExportOptions): Tra
       channels,
       instruments: score.tracks
         .slice(0, limits.instruments)
-        .map((track, i) => ({ index: i + 1, name: track.instrumentName || track.name })),
+        .map((track, i) => ({
+          index: i + 1,
+          name: track.instrumentName || track.name,
+        })),
       order: Array.from({ length: patternCount }, (_, i) => i),
       patterns,
     },

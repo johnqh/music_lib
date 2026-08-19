@@ -20,7 +20,7 @@ const MIN_RUN = 2;
  * bar, so it cannot disappear into a count.
  */
 export function isSilentMeasure(measure: Measure): boolean {
-  return measure.voices.every((voice) => !voice.events.some(isNoteEvent));
+  return measure.voices.every(voice => !voice.events.some(isNoteEvent));
 }
 
 /** Whether a run may continue from `previous` into `next`. */
@@ -81,7 +81,11 @@ export function collapseRests(measures: readonly Measure[]): Measure[] {
     }
 
     const runLength = end - index;
-    out.push(runLength >= MIN_RUN ? { ...start, multiMeasureRestCount: runLength } : start);
+    out.push(
+      runLength >= MIN_RUN
+        ? { ...start, multiMeasureRestCount: runLength }
+        : start
+    );
     index = end;
   }
 

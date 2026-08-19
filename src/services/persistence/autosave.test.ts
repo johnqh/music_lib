@@ -98,7 +98,10 @@ describe('createAutosaver', () => {
 
   it('a change that arrives during an in-flight save triggers a fresh debounced save afterward, not an immediate one', async () => {
     const first = deferred<void>();
-    const save = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const save = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue(undefined);
     const autosaver = createAutosaver(save, 2000);
 
     autosaver.notifyChange();
@@ -120,7 +123,10 @@ describe('createAutosaver', () => {
 
   it('flush() awaits an in-flight save, then saves again if a change arrived during it', async () => {
     const first = deferred<void>();
-    const save = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const save = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue(undefined);
     const autosaver = createAutosaver(save, 2000);
 
     autosaver.notifyChange();
@@ -138,7 +144,10 @@ describe('createAutosaver', () => {
 
   it('flush() resolves without an extra save when the in-flight save had no follow-up change', async () => {
     const first = deferred<void>();
-    const save = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const save = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue(undefined);
     const autosaver = createAutosaver(save, 2000);
 
     autosaver.notifyChange();
@@ -161,7 +170,10 @@ describe('createAutosaver', () => {
   });
 
   it('a rejected timer-triggered save does not throw and later saves still work', async () => {
-    const save = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValue(undefined);
+    const save = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue(undefined);
     const autosaver = createAutosaver(save, 2000);
 
     autosaver.notifyChange();

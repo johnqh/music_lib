@@ -14,6 +14,7 @@
  * outside `generation-slice`'s own `error` field (e.g. a request that
  * throws before `generate()`/`regenerate()` even starts).
  */
+import { libraryMessage } from './messages.js';
 import { useAppStore } from '../store/useAppStore.js';
 import type { createAppStore } from '../store/useAppStore.js';
 
@@ -98,7 +99,10 @@ export function setErrorLogging(enabled: boolean): void {
  * development only, to the console with full technical detail (spec §28).
  * Safe to call for any thrown value, not just `AppError`.
  */
-export function reportError(err: unknown, options: ReportErrorOptions = {}): void {
+export function reportError(
+  err: unknown,
+  options: ReportErrorOptions = {}
+): void {
   const store = options.store ?? useAppStore;
   const detail = toUserMessage(err);
   const message = options.context ? `${options.context}: ${detail}` : detail;
@@ -106,7 +110,14 @@ export function reportError(err: unknown, options: ReportErrorOptions = {}): voi
   store.getState().pushToast({
     message,
     severity: 'error',
-    ...(options.retry ? { action: { label: options.retryLabel ?? 'Retry', onClick: options.retry } } : {}),
+    ...(options.retry
+      ? {
+          action: {
+            label: options.retryLabel ?? libraryMessage('retry'),
+            onClick: options.retry,
+          },
+        }
+      : {}),
   });
 
   if (logTechnicalDetail) {

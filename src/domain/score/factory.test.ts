@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { appendMeasure, createEmptyScore, createTrack, rebuildMeasureTicks } from './factory.js';
+import {
+  appendMeasure,
+  createEmptyScore,
+  createTrack,
+  rebuildMeasureTicks,
+} from './factory.js';
 import { isRestEvent } from '@sudobility/music_types';
 import { measureDurationTicks } from '../time/ticks.js';
 
@@ -18,7 +23,12 @@ describe('createTrack', () => {
   });
 
   it('respects explicit overrides', () => {
-    const track = createTrack({ name: 'Bass', clef: 'bass', midiProgram: 33, midiChannel: 2 });
+    const track = createTrack({
+      name: 'Bass',
+      clef: 'bass',
+      midiProgram: 33,
+      midiChannel: 2,
+    });
     expect(track.clef).toBe('bass');
     expect(track.midiProgram).toBe(33);
     expect(track.midiChannel).toBe(2);
@@ -37,7 +47,9 @@ describe('createEmptyScore', () => {
     expect(score.metadata.title).toBe('Untitled');
     expect(score.ppq).toBe(480);
     expect(score.version).toBe(1);
-    expect(score.tempoMap).toEqual([{ id: expect.any(String), tick: 0, bpm: 120 }]);
+    expect(score.tempoMap).toEqual([
+      { id: expect.any(String), tick: 0, bpm: 120 },
+    ]);
     expect(score.tracks.length).toBeGreaterThan(0);
   });
 
@@ -47,13 +59,23 @@ describe('createEmptyScore', () => {
       ppq: 480,
       measures: 3,
       timeSignature: { numerator: 4, denominator: 4 },
-      tracks: [{ name: 'Piano', instrumentName: 'Piano', midiProgram: 0, clef: 'treble' }],
+      tracks: [
+        {
+          name: 'Piano',
+          instrumentName: 'Piano',
+          midiProgram: 0,
+          clef: 'treble',
+        },
+      ],
     });
 
     const track = score.tracks[0];
     expect(track.measures).toHaveLength(3);
 
-    const measureTicks = measureDurationTicks({ numerator: 4, denominator: 4 }, 480);
+    const measureTicks = measureDurationTicks(
+      { numerator: 4, denominator: 4 },
+      480
+    );
     track.measures.forEach((measure, i) => {
       expect(measure.index).toBe(i);
       expect(measure.startTick).toBe(i * measureTicks);
@@ -65,7 +87,14 @@ describe('createEmptyScore', () => {
     const score = createEmptyScore({
       title: 'Twinkle',
       measures: 1,
-      tracks: [{ name: 'Piano', instrumentName: 'Piano', midiProgram: 0, clef: 'treble' }],
+      tracks: [
+        {
+          name: 'Piano',
+          instrumentName: 'Piano',
+          midiProgram: 0,
+          clef: 'treble',
+        },
+      ],
     });
 
     const measure = score.tracks[0].measures[0];
@@ -94,9 +123,11 @@ describe('createEmptyScore', () => {
     expect(score.tracks[0].measures).toHaveLength(2);
     expect(score.tracks[1].measures).toHaveLength(2);
     // Each track's measures/voices/events must have distinct ids.
-    const trackMeasureIds = score.tracks[0].measures.map((m) => m.id);
-    const otherMeasureIds = score.tracks[1].measures.map((m) => m.id);
-    expect(trackMeasureIds.some((id) => otherMeasureIds.includes(id))).toBe(false);
+    const trackMeasureIds = score.tracks[0].measures.map(m => m.id);
+    const otherMeasureIds = score.tracks[1].measures.map(m => m.id);
+    expect(trackMeasureIds.some(id => otherMeasureIds.includes(id))).toBe(
+      false
+    );
   });
 });
 
@@ -112,7 +143,10 @@ describe('appendMeasure', () => {
     const track = grown.tracks[0];
     expect(track.measures).toHaveLength(3);
 
-    const measureTicks = measureDurationTicks({ numerator: 4, denominator: 4 }, 480);
+    const measureTicks = measureDurationTicks(
+      { numerator: 4, denominator: 4 },
+      480
+    );
     const newMeasure = track.measures[2];
     expect(newMeasure.index).toBe(2);
     expect(newMeasure.startTick).toBe(2 * measureTicks);
@@ -121,7 +155,11 @@ describe('appendMeasure', () => {
   });
 
   it('does not mutate the original score', () => {
-    const score = createEmptyScore({ title: 'Immutable', measures: 1, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'Immutable',
+      measures: 1,
+      tracks: [{ name: 'Piano' }],
+    });
     appendMeasure(score);
     expect(score.tracks[0].measures).toHaveLength(1);
   });
@@ -129,7 +167,11 @@ describe('appendMeasure', () => {
 
 describe('rebuildMeasureTicks', () => {
   it('recomputes index/startTick after a measure is removed from the middle', () => {
-    const score = createEmptyScore({ title: 'Edited', measures: 3, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'Edited',
+      measures: 3,
+      tracks: [{ name: 'Piano' }],
+    });
     const [m0, , m2] = score.tracks[0].measures;
     const edited = {
       ...score,
@@ -146,17 +188,30 @@ describe('rebuildMeasureTicks', () => {
   });
 
   it('shifts event startTicks within a measure by the same delta as the measure', () => {
-    const score = createEmptyScore({ title: 'Edited', measures: 3, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'Edited',
+      measures: 3,
+      tracks: [{ name: 'Piano' }],
+    });
     const [m0, , m2] = score.tracks[0].measures;
-    const edited = { ...score, tracks: [{ ...score.tracks[0], measures: [m0, m2] }] };
+    const edited = {
+      ...score,
+      tracks: [{ ...score.tracks[0], measures: [m0, m2] }],
+    };
 
     const rebuilt = rebuildMeasureTicks(edited);
     const secondMeasure = rebuilt.tracks[0].measures[1];
-    expect(secondMeasure.voices[0].events[0].startTick).toBe(secondMeasure.startTick);
+    expect(secondMeasure.voices[0].events[0].startTick).toBe(
+      secondMeasure.startTick
+    );
   });
 
   it('is a no-op (referentially, per measure) when ticks are already consistent', () => {
-    const score = createEmptyScore({ title: 'Stable', measures: 2, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'Stable',
+      measures: 2,
+      tracks: [{ name: 'Piano' }],
+    });
     const rebuilt = rebuildMeasureTicks(score);
     expect(rebuilt.tracks[0].measures[0]).toBe(score.tracks[0].measures[0]);
     expect(rebuilt.tracks[0].measures[1]).toBe(score.tracks[0].measures[1]);

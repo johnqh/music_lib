@@ -30,7 +30,10 @@ function randomUuidFallback(): UUID {
  * origins other than `localhost`) where `crypto.randomUUID` is undefined.
  */
 export function createId(): UUID {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return crypto.randomUUID();
   }
   return randomUuidFallback();

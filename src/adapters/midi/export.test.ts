@@ -4,7 +4,11 @@ import { exportMidi, safeFilename } from './export.js';
 import { createEmptyScore } from '../../domain/score/factory.js';
 import { createId } from '../../domain/score/ids.js';
 import type { NoteEvent, Score } from '@sudobility/music_types';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import { createMusicIo } from '@sudobility/music_io/mocks';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
@@ -38,7 +42,9 @@ describe('exportMidi', () => {
     expect(bass.channel).toBe(1);
     expect(bass.instrument.number).toBe(32);
 
-    const expectedTrebleNotes = score.tracks[0].measures.flatMap((m) => m.voices.flatMap((v) => v.events));
+    const expectedTrebleNotes = score.tracks[0].measures.flatMap(m =>
+      m.voices.flatMap(v => v.events)
+    );
     expect(treble.notes).toHaveLength(expectedTrebleNotes.length);
   });
 
@@ -46,7 +52,9 @@ describe('exportMidi', () => {
     const score = createEmptyScore({
       title: 'Drums',
       measures: 1,
-      tracks: [{ name: 'Drums', clef: 'percussion', midiChannel: 3, midiProgram: 0 }],
+      tracks: [
+        { name: 'Drums', clef: 'percussion', midiChannel: 3, midiProgram: 0 },
+      ],
     });
     // @tonejs/midi's own re-parser infers a track's channel from its note-on
     // events (not from the program-change/CC channel field), so the track
@@ -63,7 +71,13 @@ describe('exportMidi', () => {
         voiceId: voice.id,
         trackId: track.id,
       },
-      { id: createId(), startTick: 480, durationTicks: 1440, voiceId: voice.id, trackId: track.id },
+      {
+        id: createId(),
+        startTick: 480,
+        durationTicks: 1440,
+        voiceId: voice.id,
+        trackId: track.id,
+      },
     ];
 
     const midi = new Midi(exportMidi(score, codec));
@@ -73,9 +87,11 @@ describe('exportMidi', () => {
   it('exports chord (simultaneous same-duration) notes as distinct simultaneous MIDI notes', () => {
     const score = chordScore();
     const midi = new Midi(exportMidi(score, codec));
-    const firstMeasureNotes = midi.tracks[0].notes.filter((n) => n.ticks === 0);
+    const firstMeasureNotes = midi.tracks[0].notes.filter(n => n.ticks === 0);
     expect(firstMeasureNotes).toHaveLength(3); // C E G
-    expect(firstMeasureNotes.map((n) => n.midi).sort((a, b) => a - b)).toEqual([60, 64, 67]);
+    expect(firstMeasureNotes.map(n => n.midi).sort((a, b) => a - b)).toEqual([
+      60, 64, 67,
+    ]);
   });
 
   it('rejoins a tied note split across a measure boundary into one MIDI note', () => {
@@ -132,7 +148,13 @@ describe('exportMidi', () => {
                   id: voice1,
                   name: 'Voice 1',
                   events: [
-                    { id: createId(), startTick: 0, durationTicks: 1440, voiceId: voice1, trackId },
+                    {
+                      id: createId(),
+                      startTick: 0,
+                      durationTicks: 1440,
+                      voiceId: voice1,
+                      trackId,
+                    },
                     tiedNote,
                   ],
                 },
@@ -151,7 +173,13 @@ describe('exportMidi', () => {
                   name: 'Voice 1',
                   events: [
                     tiedContinuation,
-                    { id: createId(), startTick: 2400, durationTicks: 1440, voiceId: voice2, trackId },
+                    {
+                      id: createId(),
+                      startTick: 2400,
+                      durationTicks: 1440,
+                      voiceId: voice2,
+                      trackId,
+                    },
                   ],
                 },
               ],

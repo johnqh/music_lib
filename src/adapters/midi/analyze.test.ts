@@ -26,7 +26,9 @@ describe('analyzeMidi', () => {
     expect(summary.tempoEvents).toHaveLength(1);
     expect(summary.tempoEvents[0].tick).toBe(0);
     expect(summary.tempoEvents[0].bpm).toBeCloseTo(90, 2);
-    expect(summary.timeSignatures).toEqual([{ tick: 0, numerator: 4, denominator: 4 }]);
+    expect(summary.timeSignatures).toEqual([
+      { tick: 0, numerator: 4, denominator: 4 },
+    ]);
     expect(summary.durationSeconds).toBeGreaterThan(0);
   });
 
@@ -70,12 +72,18 @@ describe('analyzeMidi', () => {
         voiceId: drumVoice.id,
         trackId: drumTrack.id,
       },
-      { id: createId(), startTick: 480, durationTicks: 1440, voiceId: drumVoice.id, trackId: drumTrack.id },
+      {
+        id: createId(),
+        startTick: 480,
+        durationTicks: 1440,
+        voiceId: drumVoice.id,
+        trackId: drumTrack.id,
+      },
     ];
 
     const summary = analyzeMidi(toArrayBuffer(exportMidi(score, codec)), codec);
-    const drums = summary.tracks.find((t) => t.name === 'Drums');
-    const empty = summary.tracks.find((t) => t.name === 'Empty');
+    const drums = summary.tracks.find(t => t.name === 'Drums');
+    const empty = summary.tracks.find(t => t.name === 'Empty');
 
     expect(drums?.isPercussion).toBe(true);
     expect(drums?.channel).toBe(9);
@@ -138,9 +146,16 @@ describe('analyzeMidi: percussion counts toward the grid', () => {
     const drums = midi.addTrack();
     drums.channel = 9;
     for (let i = 0; i < 128; i++)
-      drums.addNote({ midi: 42, ticks: Math.round(i * ppq / 8), durationTicks: 10 });
+      drums.addNote({
+        midi: 42,
+        ticks: Math.round((i * ppq) / 8),
+        durationTicks: 10,
+      });
 
     const summary = analyzeMidi(midi.toArray().buffer as ArrayBuffer, codec);
-    expect(summary.detectedGrid).toEqual({ grid: 'thirtysecond', triplet: false });
+    expect(summary.detectedGrid).toEqual({
+      grid: 'thirtysecond',
+      triplet: false,
+    });
   });
 });

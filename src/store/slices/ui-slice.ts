@@ -7,15 +7,15 @@
  * There is no view mode: notation and the piano roll are shown at the same
  * time, so nothing switches between them.
  */
-import type { StateCreator } from "zustand";
-import { createId } from "../../domain/score/ids.js";
-import type { DurationName, UUID } from "@sudobility/music_types";
-import type { AppState } from "../useAppStore.js";
+import type { StateCreator } from 'zustand';
+import { createId } from '../../domain/score/ids.js';
+import type { DurationName, UUID } from '@sudobility/music_types';
+import type { AppState } from '../useAppStore.js';
 
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 /** Whether notation shows what the score sounds, or what each player reads. */
-export type PitchDisplay = "concert" | "written";
+export type PitchDisplay = 'concert' | 'written';
 
 export type DevSettings = {
   showIds: boolean;
@@ -30,7 +30,7 @@ export type DevSettings = {
   enableValidationWarnings: boolean;
 };
 
-export type ToastSeverity = "info" | "success" | "warning" | "error";
+export type ToastSeverity = 'info' | 'success' | 'warning' | 'error';
 /** An optional action button (spec §28: "retry actions where appropriate"), e.g. "Retry" on a failed import/save toast. */
 export type ToastAction = { label: string; onClick: () => void };
 export type Toast = {
@@ -59,7 +59,7 @@ const DEFAULT_DEV_SETTINGS: DevSettings = {
  * whether one gesture makes a chord — keys held together are one chord in
  * every mode, because that is what playing them means.
  */
-export type EditMode = "insert" | "replace" | "stack";
+export type EditMode = 'insert' | 'replace' | 'stack';
 
 export type UiSlice = {
   /**
@@ -168,26 +168,26 @@ export type UiSlice = {
 
 export const createUiSlice: StateCreator<
   AppState,
-  [["zustand/immer", never]],
+  [['zustand/immer', never]],
   [],
   UiSlice
 > = (set, get) => ({
   activeTrackId: null,
   visibleTrackIds: null,
-  themeMode: "system",
+  themeMode: 'system',
   zoom: 1,
-  snapGrid: "quarter",
-  pitchDisplay: "concert",
-  editMode: "replace",
+  snapGrid: 'quarter',
+  pitchDisplay: 'concert',
+  editMode: 'replace',
   activeVoiceIndex: 0,
   developerMode: false,
   devSettings: DEFAULT_DEV_SETTINGS,
   dialogs: {},
   toasts: [],
 
-  setActiveTrack: (trackId) => {
+  setActiveTrack: trackId => {
     let revealed = false;
-    set((state) => {
+    set(state => {
       state.activeTrackId = trackId;
       // Choosing a track you cannot see and having nothing happen is not a
       // defensible outcome, so selecting reveals.
@@ -203,85 +203,85 @@ export const createUiSlice: StateCreator<
     if (revealed) get().markDirty();
   },
 
-  setVisibleTracks: (trackIds) => {
+  setVisibleTracks: trackIds => {
     if (trackIds.length === 0) return;
-    set((state) => {
+    set(state => {
       state.visibleTrackIds = [...trackIds];
     });
     get().markDirty();
   },
-  setThemeMode: (mode) => {
-    set((state) => {
+  setThemeMode: mode => {
+    set(state => {
       state.themeMode = mode;
     });
   },
-  setZoom: (zoom) => {
-    set((state) => {
+  setZoom: zoom => {
+    set(state => {
       state.zoom = zoom;
     });
   },
-  setSnapGrid: (grid) => {
-    set((state) => {
+  setSnapGrid: grid => {
+    set(state => {
       state.snapGrid = grid;
     });
   },
-  setPitchDisplay: (display) => {
-    set((state) => {
+  setPitchDisplay: display => {
+    set(state => {
       state.pitchDisplay = display;
     });
   },
-  setEditMode: (mode) => {
-    set((state) => {
+  setEditMode: mode => {
+    set(state => {
       state.editMode = mode;
     });
   },
-  setActiveVoice: (voiceIndex) => {
+  setActiveVoice: voiceIndex => {
     // Clamped rather than trusted: a negative index would silently write into
     // `voices[-1]`, which is not a voice and not an error either.
-    set((state) => {
+    set(state => {
       state.activeVoiceIndex = Math.max(0, Math.floor(voiceIndex));
     });
   },
-  setDeveloperMode: (enabled) => {
-    set((state) => {
+  setDeveloperMode: enabled => {
+    set(state => {
       state.developerMode = enabled;
     });
   },
-  setDevSettings: (patch) => {
-    set((state) => {
+  setDevSettings: patch => {
+    set(state => {
       Object.assign(state.devSettings, patch);
     });
   },
-  openDialog: (id) => {
-    set((state) => {
+  openDialog: id => {
+    set(state => {
       state.dialogs[id] = true;
     });
   },
-  closeDialog: (id) => {
-    set((state) => {
+  closeDialog: id => {
+    set(state => {
       state.dialogs[id] = false;
     });
   },
-  toggleDialog: (id) => {
-    set((state) => {
+  toggleDialog: id => {
+    set(state => {
       state.dialogs[id] = !state.dialogs[id];
     });
   },
-  pushToast: (toast) => {
+  pushToast: toast => {
     const id = createId();
-    set((state) => {
+    set(state => {
       state.toasts.push({
         id,
         message: toast.message,
-        severity: toast.severity ?? "info",
+        severity: toast.severity ?? 'info',
         ...(toast.action ? { action: toast.action } : {}),
       });
     });
     return id;
   },
-  dismissToast: (id) => {
-    set((state) => {
-      state.toasts = state.toasts.filter((t) => t.id !== id);
+  dismissToast: id => {
+    set(state => {
+      state.toasts = state.toasts.filter(t => t.id !== id);
     });
   },
 });

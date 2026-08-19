@@ -47,7 +47,10 @@ function measureIndexForTick(timings: MeasureTiming[], tick: number): number {
 }
 
 /** Binary search over systems by their (ascending) measure-index ranges. */
-function systemForMeasureIndex(plan: LayoutPlan, measureIndex: number): SystemLayout | null {
+function systemForMeasureIndex(
+  plan: LayoutPlan,
+  measureIndex: number
+): SystemLayout | null {
   const systems = plan.systems;
   let lo = 0;
   let hi = systems.length - 1;
@@ -55,7 +58,8 @@ function systemForMeasureIndex(plan: LayoutPlan, measureIndex: number): SystemLa
     const mid = (lo + hi) >> 1;
     const s = systems[mid];
     if (measureIndex < s.measureIndices[0]) hi = mid - 1;
-    else if (measureIndex > s.measureIndices[s.measureIndices.length - 1]) lo = mid + 1;
+    else if (measureIndex > s.measureIndices[s.measureIndices.length - 1])
+      lo = mid + 1;
     else return s;
   }
   return null;
@@ -69,7 +73,7 @@ function systemForMeasureIndex(plan: LayoutPlan, measureIndex: number): SystemLa
 export function caretPositionForTick(
   plan: LayoutPlan,
   score: Score,
-  tick: number,
+  tick: number
 ): CaretPosition | null {
   const timings = measureTimings(score);
   if (timings.length === 0) return null;
@@ -82,7 +86,10 @@ export function caretPositionForTick(
 
   const fraction =
     timing.durationTicks > 0
-      ? Math.min(1, Math.max(0, (tick - timing.startTick) / timing.durationTicks))
+      ? Math.min(
+          1,
+          Math.max(0, (tick - timing.startTick) / timing.durationTicks)
+        )
       : 0;
   return {
     x: layout.box.x + fraction * layout.box.width,
@@ -97,7 +104,12 @@ export function caretPositionForTick(
  * positions left/right of a system's measures clamp to that system's
  * first/last measure, so clicking the clef area seeks to the system start.
  */
-export function tickForPoint(plan: LayoutPlan, score: Score, x: number, y: number): number | null {
+export function tickForPoint(
+  plan: LayoutPlan,
+  score: Score,
+  x: number,
+  y: number
+): number | null {
   const timings = measureTimings(score);
   if (timings.length === 0) return null;
 
@@ -109,6 +121,9 @@ export function tickForPoint(plan: LayoutPlan, score: Score, x: number, y: numbe
   const timing = timings[hit.measureIndex];
   if (!timing) return null;
 
-  const fraction = hit.box.width > 0 ? Math.min(1, Math.max(0, (x - hit.box.x) / hit.box.width)) : 0;
+  const fraction =
+    hit.box.width > 0
+      ? Math.min(1, Math.max(0, (x - hit.box.x) / hit.box.width))
+      : 0;
   return Math.round(timing.startTick + fraction * timing.durationTicks);
 }

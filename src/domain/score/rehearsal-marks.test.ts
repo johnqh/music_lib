@@ -7,7 +7,12 @@ import {
   rehearsalMarks,
   withRehearsalMarks,
 } from './rehearsal-marks.js';
-import type { KeySignature, Pitch, Score, TimeSignature } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  Pitch,
+  Score,
+  TimeSignature,
+} from '@sudobility/music_types';
 
 const pitch = (step: string): Pitch =>
   ({ step, accidental: 0, octave: 4 }) as unknown as Pitch;
@@ -22,25 +27,34 @@ function fullScore(measures: number): Score {
   const track = base.tracks[0];
   return track.measures.reduce(
     (acc, m) =>
-      addNoteCommand({
-        trackId: track.id,
-        measureId: m.id,
-        voiceIndex: 0,
-        pitch: pitch('C'),
-        startTick: m.startTick,
-        durationTicks: base.ppq,
-      }).execute(acc),
-    base,
+      addNoteCommand(
+        {
+          trackId: track.id,
+          measureId: m.id,
+          voiceIndex: 0,
+          pitch: pitch('C'),
+          startTick: m.startTick,
+          durationTicks: base.ppq,
+        },
+        'Add note'
+      ).execute(acc),
+    base
   );
 }
 
 /** `score` with `patch` applied to the measures at `indices` on every track. */
-function patchMeasures(score: Score, indices: number[], patch: Partial<Score['tracks'][0]['measures'][0]>): Score {
+function patchMeasures(
+  score: Score,
+  indices: number[],
+  patch: Partial<Score['tracks'][0]['measures'][0]>
+): Score {
   return {
     ...score,
-    tracks: score.tracks.map((t) => ({
+    tracks: score.tracks.map(t => ({
       ...t,
-      measures: t.measures.map((m, i) => (indices.includes(i) ? { ...m, ...patch } : m)),
+      measures: t.measures.map((m, i) =>
+        indices.includes(i) ? { ...m, ...patch } : m
+      ),
     })),
   };
 }
@@ -76,7 +90,9 @@ describe('rehearsalMarks', () => {
 
   it('marks a time-signature change', () => {
     const threeFour: TimeSignature = { numerator: 3, denominator: 4 };
-    const score = patchMeasures(fullScore(12), [5], { timeSignature: threeFour });
+    const score = patchMeasures(fullScore(12), [5], {
+      timeSignature: threeFour,
+    });
     expect(rehearsalMarks(score).has(5)).toBe(true);
   });
 
@@ -106,7 +122,7 @@ describe('rehearsalMarks', () => {
     const score = patchMeasures(
       patchMeasures(fullScore(20), [5], { timeSignature: threeFour }),
       [7],
-      { timeSignature: twoFour },
+      { timeSignature: twoFour }
     );
     const marks = rehearsalMarks(score);
     expect(marks.has(5)).toBe(true);
@@ -115,9 +131,13 @@ describe('rehearsalMarks', () => {
 
   it('letters them in bar order', () => {
     const threeFour: TimeSignature = { numerator: 3, denominator: 4 };
-    const score = patchMeasures(fullScore(40), [5], { timeSignature: threeFour });
+    const score = patchMeasures(fullScore(40), [5], {
+      timeSignature: threeFour,
+    });
     const marks = rehearsalMarks(score);
-    const inOrder = [...marks.entries()].sort((a, b) => a[0] - b[0]).map(([, label]) => label);
+    const inOrder = [...marks.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, label]) => label);
     expect(inOrder).toEqual(inOrder.map((_, i) => markLabel(i)));
   });
 
@@ -133,8 +153,13 @@ describe('rehearsalMarks', () => {
       ...twoTrack,
       tracks: twoTrack.tracks.map((t, i) =>
         i === 1
-          ? { ...t, measures: t.measures.map((m, j) => (j >= 4 && j <= 6 ? { ...m, voices: [] } : m)) }
-          : t,
+          ? {
+              ...t,
+              measures: t.measures.map((m, j) =>
+                j >= 4 && j <= 6 ? { ...m, voices: [] } : m
+              ),
+            }
+          : t
       ),
     };
     expect(rehearsalMarks(silenced).has(7)).toBe(true);
@@ -144,7 +169,10 @@ describe('rehearsalMarks', () => {
 describe('applyRehearsalMarks', () => {
   it('writes the mark onto the measure at that index', () => {
     const score = fullScore(4);
-    const marked = applyRehearsalMarks(score.tracks[0].measures, new Map([[2, 'B']]));
+    const marked = applyRehearsalMarks(
+      score.tracks[0].measures,
+      new Map([[2, 'B']])
+    );
     expect(marked[2].rehearsalMark).toBe('B');
     expect(marked[0].rehearsalMark).toBeUndefined();
   });

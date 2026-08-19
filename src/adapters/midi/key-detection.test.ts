@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { detectKeySignature } from './key-detection.js';
-import type { Accidental, NoteEvent, Pitch, PitchStep } from '@sudobility/music_types';
+import type {
+  Accidental,
+  NoteEvent,
+  Pitch,
+  PitchStep,
+} from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 
 let counter = 0;
-function noteAt(step: PitchStep, accidental: Accidental, octave: number, durationTicks: number): NoteEvent {
+function noteAt(
+  step: PitchStep,
+  accidental: Accidental,
+  octave: number,
+  durationTicks: number
+): NoteEvent {
   counter += 1;
   const pitch: Pitch = { step, accidental, octave };
   return {

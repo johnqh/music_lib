@@ -40,7 +40,10 @@ export function markLabel(ordinal: number): string {
 /** Whether `index` starts a stretch of silence at least `LONG_SILENCE` bars long, in `track`. */
 function silenceRunLength(measures: readonly Measure[], index: number): number {
   let length = 0;
-  while (index + length < measures.length && isSilentMeasure(measures[index + length])) {
+  while (
+    index + length < measures.length &&
+    isSilentMeasure(measures[index + length])
+  ) {
     length += 1;
   }
   return length;
@@ -80,7 +83,8 @@ function candidates(score: Score): number[] {
       const run = silenceRunLength(track.measures, index);
       if (run >= LONG_SILENCE) {
         const entrance = index + run;
-        if (entrance > 0 && entrance < track.measures.length) found.add(entrance);
+        if (entrance > 0 && entrance < track.measures.length)
+          found.add(entrance);
         index += run - 1;
       }
     }
@@ -101,7 +105,8 @@ export function rehearsalMarks(score: Score): Map<number, string> {
   const kept: number[] = [];
   for (const index of candidates(score)) {
     const previous = kept[kept.length - 1];
-    if (previous === undefined || index - previous >= MIN_SPACING) kept.push(index);
+    if (previous === undefined || index - previous >= MIN_SPACING)
+      kept.push(index);
   }
 
   return new Map(kept.map((index, ordinal) => [index, markLabel(ordinal)]));
@@ -115,9 +120,9 @@ export function rehearsalMarks(score: Score): Map<number, string> {
  */
 export function applyRehearsalMarks(
   measures: readonly Measure[],
-  marks: ReadonlyMap<number, string>,
+  marks: ReadonlyMap<number, string>
 ): Measure[] {
-  return measures.map((measure) => {
+  return measures.map(measure => {
     const mark = marks.get(measure.index);
     return mark === undefined ? measure : { ...measure, rehearsalMark: mark };
   });
@@ -133,7 +138,7 @@ export function withRehearsalMarks(score: Score): Score {
   const marks = rehearsalMarks(score);
   return {
     ...score,
-    tracks: score.tracks.map((track) => ({
+    tracks: score.tracks.map(track => ({
       ...track,
       measures: applyRehearsalMarks(track.measures, marks),
     })),

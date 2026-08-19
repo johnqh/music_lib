@@ -3,7 +3,11 @@ import { validateScore } from './validator.js';
 import { ISSUE_CODES } from './issues.js';
 import { createEmptyScore } from '../score/factory.js';
 import { replaceFragment } from '../score/fragment.js';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
 
 describe('validateScore', () => {
@@ -36,7 +40,7 @@ describe('validateScore', () => {
                   {
                     ...track.measures[0].voices[0],
                     events: track.measures[0].voices[0].events.map((e, i) =>
-                      i === 1 ? { ...e, id: firstNoteId } : e,
+                      i === 1 ? { ...e, id: firstNoteId } : e
                     ),
                   },
                 ],
@@ -49,7 +53,7 @@ describe('validateScore', () => {
       };
 
       const issues = validateScore(mutated);
-      const dup = issues.find((i) => i.code === ISSUE_CODES.DUPLICATE_ID);
+      const dup = issues.find(i => i.code === ISSUE_CODES.DUPLICATE_ID);
       expect(dup).toBeDefined();
       expect(dup?.severity).toBe('error');
       expect(dup?.objectId).toBe(firstNoteId);
@@ -73,7 +77,9 @@ describe('validateScore', () => {
       const mutated = withSingleVoiceEvents(score, [outOfRange]);
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_PITCH_RANGE)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.INVALID_PITCH_RANGE)).toBe(
+        true
+      );
     });
   });
 
@@ -94,7 +100,9 @@ describe('validateScore', () => {
       const mutated = withSingleVoiceEvents(score, [zeroLength]);
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.NON_POSITIVE_DURATION)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.NON_POSITIVE_DURATION)
+      ).toBe(true);
     });
 
     it('flags a negative startTick', () => {
@@ -113,7 +121,7 @@ describe('validateScore', () => {
       const mutated = withSingleVoiceEvents(score, [negativeStart]);
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.NEGATIVE_TICK)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.NEGATIVE_TICK)).toBe(true);
     });
   });
 
@@ -132,7 +140,9 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [note]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_VELOCITY)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.INVALID_VELOCITY)).toBe(
+        true
+      );
     });
 
     it('flags negative velocity', () => {
@@ -149,21 +159,33 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [note]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_VELOCITY)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.INVALID_VELOCITY)).toBe(
+        true
+      );
     });
   });
 
   describe('track-level MIDI fields', () => {
     it('flags an out-of-range midiProgram', () => {
-      const score = createEmptyScore({ title: 'S', tracks: [{ name: 'P', midiProgram: 128 }] });
+      const score = createEmptyScore({
+        title: 'S',
+        tracks: [{ name: 'P', midiProgram: 128 }],
+      });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_MIDI_PROGRAM)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_MIDI_PROGRAM)
+      ).toBe(true);
     });
 
     it('flags an out-of-range midiChannel', () => {
-      const score = createEmptyScore({ title: 'S', tracks: [{ name: 'P', midiChannel: 16 }] });
+      const score = createEmptyScore({
+        title: 'S',
+        tracks: [{ name: 'P', midiChannel: 16 }],
+      });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_MIDI_CHANNEL)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_MIDI_CHANNEL)
+      ).toBe(true);
     });
   });
 
@@ -174,7 +196,9 @@ describe('validateScore', () => {
         denominator: 4,
       });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)
+      ).toBe(true);
     });
 
     it('flags a denominator outside {1,2,4,8,16,32}', () => {
@@ -183,7 +207,9 @@ describe('validateScore', () => {
         denominator: 3,
       });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)
+      ).toBe(true);
     });
 
     it('accepts every valid denominator', () => {
@@ -193,7 +219,9 @@ describe('validateScore', () => {
           denominator,
         });
         const issues = validateScore(score);
-        expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)).toBe(false);
+        expect(
+          issues.some(i => i.code === ISSUE_CODES.INVALID_TIME_SIGNATURE)
+        ).toBe(false);
       }
     });
   });
@@ -205,7 +233,9 @@ describe('validateScore', () => {
         mode: 'major',
       });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE)
+      ).toBe(true);
     });
 
     it('flags fifths below -7', () => {
@@ -214,15 +244,22 @@ describe('validateScore', () => {
         mode: 'major',
       });
       const issues = validateScore(score);
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE)
+      ).toBe(true);
     });
 
     it('accepts the boundary values -7 and 7', () => {
       for (const fifths of [-7, 7]) {
-        const score = withKeySignature(createEmptyScore({ title: 'S' }), { fifths, mode: 'major' });
-        expect(validateScore(score).some((i) => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE)).toBe(
-          false,
-        );
+        const score = withKeySignature(createEmptyScore({ title: 'S' }), {
+          fifths,
+          mode: 'major',
+        });
+        expect(
+          validateScore(score).some(
+            i => i.code === ISSUE_CODES.INVALID_KEY_SIGNATURE
+          )
+        ).toBe(false);
       }
     });
   });
@@ -241,8 +278,12 @@ describe('validateScore', () => {
         voiceId: measure.voices[0].id,
         trackId: track.id,
       };
-      const issues = validateScore(withSingleVoiceEvents(score, [note], { clampToMeasure: false }));
-      const overfull = issues.find((i) => i.code === ISSUE_CODES.MEASURE_OVERFULL);
+      const issues = validateScore(
+        withSingleVoiceEvents(score, [note], { clampToMeasure: false })
+      );
+      const overfull = issues.find(
+        i => i.code === ISSUE_CODES.MEASURE_OVERFULL
+      );
       expect(overfull).toBeDefined();
       expect(overfull?.severity).toBe('error');
     });
@@ -261,7 +302,9 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [note]));
-      const underfull = issues.find((i) => i.code === ISSUE_CODES.MEASURE_UNDERFULL);
+      const underfull = issues.find(
+        i => i.code === ISSUE_CODES.MEASURE_UNDERFULL
+      );
       expect(underfull).toBeDefined();
       expect(underfull?.severity).toBe('warning');
     });
@@ -269,8 +312,12 @@ describe('validateScore', () => {
     it('reports neither overfull nor underfull when a voice exactly fills the measure', () => {
       const score = createEmptyScore({ title: 'S' });
       const issues = validateScore(score); // default rest-measure already fills exactly
-      expect(issues.some((i) => i.code === ISSUE_CODES.MEASURE_OVERFULL)).toBe(false);
-      expect(issues.some((i) => i.code === ISSUE_CODES.MEASURE_UNDERFULL)).toBe(false);
+      expect(issues.some(i => i.code === ISSUE_CODES.MEASURE_OVERFULL)).toBe(
+        false
+      );
+      expect(issues.some(i => i.code === ISSUE_CODES.MEASURE_UNDERFULL)).toBe(
+        false
+      );
     });
   });
 
@@ -289,12 +336,14 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const measures = track.measures.map((m, i) =>
-        i === 1 ? { ...m, voices: [{ ...m.voices[0], events: [note] }] } : m,
+        i === 1 ? { ...m, voices: [{ ...m.voices[0], events: [note] }] } : m
       );
       const mutated: Score = { ...score, tracks: [{ ...track, measures }] };
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.EVENT_OUTSIDE_MEASURE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.EVENT_OUTSIDE_MEASURE)
+      ).toBe(true);
     });
 
     it('flags a note that extends past the end of its measure', () => {
@@ -310,8 +359,12 @@ describe('validateScore', () => {
         voiceId: measure.voices[0].id,
         trackId: track.id,
       };
-      const issues = validateScore(withSingleVoiceEvents(score, [note], { clampToMeasure: false }));
-      expect(issues.some((i) => i.code === ISSUE_CODES.EVENT_OUTSIDE_MEASURE)).toBe(true);
+      const issues = validateScore(
+        withSingleVoiceEvents(score, [note], { clampToMeasure: false })
+      );
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.EVENT_OUTSIDE_MEASURE)
+      ).toBe(true);
     });
   });
 
@@ -330,7 +383,9 @@ describe('validateScore', () => {
         trackId: 'wrong-track-id',
       };
       const issues = validateScore(withSingleVoiceEvents(score, [note]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_TRACK_REFERENCE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_TRACK_REFERENCE)
+      ).toBe(true);
     });
 
     it('flags an event whose voiceId does not match its containing voice', () => {
@@ -347,7 +402,9 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [note]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.INVALID_VOICE_REFERENCE)).toBe(true);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.INVALID_VOICE_REFERENCE)
+      ).toBe(true);
     });
   });
 
@@ -375,8 +432,12 @@ describe('validateScore', () => {
         voiceId,
         trackId: track.id,
       };
-      const issues = validateScore(withSingleVoiceEvents(score, [a, b], { clampToMeasure: false }));
-      expect(issues.some((i) => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)).toBe(true);
+      const issues = validateScore(
+        withSingleVoiceEvents(score, [a, b], { clampToMeasure: false })
+      );
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)
+      ).toBe(true);
     });
 
     it('does not flag overlapping notes of different pitch (a chord/independent line, not scoped by this rule)', () => {
@@ -402,8 +463,12 @@ describe('validateScore', () => {
         voiceId,
         trackId: track.id,
       };
-      const issues = validateScore(withSingleVoiceEvents(score, [a, b], { clampToMeasure: false }));
-      expect(issues.some((i) => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)).toBe(false);
+      const issues = validateScore(
+        withSingleVoiceEvents(score, [a, b], { clampToMeasure: false })
+      );
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)
+      ).toBe(false);
     });
 
     it('does not flag same-pitch notes that merely share a start tick (a doubled unison, not an overlap)', () => {
@@ -430,7 +495,9 @@ describe('validateScore', () => {
         trackId: track.id,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [a, b]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)).toBe(false);
+      expect(
+        issues.some(i => i.code === ISSUE_CODES.OVERLAPPING_SAME_PITCH)
+      ).toBe(false);
     });
   });
 
@@ -455,14 +522,18 @@ describe('validateScore', () => {
         trackId: track.id,
       }));
       const issues = validateScore(withSingleVoiceEvents(score, notes));
-      const warning = issues.find((i) => i.code === ISSUE_CODES.TOO_MANY_SIMULTANEOUS_NOTES);
+      const warning = issues.find(
+        i => i.code === ISSUE_CODES.TOO_MANY_SIMULTANEOUS_NOTES
+      );
       expect(warning).toBeDefined();
       expect(warning?.severity).toBe('warning');
     });
 
     it('does not warn for a normal-sized chord', () => {
       expect(
-        validateScore(chordScore()).some((i) => i.code === ISSUE_CODES.TOO_MANY_SIMULTANEOUS_NOTES),
+        validateScore(chordScore()).some(
+          i => i.code === ISSUE_CODES.TOO_MANY_SIMULTANEOUS_NOTES
+        )
       ).toBe(false);
     });
   });
@@ -478,32 +549,49 @@ describe('validateScore', () => {
         ],
       };
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.TEMPO_MAP_UNSORTED)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.TEMPO_MAP_UNSORTED)).toBe(
+        true
+      );
     });
 
     it('flags a bpm above 400', () => {
       const score = createEmptyScore({ title: 'S' });
-      const mutated: Score = { ...score, tempoMap: [{ id: 't1', tick: 0, bpm: 500 }] };
-      expect(validateScore(mutated).some((i) => i.code === ISSUE_CODES.INVALID_TEMPO_BPM)).toBe(
-        true,
-      );
+      const mutated: Score = {
+        ...score,
+        tempoMap: [{ id: 't1', tick: 0, bpm: 500 }],
+      };
+      expect(
+        validateScore(mutated).some(
+          i => i.code === ISSUE_CODES.INVALID_TEMPO_BPM
+        )
+      ).toBe(true);
     });
 
     it('flags a bpm below 20', () => {
       const score = createEmptyScore({ title: 'S' });
-      const mutated: Score = { ...score, tempoMap: [{ id: 't1', tick: 0, bpm: 5 }] };
-      expect(validateScore(mutated).some((i) => i.code === ISSUE_CODES.INVALID_TEMPO_BPM)).toBe(
-        true,
-      );
+      const mutated: Score = {
+        ...score,
+        tempoMap: [{ id: 't1', tick: 0, bpm: 5 }],
+      };
+      expect(
+        validateScore(mutated).some(
+          i => i.code === ISSUE_CODES.INVALID_TEMPO_BPM
+        )
+      ).toBe(true);
     });
 
     it('accepts the boundary bpms 20 and 400', () => {
       for (const bpm of [20, 400]) {
         const score = createEmptyScore({ title: 'S' });
-        const mutated: Score = { ...score, tempoMap: [{ id: 't1', tick: 0, bpm }] };
-        expect(validateScore(mutated).some((i) => i.code === ISSUE_CODES.INVALID_TEMPO_BPM)).toBe(
-          false,
-        );
+        const mutated: Score = {
+          ...score,
+          tempoMap: [{ id: 't1', tick: 0, bpm }],
+        };
+        expect(
+          validateScore(mutated).some(
+            i => i.code === ISSUE_CODES.INVALID_TEMPO_BPM
+          )
+        ).toBe(false);
       }
     });
   });
@@ -512,21 +600,31 @@ describe('validateScore', () => {
     it('flags a measure whose startTick does not follow the previous measure', () => {
       const score = createEmptyScore({ title: 'S', measures: 2 });
       const track = score.tracks[0];
-      const measures: Measure[] = [track.measures[0], { ...track.measures[1], startTick: 999999 }];
+      const measures: Measure[] = [
+        track.measures[0],
+        { ...track.measures[1], startTick: 999999 },
+      ];
       const mutated: Score = { ...score, tracks: [{ ...track, measures }] };
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.MEASURE_ORDERING)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.MEASURE_ORDERING)).toBe(
+        true
+      );
     });
 
     it('flags a measure whose index does not match its position', () => {
       const score = createEmptyScore({ title: 'S', measures: 2 });
       const track = score.tracks[0];
-      const measures: Measure[] = [track.measures[0], { ...track.measures[1], index: 5 }];
+      const measures: Measure[] = [
+        track.measures[0],
+        { ...track.measures[1], index: 5 },
+      ];
       const mutated: Score = { ...score, tracks: [{ ...track, measures }] };
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.MEASURE_ORDERING)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.MEASURE_ORDERING)).toBe(
+        true
+      );
     });
   });
 
@@ -547,7 +645,9 @@ describe('validateScore', () => {
         tieStart: true,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [a]));
-      const warning = issues.find((i) => i.code === ISSUE_CODES.MISSING_TIE_TARGET);
+      const warning = issues.find(
+        i => i.code === ISSUE_CODES.MISSING_TIE_TARGET
+      );
       expect(warning).toBeDefined();
       expect(warning?.severity).toBe('warning');
       expect(warning?.objectId).toBe('a');
@@ -569,7 +669,9 @@ describe('validateScore', () => {
         tieStop: true,
       };
       const issues = validateScore(withSingleVoiceEvents(score, [a]));
-      expect(issues.some((i) => i.code === ISSUE_CODES.MISSING_TIE_TARGET)).toBe(true);
+      expect(issues.some(i => i.code === ISSUE_CODES.MISSING_TIE_TARGET)).toBe(
+        true
+      );
     });
 
     it('reports no tie-target issue for a correctly tied pair across two measures', () => {
@@ -604,7 +706,9 @@ describe('validateScore', () => {
       const mutated: Score = { ...score, tracks: [{ ...track, measures }] };
 
       const issues = validateScore(mutated);
-      expect(issues.some((i) => i.code === ISSUE_CODES.MISSING_TIE_TARGET)).toBe(false);
+      expect(issues.some(i => i.code === ISSUE_CODES.MISSING_TIE_TARGET)).toBe(
+        false
+      );
     });
   });
 
@@ -640,9 +744,11 @@ describe('validateScore', () => {
       ];
       const tiedScore: Score = { ...score, tracks: [{ ...track, measures }] };
       // Sanity: the tie is valid before the fragment replacement.
-      expect(validateScore(tiedScore).some((i) => i.code === ISSUE_CODES.MISSING_TIE_TARGET)).toBe(
-        false,
-      );
+      expect(
+        validateScore(tiedScore).some(
+          i => i.code === ISSUE_CODES.MISSING_TIE_TARGET
+        )
+      ).toBe(false);
 
       // Task 3 review carry-forward: replaceFragment silently accepts a
       // zero-measure replacement (it deletes the overlapping block). Here
@@ -659,7 +765,9 @@ describe('validateScore', () => {
       });
 
       const issues = validateScore(result);
-      const warning = issues.find((i) => i.code === ISSUE_CODES.MISSING_TIE_TARGET);
+      const warning = issues.find(
+        i => i.code === ISSUE_CODES.MISSING_TIE_TARGET
+      );
       expect(warning).toBeDefined();
       expect(warning?.objectId).toBe('a');
     });
@@ -669,17 +777,35 @@ describe('validateScore', () => {
 // ---- Test helpers ---------------------------------------------------------
 
 /** Sets the time signature of the first measure of the first track. */
-function withTimeSignature(score: Score, timeSignature: Measure['timeSignature']): Score {
+function withTimeSignature(
+  score: Score,
+  timeSignature: Measure['timeSignature']
+): Score {
   const track = score.tracks[0];
-  const measures = [{ ...track.measures[0], timeSignature }, ...track.measures.slice(1)];
-  return { ...score, tracks: [{ ...track, measures }, ...score.tracks.slice(1)] };
+  const measures = [
+    { ...track.measures[0], timeSignature },
+    ...track.measures.slice(1),
+  ];
+  return {
+    ...score,
+    tracks: [{ ...track, measures }, ...score.tracks.slice(1)],
+  };
 }
 
 /** Sets the key signature of the first measure of the first track. */
-function withKeySignature(score: Score, keySignature: Measure['keySignature']): Score {
+function withKeySignature(
+  score: Score,
+  keySignature: Measure['keySignature']
+): Score {
   const track = score.tracks[0];
-  const measures = [{ ...track.measures[0], keySignature }, ...track.measures.slice(1)];
-  return { ...score, tracks: [{ ...track, measures }, ...score.tracks.slice(1)] };
+  const measures = [
+    { ...track.measures[0], keySignature },
+    ...track.measures.slice(1),
+  ];
+  return {
+    ...score,
+    tracks: [{ ...track, measures }, ...score.tracks.slice(1)],
+  };
 }
 
 /**
@@ -693,13 +819,16 @@ function withKeySignature(score: Score, keySignature: Measure['keySignature']): 
 function withSingleVoiceEvents(
   score: Score,
   events: NoteEvent[],
-  opts: { clampToMeasure?: boolean } = {},
+  opts: { clampToMeasure?: boolean } = {}
 ): Score {
   const clamp = opts.clampToMeasure ?? true;
   const track: Track = score.tracks[0];
   const measure = track.measures[0];
   const durationTicks = clamp
-    ? Math.max(measure.durationTicks, ...events.map((e) => e.startTick + e.durationTicks))
+    ? Math.max(
+        measure.durationTicks,
+        ...events.map(e => e.startTick + e.durationTicks)
+      )
     : measure.durationTicks;
   const updatedMeasure: Measure = {
     ...measure,
@@ -708,6 +837,8 @@ function withSingleVoiceEvents(
   };
   return {
     ...score,
-    tracks: [{ ...track, measures: [updatedMeasure, ...track.measures.slice(1)] }],
+    tracks: [
+      { ...track, measures: [updatedMeasure, ...track.measures.slice(1)] },
+    ],
   };
 }

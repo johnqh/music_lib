@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { transposeDiatonicOctave, transposeKeySignature, transposePitch } from './transpose.js';
+import {
+  transposeDiatonicOctave,
+  transposeKeySignature,
+  transposePitch,
+} from './transpose.js';
 
 describe('transposePitch', () => {
   it('transposes up by a whole step', () => {
@@ -11,11 +15,13 @@ describe('transposePitch', () => {
   });
 
   it('transposes down across an octave boundary', () => {
-    expect(transposePitch({ step: 'C', accidental: 0, octave: 4 }, -1)).toEqual({
-      step: 'B',
-      accidental: 0,
-      octave: 3,
-    });
+    expect(transposePitch({ step: 'C', accidental: 0, octave: 4 }, -1)).toEqual(
+      {
+        step: 'B',
+        accidental: 0,
+        octave: 3,
+      }
+    );
   });
 
   it('transposes up across an octave boundary', () => {
@@ -28,7 +34,10 @@ describe('transposePitch', () => {
 
   it('uses the key signature to choose enharmonic spelling', () => {
     expect(
-      transposePitch({ step: 'C', accidental: 0, octave: 4 }, 1, { fifths: -4, mode: 'major' }),
+      transposePitch({ step: 'C', accidental: 0, octave: 4 }, 1, {
+        fifths: -4,
+        mode: 'major',
+      })
     ).toEqual({ step: 'D', accidental: -1, octave: 4 });
   });
 
@@ -51,7 +60,9 @@ describe('transposePitch', () => {
 
 describe('transposeDiatonicOctave', () => {
   it('shifts up by whole octaves without changing step or accidental', () => {
-    expect(transposeDiatonicOctave({ step: 'C', accidental: 1, octave: 4 }, 1)).toEqual({
+    expect(
+      transposeDiatonicOctave({ step: 'C', accidental: 1, octave: 4 }, 1)
+    ).toEqual({
       step: 'C',
       accidental: 1,
       octave: 5,
@@ -59,7 +70,9 @@ describe('transposeDiatonicOctave', () => {
   });
 
   it('shifts down by whole octaves', () => {
-    expect(transposeDiatonicOctave({ step: 'C', accidental: 1, octave: 4 }, -2)).toEqual({
+    expect(
+      transposeDiatonicOctave({ step: 'C', accidental: 1, octave: 4 }, -2)
+    ).toEqual({
       step: 'C',
       accidental: 1,
       octave: 2,
@@ -102,11 +115,15 @@ describe('transposeKeySignature', () => {
 
   it('gives the tenor sax the same key as the other B-flat instruments', () => {
     // +14 is +2 an octave down; the key must not differ from the trumpet's.
-    expect(transposeKeySignature(major(0), 14)).toEqual(transposeKeySignature(major(0), 2));
+    expect(transposeKeySignature(major(0), 14)).toEqual(
+      transposeKeySignature(major(0), 2)
+    );
   });
 
   it('keeps the mode', () => {
-    expect(transposeKeySignature({ fifths: 0, mode: 'minor' }, 2).mode).toBe('minor');
+    expect(transposeKeySignature({ fifths: 0, mode: 'minor' }, 2).mode).toBe(
+      'minor'
+    );
   });
 
   it('never returns a key needing more than seven accidentals', () => {
@@ -115,7 +132,10 @@ describe('transposeKeySignature', () => {
     for (let semitones = -24; semitones <= 24; semitones++) {
       for (const start of [-5, -3, 0, 3, 5]) {
         const result = transposeKeySignature(major(start), semitones);
-        expect(Math.abs(result.fifths), `${start} by ${semitones}`).toBeLessThanOrEqual(7);
+        expect(
+          Math.abs(result.fifths),
+          `${start} by ${semitones}`
+        ).toBeLessThanOrEqual(7);
       }
     }
   });

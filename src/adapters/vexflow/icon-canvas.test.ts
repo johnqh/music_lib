@@ -13,7 +13,7 @@ const ART: InstrumentIconArt = {
 };
 
 function methods(ctx: ReturnType<typeof createMock2DContext>): string[] {
-  return ctx.ops.map((o) => o.method);
+  return ctx.ops.map(o => o.method);
 }
 
 describe('strokeInstrumentIcon', () => {
@@ -29,7 +29,7 @@ describe('strokeInstrumentIcon', () => {
         'quadraticCurveTo',
         'closePath',
         'arc',
-      ]),
+      ])
     );
   });
 
@@ -48,19 +48,19 @@ describe('strokeInstrumentIcon', () => {
     strokeInstrumentIcon(ctx, ART, 0, 0, ICON_VIEWBOX);
 
     const drawn = methods(ctx);
-    expect(drawn.filter((m) => m === 'beginPath')).toHaveLength(1);
-    expect(drawn.filter((m) => m === 'stroke')).toHaveLength(1);
+    expect(drawn.filter(m => m === 'beginPath')).toHaveLength(1);
+    expect(drawn.filter(m => m === 'stroke')).toHaveLength(1);
   });
 
   it('places and scales the art into the requested box', () => {
     const ctx = createMock2DContext();
     strokeInstrumentIcon(ctx, ART, 40, 60, ICON_VIEWBOX / 2);
 
-    expect(ctx.ops.find((o) => o.method === 'translate')).toEqual({
+    expect(ctx.ops.find(o => o.method === 'translate')).toEqual({
       method: 'translate',
       args: [40, 60],
     });
-    expect(ctx.ops.find((o) => o.method === 'scale')).toEqual({
+    expect(ctx.ops.find(o => o.method === 'scale')).toEqual({
       method: 'scale',
       args: [0.5, 0.5],
     });

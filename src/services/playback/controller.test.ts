@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../../store/useAppStore.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
-import { addMeasureCommand, changeTrackPropsCommand } from '../../domain/commands/structure-commands.js';
+import {
+  addMeasureCommand,
+  changeTrackPropsCommand,
+} from '../../domain/commands/structure-commands.js';
 import { createPlaybackController, PlaybackController } from './controller.js';
 import { playbackPlan } from './plan.js';
 import type { PlaybackStoreApi } from './controller.js';
@@ -58,8 +61,8 @@ function createFakeEngine(): PlaybackEngine {
       observer = obs;
     }),
     noteOn: vi.fn(),
-  noteOff: vi.fn(),
-  dispose: vi.fn(),
+    noteOff: vi.fn(),
+    dispose: vi.fn(),
   };
 }
 
@@ -70,7 +73,7 @@ function observerOf(engine: PlaybackEngine): PlaybackObserver {
 
 /** Drains every pending microtask (safer than a fixed number of `await Promise.resolve()` hops when multiple overlapping async chains are in flight). */
 async function flushAsync(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
 }
 
 let controller: PlaybackController | null = null;
@@ -92,7 +95,7 @@ describe('PlaybackController: construction and score subscription', () => {
     // The engine is handed a plan, not the score: music_lib decides every
     // musical question before the platform layer sees anything.
     expect(vi.mocked(engine.load).mock.calls[0][0]).toEqual(
-      playbackPlan(store.getState().score!),
+      playbackPlan(store.getState().score!)
     );
   });
 
@@ -126,7 +129,7 @@ describe('PlaybackController: construction and score subscription', () => {
     controller = createPlaybackController(engine, store);
     vi.mocked(engine.load).mockClear();
 
-    store.getState().dispatchCommand(addMeasureCommand());
+    store.getState().dispatchCommand(addMeasureCommand('Add measure'));
 
     expect(engine.load).toHaveBeenCalledTimes(1);
     expect(engine.stop).not.toHaveBeenCalled();
@@ -146,7 +149,6 @@ describe('PlaybackController: construction and score subscription', () => {
     expect(toast?.severity).toBe('error');
     expect(toast?.message).toContain('corrupt score');
   });
-
 });
 
 describe('PlaybackController: observer wiring', () => {
@@ -159,8 +161,8 @@ describe('PlaybackController: observer wiring', () => {
     const observer = observerOf(engine);
     const positions: number[] = [];
     const sounding: string[][] = [];
-    controller.bus.onPosition((t) => positions.push(t));
-    controller.bus.onSounding((notes) => sounding.push(notes.map((n) => n.noteId)));
+    controller.bus.onPosition(t => positions.push(t));
+    controller.bus.onSounding(notes => sounding.push(notes.map(n => n.noteId)));
 
     observer.onPositionTick(480);
     observer.onActiveNotes([
@@ -305,7 +307,9 @@ describe('PlaybackController: seeking', () => {
 
     controller.seekToMeasure(2);
 
-    expect(engine.seek).toHaveBeenCalledWith(score.tracks[0].measures[2].startTick);
+    expect(engine.seek).toHaveBeenCalledWith(
+      score.tracks[0].measures[2].startTick
+    );
   });
 
   it('goToStart() seeks to tick 0', () => {
@@ -328,16 +332,22 @@ describe('PlaybackController: seeking', () => {
 
     store.getState().setCaretTick(score.tracks[0].measures[1].startTick);
     controller.nextMeasure();
-    expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[2].startTick);
+    expect(engine.seek).toHaveBeenLastCalledWith(
+      score.tracks[0].measures[2].startTick
+    );
 
     store.getState().setCaretTick(score.tracks[0].measures[1].startTick);
     controller.previousMeasure();
-    expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[0].startTick);
+    expect(engine.seek).toHaveBeenLastCalledWith(
+      score.tracks[0].measures[0].startTick
+    );
 
     // clamps at the first measure
     store.getState().setCaretTick(0);
     controller.previousMeasure();
-    expect(engine.seek).toHaveBeenLastCalledWith(score.tracks[0].measures[0].startTick);
+    expect(engine.seek).toHaveBeenLastCalledWith(
+      score.tracks[0].measures[0].startTick
+    );
 
     // clamps at the last measure
     const lastMeasure = score.tracks[0].measures.at(-1)!;
@@ -353,7 +363,9 @@ describe('PlaybackController: loop', () => {
     const score = twinkleScore();
     store.getState().setScore(score);
     const firstNoteId = score.tracks[0].measures[0].voices[0].events[0].id;
-    store.getState().setSelection({ eventIds: [firstNoteId], measureIds: [], trackIds: [] });
+    store
+      .getState()
+      .setSelection({ eventIds: [firstNoteId], measureIds: [], trackIds: [] });
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
 
@@ -383,7 +395,11 @@ describe('PlaybackController: loop', () => {
     controller = createPlaybackController(engine, store);
 
     controller.toggleLoop();
-    expect(store.getState().loopRange).toEqual({ startTick: 0, endTick: expect.any(Number), trackIds: [] });
+    expect(store.getState().loopRange).toEqual({
+      startTick: 0,
+      endTick: expect.any(Number),
+      trackIds: [],
+    });
 
     controller.toggleLoop();
     expect(store.getState().loopRange).toBeNull();
@@ -452,7 +468,9 @@ describe('togglePlay selection handling', () => {
     store.getState().setScore(twinkleScore());
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
-    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+    store
+      .getState()
+      .setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
     return { store, engine };
   }
 
@@ -465,7 +483,9 @@ describe('togglePlay selection handling', () => {
   it('does not clear the selection when pausing', () => {
     const { store } = seeded();
     store.getState().setPlaybackState('playing');
-    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+    store
+      .getState()
+      .setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
 
     controller!.togglePlay();
 
@@ -489,7 +509,9 @@ describe('togglePlay selection handling', () => {
     const store = makeStore();
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
-    store.getState().setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
+    store
+      .getState()
+      .setSelection({ eventIds: ['a'], measureIds: [], trackIds: [] });
 
     controller.togglePlay();
 
@@ -546,7 +568,8 @@ describe('PlaybackController: hidden tracks are silent', () => {
   function muteState(engine: PlaybackEngine): Record<string, boolean> {
     const calls = (engine.setTrackMute as ReturnType<typeof vi.fn>).mock.calls;
     const out: Record<string, boolean> = {};
-    for (const [trackId, muted] of calls) out[trackId as string] = muted as boolean;
+    for (const [trackId, muted] of calls)
+      out[trackId as string] = muted as boolean;
     return out;
   }
 
@@ -607,7 +630,10 @@ describe('PlaybackController: hidden tracks are silent', () => {
     // Visibility must not overwrite what the user asked for; the two combine.
     const store = makeStore();
     const base = twoTrackScore();
-    const muted = { ...base, tracks: [base.tracks[0], { ...base.tracks[1], muted: true }] };
+    const muted = {
+      ...base,
+      tracks: [base.tracks[0], { ...base.tracks[1], muted: true }],
+    };
     store.getState().setScore(muted);
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
@@ -636,7 +662,10 @@ describe('PlaybackController: synth loading', () => {
     expect(store.getState().synthLoad).toEqual({ status: 'idle' });
 
     observer.onLoadStateChange?.({ status: 'loading', fraction: 0.25 });
-    expect(store.getState().synthLoad).toEqual({ status: 'loading', fraction: 0.25 });
+    expect(store.getState().synthLoad).toEqual({
+      status: 'loading',
+      fraction: 0.25,
+    });
 
     observer.onLoadStateChange?.({ status: 'ready' });
     expect(store.getState().synthLoad).toEqual({ status: 'ready' });
@@ -647,7 +676,10 @@ describe('PlaybackController: synth loading', () => {
     const engine = createFakeEngine();
     controller = createPlaybackController(engine, store);
 
-    observerOf(engine).onLoadStateChange?.({ status: 'failed', message: 'Soundfont fetch failed: 404' });
+    observerOf(engine).onLoadStateChange?.({
+      status: 'failed',
+      message: 'Soundfont fetch failed: 404',
+    });
     expect(store.getState().synthLoad).toEqual({
       status: 'failed',
       message: 'Soundfont fetch failed: 404',
@@ -668,7 +700,15 @@ describe('PlaybackController: score changes while playing', () => {
     store.getState().setPlaybackState('playing');
 
     const trackId = store.getState().score!.tracks[0].id;
-    store.getState().dispatchCommand(changeTrackPropsCommand(trackId, { muted: true }));
+    store
+      .getState()
+      .dispatchCommand(
+        changeTrackPropsCommand(
+          trackId,
+          { muted: true },
+          'Change track properties'
+        )
+      );
     await Promise.resolve();
     await Promise.resolve();
 
@@ -685,7 +725,7 @@ describe('PlaybackController: score changes while playing', () => {
     await Promise.resolve();
 
     vi.mocked(engine.load).mockClear();
-    store.getState().dispatchCommand(addMeasureCommand());
+    store.getState().dispatchCommand(addMeasureCommand('Add measure'));
     await Promise.resolve();
     await Promise.resolve();
 
@@ -705,7 +745,15 @@ describe('PlaybackController: score changes while playing', () => {
     vi.mocked(engine.play).mockClear();
 
     const trackId = store.getState().score!.tracks[0].id;
-    store.getState().dispatchCommand(changeTrackPropsCommand(trackId, { volume: 0.3 }));
+    store
+      .getState()
+      .dispatchCommand(
+        changeTrackPropsCommand(
+          trackId,
+          { volume: 0.3 },
+          'Change track properties'
+        )
+      );
     await Promise.resolve();
     await Promise.resolve();
 

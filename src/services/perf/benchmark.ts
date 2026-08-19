@@ -23,7 +23,10 @@ import type { ScoreRange } from '../../domain/selection/types.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import { quantizeEvents } from '../../domain/quantization/quantize.js';
 import { allNotes } from '../../domain/score/queries.js';
-import { extractFragment, replaceFragment } from '../../domain/score/fragment.js';
+import {
+  extractFragment,
+  replaceFragment,
+} from '../../domain/score/fragment.js';
 import { exportMidi } from '../../adapters/midi/export.js';
 import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
@@ -73,7 +76,10 @@ const RENDER_THEME: RenderTheme = {
 
 /** Wall-clock milliseconds, via `performance.now()` where available (sub-millisecond, monotonic) or `Date.now()` otherwise. */
 function now(): number {
-  return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+  return typeof performance !== 'undefined' &&
+    typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
 }
 
 /** Runs `fn`, returning both its result and the elapsed wall-clock time. */
@@ -92,18 +98,28 @@ function time<T>(fn: () => T): { result: T; ms: number } {
  * a real multi-track regeneration/copy targets more than one track at once.
  */
 function representativeRange(score: Score): ScoreRange {
-  const trackIds = score.tracks.map((t) => t.id);
+  const trackIds = score.tracks.map(t => t.id);
   const measures = score.tracks[0]?.measures ?? [];
   if (measures.length === 0) return { startTick: 0, endTick: 0, trackIds };
 
   const startIndex = Math.floor(measures.length / 3);
-  const endIndex = Math.min(measures.length - 1, Math.floor((measures.length * 2) / 3));
+  const endIndex = Math.min(
+    measures.length - 1,
+    Math.floor((measures.length * 2) / 3)
+  );
   const endMeasure = measures[endIndex];
-  return { startTick: measures[startIndex].startTick, endTick: endMeasure.startTick + endMeasure.durationTicks, trackIds };
+  return {
+    startTick: measures[startIndex].startTick,
+    endTick: endMeasure.startTick + endMeasure.durationTicks,
+    trackIds,
+  };
 }
 
 /** Benchmarks every perf-relevant operation named in the Task 17 brief against one `stressScore(size.trackCount, size.measureCount)`. */
-function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeReport {
+function benchmarkSize(
+  size: BenchmarkSize,
+  codec: MidiCodec
+): BenchmarkSizeReport {
   const score = stressScore(size.trackCount, size.measureCount);
   const timings: BenchmarkTiming[] = [];
 
@@ -112,7 +128,11 @@ function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeRepo
 
   const notes = allNotes(score);
   const quantizeTiming = time(() =>
-    quantizeEvents(notes, { grid: score.ppq / 4, quantizeStarts: true, quantizeDurations: true }),
+    quantizeEvents(notes, {
+      grid: score.ppq / 4,
+      quantizeStarts: true,
+      quantizeDurations: true,
+    })
   );
   timings.push({ name: 'quantizeEvents (whole score)', ms: quantizeTiming.ms });
 
@@ -120,7 +140,9 @@ function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeRepo
   const extractTiming = time(() => extractFragment(score, range));
   timings.push({ name: 'extractFragment', ms: extractTiming.ms });
 
-  const replaceTiming = time(() => replaceFragment(score, extractTiming.result));
+  const replaceTiming = time(() =>
+    replaceFragment(score, extractTiming.result)
+  );
   timings.push({ name: 'replaceFragment', ms: replaceTiming.ms });
 
   const exportTiming = time(() => exportMidi(score, codec));
@@ -143,15 +165,24 @@ function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeRepo
     };
     try {
       const coldTiming = time(() => canvasRenderer.render(score, ctx, opts));
-      timings.push({ name: 'CanvasScoreRenderer.render (cold: layout + first window)', ms: coldTiming.ms });
+      timings.push({
+        name: 'CanvasScoreRenderer.render (cold: layout + first window)',
+        ms: coldTiming.ms,
+      });
 
       const frames = 20;
       const warmTiming = time(() => {
         for (let i = 0; i < frames; i += 1) {
-          canvasRenderer.render(score, ctx, { ...opts, viewport: { top: i * 100, bottom: i * 100 + 400 } });
+          canvasRenderer.render(score, ctx, {
+            ...opts,
+            viewport: { top: i * 100, bottom: i * 100 + 400 },
+          });
         }
       });
-      timings.push({ name: 'CanvasScoreRenderer.render (mean windowed frame x20)', ms: warmTiming.ms / frames });
+      timings.push({
+        name: 'CanvasScoreRenderer.render (mean windowed frame x20)',
+        ms: warmTiming.ms / frames,
+      });
     } finally {
       canvasRenderer.dispose();
     }
@@ -169,9 +200,12 @@ function benchmarkSize(size: BenchmarkSize, codec: MidiCodec): BenchmarkSizeRepo
  */
 export function runBenchmark(
   codec: MidiCodec,
-  sizes: BenchmarkSize[] = DEFAULT_BENCHMARK_SIZES,
+  sizes: BenchmarkSize[] = DEFAULT_BENCHMARK_SIZES
 ): BenchmarkReport {
-  return { generatedAt: new Date().toISOString(), sizes: sizes.map((size) => benchmarkSize(size, codec)) };
+  return {
+    generatedAt: new Date().toISOString(),
+    sizes: sizes.map(size => benchmarkSize(size, codec)),
+  };
 }
 
 export type BenchmarkTableRow = {

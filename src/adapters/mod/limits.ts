@@ -35,6 +35,10 @@ export const TRACKER_LIMITS: Record<WritableTrackerFormat, TrackerLimits> = {
   it: { channels: 64, instruments: 99, lowestMidi: 0, highestMidi: 119 },
 };
 
-export function isWritableTrackerFormat(format: TrackerFormat): format is WritableTrackerFormat {
-  return format === 'mod' || format === 's3m' || format === 'xm' || format === 'it';
+export function isWritableTrackerFormat(
+  format: TrackerFormat
+): format is WritableTrackerFormat {
+  return (
+    format === 'mod' || format === 's3m' || format === 'xm' || format === 'it'
+  );
 }

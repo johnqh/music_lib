@@ -13,52 +13,77 @@ function fullScore(bars: number, names: string[]): Score {
   const base = createEmptyScore({
     title: 'Cues',
     measures: bars,
-    tracks: names.map((name) => ({ name, instrumentName: name, clef: 'treble' as const })),
+    tracks: names.map(name => ({
+      name,
+      instrumentName: name,
+      clef: 'treble' as const,
+    })),
   });
   return base.tracks.reduce(
     (acc, track) =>
       track.measures.reduce(
         (inner, m) =>
-          addNoteCommand({
-            trackId: track.id,
-            measureId: m.id,
-            voiceIndex: 0,
-            pitch: pitch('C'),
-            startTick: m.startTick,
-            durationTicks: base.ppq,
-          }).execute(inner),
-        acc,
+          addNoteCommand(
+            {
+              trackId: track.id,
+              measureId: m.id,
+              voiceIndex: 0,
+              pitch: pitch('C'),
+              startTick: m.startTick,
+              durationTicks: base.ppq,
+            },
+            'Add note'
+          ).execute(inner),
+        acc
       ),
-    base,
+    base
   );
 }
 
 /** `score` with track `trackIndex` silent from bar `from` to bar `to`, inclusive. */
-function silence(score: Score, trackIndex: number, from: number, to: number): Score {
+function silence(
+  score: Score,
+  trackIndex: number,
+  from: number,
+  to: number
+): Score {
   return {
     ...score,
     tracks: score.tracks.map((t, i) =>
       i !== trackIndex
         ? t
-        : { ...t, measures: t.measures.map((m, j) => (j >= from && j <= to ? { ...m, voices: [] } : m)) },
+        : {
+            ...t,
+            measures: t.measures.map((m, j) =>
+              j >= from && j <= to ? { ...m, voices: [] } : m
+            ),
+          }
     ),
   };
 }
 
 /** `score` with `extra` further notes added to track `trackIndex`'s bar `bar`. */
-function thicken(score: Score, trackIndex: number, bar: number, extra: number): Score {
+function thicken(
+  score: Score,
+  trackIndex: number,
+  bar: number,
+  extra: number
+): Score {
   const track = score.tracks[trackIndex];
   const measure = track.measures[bar];
   let out = score;
   for (let i = 0; i < extra; i += 1) {
-    out = addNoteCommand({
-      trackId: track.id,
-      measureId: measure.id,
-      voiceIndex: 0,
-      pitch: pitch('E', 5),
-      startTick: measure.startTick + (i + 1) * score.ppq,
-      durationTicks: score.ppq,
-    }).execute(out);
+    out = addNoteCommand(
+      {
+        trackId: track.id,
+        measureId: measure.id,
+        voiceIndex: 0,
+        pitch: pitch('E', 5),
+        startTick: measure.startTick + (i + 1) * score.ppq,
+        durationTicks: score.ppq,
+      },
+      'Add note'
+    ).execute(out);
   }
   return out;
 }
@@ -131,14 +156,20 @@ describe('applyCues', () => {
   it('keys by measure index, not array position', () => {
     const score = fullScore(4, ['A']);
     const shifted = score.tracks[0].measures.slice(2);
-    const out = applyCues(shifted, new Map([[2, { label: 'Flute', events: [] }]]));
+    const out = applyCues(
+      shifted,
+      new Map([[2, { label: 'Flute', events: [] }]])
+    );
     expect(out[0].cue?.label).toBe('Flute');
   });
 
   it('does not modify the measures it was given', () => {
     const score = fullScore(4, ['A']);
     const before = JSON.stringify(score.tracks[0].measures);
-    applyCues(score.tracks[0].measures, new Map([[2, { label: 'Flute', events: [] }]]));
+    applyCues(
+      score.tracks[0].measures,
+      new Map([[2, { label: 'Flute', events: [] }]])
+    );
     expect(JSON.stringify(score.tracks[0].measures)).toBe(before);
   });
 });

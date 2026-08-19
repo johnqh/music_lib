@@ -11,7 +11,10 @@ import type { ScoreRange } from '../selection/types.js';
 export type { ScoreFragment } from '@sudobility/music_types';
 
 /** Captures the measures overlapping `range` (per track named in `range.trackIds`, or all tracks if empty). */
-export function extractFragment(score: Score, range: ScoreRange): ScoreFragment {
+export function extractFragment(
+  score: Score,
+  range: ScoreRange
+): ScoreFragment {
   return {
     range,
     ppq: score.ppq,
@@ -21,7 +24,10 @@ export function extractFragment(score: Score, range: ScoreRange): ScoreFragment 
 
 /** Whether a measure's span overlaps `[range.startTick, range.endTick)`. */
 function overlapsRange(measure: Measure, range: ScoreRange): boolean {
-  return measure.startTick < range.endTick && measure.startTick + measure.durationTicks > range.startTick;
+  return (
+    measure.startTick < range.endTick &&
+    measure.startTick + measure.durationTicks > range.startTick
+  );
 }
 
 /**
@@ -41,25 +47,36 @@ function overlapsRange(measure: Measure, range: ScoreRange): boolean {
  * referentially unchanged.
  */
 export function replaceFragment(score: Score, fragment: ScoreFragment): Score {
-  const replacementsByTrackId = new Map(fragment.tracks.map((t) => [t.trackId, t.measures]));
+  const replacementsByTrackId = new Map(
+    fragment.tracks.map(t => [t.trackId, t.measures])
+  );
 
-  const tracks = score.tracks.map((track) => {
+  const tracks = score.tracks.map(track => {
     const replacementMeasures = replacementsByTrackId.get(track.id);
     if (!replacementMeasures) return track;
 
-    const firstIndex = track.measures.findIndex((m) => overlapsRange(m, fragment.range));
+    const firstIndex = track.measures.findIndex(m =>
+      overlapsRange(m, fragment.range)
+    );
     if (firstIndex === -1) return track;
 
     let lastIndex = firstIndex;
-    while (lastIndex < track.measures.length && overlapsRange(track.measures[lastIndex], fragment.range)) {
+    while (
+      lastIndex < track.measures.length &&
+      overlapsRange(track.measures[lastIndex], fragment.range)
+    ) {
       lastIndex += 1;
     }
 
-    const normalizedMeasures = replacementMeasures.map((measure) => ({
+    const normalizedMeasures = replacementMeasures.map(measure => ({
       ...measure,
-      voices: measure.voices.map((voice) => ({
+      voices: measure.voices.map(voice => ({
         ...voice,
-        events: voice.events.map((event) => ({ ...event, trackId: track.id, voiceId: voice.id })),
+        events: voice.events.map(event => ({
+          ...event,
+          trackId: track.id,
+          voiceId: voice.id,
+        })),
       })),
     }));
 

@@ -1,14 +1,16 @@
 import type { DurationName } from '@sudobility/music_types';
 import { DURATIONS, ticksFor } from './ticks.js';
 
-const NON_TRIPLET_DURATION_NAMES = (Object.keys(DURATIONS) as DurationName[]).filter(
-  (name) => !name.startsWith('triplet-'),
-);
+const NON_TRIPLET_DURATION_NAMES = (
+  Object.keys(DURATIONS) as DurationName[]
+).filter(name => !name.startsWith('triplet-'));
 
 /** Distinct, descending tick lengths for every renderable (non-triplet) duration at a given PPQ. */
 function decomposableDurationTicks(ppq: number): number[] {
-  const ticks = new Set(NON_TRIPLET_DURATION_NAMES.map((name) => ticksFor(name, ppq)));
-  return [...ticks].filter((t) => t > 0).sort((a, b) => b - a);
+  const ticks = new Set(
+    NON_TRIPLET_DURATION_NAMES.map(name => ticksFor(name, ppq))
+  );
+  return [...ticks].filter(t => t > 0).sort((a, b) => b - a);
 }
 
 /**
@@ -26,7 +28,7 @@ export function decomposeDuration(ticks: number, ppq: number): number[] {
   let remaining = ticks;
 
   while (remaining > 0) {
-    const next = candidates.find((c) => c <= remaining);
+    const next = candidates.find(c => c <= remaining);
     if (next === undefined) {
       result.push(remaining);
       break;
@@ -50,11 +52,11 @@ export type TickSegment = { startTick: number; durationTicks: number };
 export function splitAtBoundaries(
   startTick: number,
   durationTicks: number,
-  boundaries: number[],
+  boundaries: number[]
 ): TickSegment[] {
   const endTick = startTick + durationTicks;
   const cutPoints = [...new Set(boundaries)]
-    .filter((b) => b > startTick && b < endTick)
+    .filter(b => b > startTick && b < endTick)
     .sort((a, b) => a - b);
 
   const segments: TickSegment[] = [];

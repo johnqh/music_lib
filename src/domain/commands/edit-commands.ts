@@ -5,7 +5,12 @@
  */
 import { createId } from '../score/ids.js';
 import { splitNoteAcrossMeasures } from '../score/ties.js';
-import type { MusicalEvent, NoteEvent, Score, UUID } from '@sudobility/music_types';
+import type {
+  MusicalEvent,
+  NoteEvent,
+  Score,
+  UUID,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { transposePitch } from '../pitch/transpose.js';
 import { quantizeEvents } from '../quantization/quantize.js';
@@ -16,14 +21,22 @@ import { insertNoteIntoTrack, reflowVoice, withTracks } from './reflow.js';
 
 // ---- pasteEventsCommand -----------------------------------------------------------
 
-export type PasteDestination = { trackId: UUID; voiceIndex: number; anchorTick: number };
+export type PasteDestination = {
+  trackId: UUID;
+  voiceIndex: number;
+  anchorTick: number;
+};
 
-function pasteEvents(score: Score, notes: readonly NoteEvent[], destination: PasteDestination): Score {
-  const track = score.tracks.find((t) => t.id === destination.trackId);
+function pasteEvents(
+  score: Score,
+  notes: readonly NoteEvent[],
+  destination: PasteDestination
+): Score {
+  const track = score.tracks.find(t => t.id === destination.trackId);
   if (!track || notes.length === 0) return score;
 
-  const originStart = Math.min(...notes.map((n) => n.startTick));
-  const boundaries = track.measures.map((m) => m.startTick);
+  const originStart = Math.min(...notes.map(n => n.startTick));
+  const boundaries = track.measures.map(m => m.startTick);
 
   let working = track;
   for (const note of notes) {
@@ -42,7 +55,7 @@ function pasteEvents(score: Score, notes: readonly NoteEvent[], destination: Pas
     }
   }
 
-  const tracks = score.tracks.map((t) => (t.id === track.id ? working : t));
+  const tracks = score.tracks.map(t => (t.id === track.id ? working : t));
   return withTracks(score, tracks);
 }
 
@@ -55,14 +68,24 @@ function pasteEvents(score: Score, notes: readonly NoteEvent[], destination: Pas
  * `moveNotesCommand`. Ids are regenerated so pasted notes never collide
  * with their source.
  */
-export function pasteEventsCommand(notes: NoteEvent[], destination: PasteDestination): ScoreCommand {
-  return transformCommand('Paste notes', (score) => pasteEvents(score, notes, destination));
+export function pasteEventsCommand(
+  notes: NoteEvent[],
+  destination: PasteDestination,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    pasteEvents(score, notes, destination)
+  );
 }
 
 // ---- quantizeCommand -----------------------------------------------------------
 
 /** Clips `event` to fit within `measure`'s span, or returns `null` if that leaves no positive duration. */
-function clipToMeasure(event: MusicalEvent, measureStart: number, measureEnd: number): MusicalEvent | null {
+function clipToMeasure(
+  event: MusicalEvent,
+  measureStart: number,
+  measureEnd: number
+): MusicalEvent | null {
   const start = Math.max(event.startTick, measureStart);
   const end = Math.min(event.startTick + event.durationTicks, measureEnd);
   if (end <= start) return null;
@@ -79,7 +102,12 @@ function clipToMeasure(event: MusicalEvent, measureStart: number, measureEnd: nu
  * `collectQuantizeTargets`'s doc comment for why it's split out as its own
  * step (Task 17).
  */
-export type QuantizeTarget = { trackId: UUID; measureId: UUID; voiceId: UUID; notes: NoteEvent[] };
+export type QuantizeTarget = {
+  trackId: UUID;
+  measureId: UUID;
+  voiceId: UUID;
+  notes: NoteEvent[];
+};
 
 /**
  * The cheap, non-quantizing "which voices does this selection touch, and
@@ -94,14 +122,22 @@ export type QuantizeTarget = { trackId: UUID; measureId: UUID; voiceId: UUID; no
  * on the main thread or off it — without duplicating this measure/voice
  * walk in two places.
  */
-export function collectQuantizeTargets(score: Score, eventIds: readonly UUID[]): QuantizeTarget[] {
+export function collectQuantizeTargets(
+  score: Score,
+  eventIds: readonly UUID[]
+): QuantizeTarget[] {
   const idSet = new Set(eventIds);
   const targets: QuantizeTarget[] = [];
   for (const track of score.tracks) {
     for (const measure of track.measures) {
       for (const voice of measure.voices) {
-        if (!voice.events.some((e) => idSet.has(e.id))) continue;
-        targets.push({ trackId: track.id, measureId: measure.id, voiceId: voice.id, notes: voice.events.filter(isNoteEvent) });
+        if (!voice.events.some(e => idSet.has(e.id))) continue;
+        targets.push({
+          trackId: track.id,
+          measureId: measure.id,
+          voiceId: voice.id,
+          notes: voice.events.filter(isNoteEvent),
+        });
       }
     }
   }
@@ -123,7 +159,7 @@ export function collectQuantizeTargets(score: Score, eventIds: readonly UUID[]):
 export function applyQuantizedGroups(
   score: Score,
   targets: readonly QuantizeTarget[],
-  quantizedByVoiceId: ReadonlyMap<UUID, MusicalEvent[]>,
+  quantizedByVoiceId: ReadonlyMap<UUID, MusicalEvent[]>
 ): Score {
   const targetsByTrackMeasure = new Map<string, QuantizeTarget[]>();
   for (const target of targets) {
@@ -133,20 +169,24 @@ export function applyQuantizedGroups(
     else targetsByTrackMeasure.set(key, [target]);
   }
 
-  const tracks = score.tracks.map((track) => {
-    const measures = track.measures.map((measure) => {
-      const measureTargets = targetsByTrackMeasure.get(`${track.id}::${measure.id}`);
+  const tracks = score.tracks.map(track => {
+    const measures = track.measures.map(measure => {
+      const measureTargets = targetsByTrackMeasure.get(
+        `${track.id}::${measure.id}`
+      );
       if (!measureTargets) return measure;
 
       let nextMeasure = measure;
       const measureEnd = measure.startTick + measure.durationTicks;
       for (const target of measureTargets) {
         const quantizedNotes = (quantizedByVoiceId.get(target.voiceId) ?? [])
-          .map((e) => clipToMeasure(e, measure.startTick, measureEnd))
+          .map(e => clipToMeasure(e, measure.startTick, measureEnd))
           .filter((e): e is MusicalEvent => e !== null);
         const withQuantized = {
           ...nextMeasure,
-          voices: nextMeasure.voices.map((v) => (v.id === target.voiceId ? { ...v, events: quantizedNotes } : v)),
+          voices: nextMeasure.voices.map(v =>
+            v.id === target.voiceId ? { ...v, events: quantizedNotes } : v
+          ),
         };
         nextMeasure = reflowVoice(withQuantized, target.voiceId, track.id);
       }
@@ -168,31 +208,52 @@ export function applyQuantizedGroups(
  * removed once the offload was measured at 0.57ms of saved work against a
  * structured clone of the whole event array in each direction.
  */
-function quantize(score: Score, eventIds: readonly UUID[], options: QuantizeOptions): Score {
+function quantize(
+  score: Score,
+  eventIds: readonly UUID[],
+  options: QuantizeOptions
+): Score {
   const targets = collectQuantizeTargets(score, eventIds);
-  const quantizedByVoiceId = new Map(targets.map((t) => [t.voiceId, quantizeEvents(t.notes, options)] as const));
+  const quantizedByVoiceId = new Map(
+    targets.map(t => [t.voiceId, quantizeEvents(t.notes, options)] as const)
+  );
   return applyQuantizedGroups(score, targets, quantizedByVoiceId);
 }
 
 /** Quantizes every voice containing at least one of `eventIds`, per Task 4's reusable quantization engine. */
-export function quantizeCommand(eventIds: UUID[], options: QuantizeOptions): ScoreCommand {
-  return transformCommand('Quantize notes', (score) => quantize(score, eventIds, options));
+export function quantizeCommand(
+  eventIds: UUID[],
+  options: QuantizeOptions,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => quantize(score, eventIds, options));
 }
 
 // ---- transposeCommand -----------------------------------------------------------
 
-function transpose(score: Score, eventIds: readonly UUID[], semitones: number): Score {
+function transpose(
+  score: Score,
+  eventIds: readonly UUID[],
+  semitones: number
+): Score {
   const idSet = new Set(eventIds);
-  const tracks = score.tracks.map((track) => {
-    const measures = track.measures.map((measure) => {
-      const voices = measure.voices.map((voice) => {
-        if (!voice.events.some((e) => idSet.has(e.id))) return voice;
+  const tracks = score.tracks.map(track => {
+    const measures = track.measures.map(measure => {
+      const voices = measure.voices.map(voice => {
+        if (!voice.events.some(e => idSet.has(e.id))) return voice;
         return {
           ...voice,
-          events: voice.events.map((event) =>
+          events: voice.events.map(event =>
             isNoteEvent(event) && idSet.has(event.id)
-              ? { ...event, pitch: transposePitch(event.pitch, semitones, measure.keySignature) }
-              : event,
+              ? {
+                  ...event,
+                  pitch: transposePitch(
+                    event.pitch,
+                    semitones,
+                    measure.keySignature
+                  ),
+                }
+              : event
           ),
         };
       });
@@ -206,6 +267,12 @@ function transpose(score: Score, eventIds: readonly UUID[], semitones: number): 
 }
 
 /** Transposes the given notes by `semitones`, re-spelling each per its own measure's key signature. */
-export function transposeCommand(eventIds: UUID[], semitones: number): ScoreCommand {
-  return transformCommand('Transpose', (score) => transpose(score, eventIds, semitones));
+export function transposeCommand(
+  eventIds: UUID[],
+  semitones: number,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    transpose(score, eventIds, semitones)
+  );
 }

@@ -22,20 +22,25 @@ function scoreWith(program: number): Score {
   });
   const withProgram: Score = {
     ...base,
-    tracks: base.tracks.map((t, i) => (i === 0 ? { ...t, midiProgram: program } : t)),
+    tracks: base.tracks.map((t, i) =>
+      i === 0 ? { ...t, midiProgram: program } : t
+    ),
   };
   const track = withProgram.tracks[0];
   return ['C', 'D', 'E'].reduce(
     (acc, step, i) =>
-      addNoteCommand({
-        trackId: track.id,
-        measureId: track.measures[0].id,
-        voiceIndex: 0,
-        pitch: pitch(step),
-        startTick: i * withProgram.ppq,
-        durationTicks: withProgram.ppq,
-      }).execute(acc),
-    withProgram,
+      addNoteCommand(
+        {
+          trackId: track.id,
+          measureId: track.measures[0].id,
+          voiceIndex: 0,
+          pitch: pitch(step),
+          startTick: i * withProgram.ppq,
+          durationTicks: withProgram.ppq,
+        },
+        'Add note'
+      ).execute(acc),
+    withProgram
   );
 }
 
@@ -45,7 +50,7 @@ const spell = (p: Pitch) =>
 const steps = (score: Score) =>
   allNotes(score)
     .sort((a, b) => a.startTick - b.startTick)
-    .map((n) => spell(n.pitch));
+    .map(n => spell(n.pitch));
 
 describe('extractPart', () => {
   it('keeps only the requested track', () => {
@@ -64,7 +69,7 @@ describe('extractPart', () => {
     const part = extractPart(score, score.tracks[0].id)!;
     expect(steps(part)).toEqual(['C', 'D', 'E']);
     expect(part.tracks[0].measures[0].keySignature.fifths).toBe(
-      score.tracks[0].measures[0].keySignature.fifths,
+      score.tracks[0].measures[0].keySignature.fifths
     );
   });
 
@@ -100,7 +105,7 @@ describe('extractPart', () => {
 
     const written = allNotes(part).sort((a, b) => a.startTick - b.startTick);
     const sounding = allNotes(score)
-      .filter((n) => n.trackId === score.tracks[0].id)
+      .filter(n => n.trackId === score.tracks[0].id)
       .sort((a, b) => a.startTick - b.startTick);
     expect(written[0].pitch.octave).toBe(sounding[0].pitch.octave + 1);
     expect(part.tracks[0].measures[0].keySignature.fifths).toBe(0);
@@ -118,10 +123,12 @@ describe('extractPart', () => {
     // Only pitch and key change; the rest is the same music.
     const score = scoreWith(71);
     const part = extractPart(score, score.tracks[0].id)!;
-    const sourceCounts = score.tracks[0].measures.map((m) =>
-      m.voices.map((v) => v.events.length),
+    const sourceCounts = score.tracks[0].measures.map(m =>
+      m.voices.map(v => v.events.length)
     );
-    const partCounts = part.tracks[0].measures.map((m) => m.voices.map((v) => v.events.length));
+    const partCounts = part.tracks[0].measures.map(m =>
+      m.voices.map(v => v.events.length)
+    );
     expect(partCounts).toEqual(sourceCounts);
   });
 });
@@ -132,26 +139,34 @@ describe('extractPart collapses silence', () => {
     const base = createEmptyScore({
       title: 'Rest',
       measures: silentBars + 2,
-      tracks: [{ name: 'Solo', instrumentName: 'Solo', clef: 'treble' as const }],
+      tracks: [
+        { name: 'Solo', instrumentName: 'Solo', clef: 'treble' as const },
+      ],
     });
     const track = base.tracks[0];
-    const withFirst = addNoteCommand({
-      trackId: track.id,
-      measureId: track.measures[0].id,
-      voiceIndex: 0,
-      pitch: pitch('C'),
-      startTick: 0,
-      durationTicks: base.ppq,
-    }).execute(base);
+    const withFirst = addNoteCommand(
+      {
+        trackId: track.id,
+        measureId: track.measures[0].id,
+        voiceIndex: 0,
+        pitch: pitch('C'),
+        startTick: 0,
+        durationTicks: base.ppq,
+      },
+      'Add note'
+    ).execute(base);
     const last = withFirst.tracks[0].measures[silentBars + 1];
-    return addNoteCommand({
-      trackId: track.id,
-      measureId: last.id,
-      voiceIndex: 0,
-      pitch: pitch('C'),
-      startTick: last.startTick,
-      durationTicks: base.ppq,
-    }).execute(withFirst);
+    return addNoteCommand(
+      {
+        trackId: track.id,
+        measureId: last.id,
+        voiceIndex: 0,
+        pitch: pitch('C'),
+        startTick: last.startTick,
+        durationTicks: base.ppq,
+      },
+      'Add note'
+    ).execute(withFirst);
   }
 
   it('replaces a long silence with measures carrying the count', () => {
@@ -161,9 +176,11 @@ describe('extractPart collapses silence', () => {
     // That split is correct engraving, not a regression.
     const score = scoreWithSilence(24);
     const part = extractPart(score, score.tracks[0].id)!;
-    const rests = part.tracks[0].measures.filter((m) => m.multiMeasureRestCount);
-    expect(rests.map((m) => m.multiMeasureRestCount)).toEqual([15, 9]);
-    expect(rests.reduce((sum, m) => sum + m.multiMeasureRestCount!, 0)).toBe(24);
+    const rests = part.tracks[0].measures.filter(m => m.multiMeasureRestCount);
+    expect(rests.map(m => m.multiMeasureRestCount)).toEqual([15, 9]);
+    expect(rests.reduce((sum, m) => sum + m.multiMeasureRestCount!, 0)).toBe(
+      24
+    );
     expect(rests[1].rehearsalMark).toBe('A');
   });
 
@@ -172,7 +189,7 @@ describe('extractPart collapses silence', () => {
     // score calls 26.
     const score = scoreWithSilence(24);
     const part = extractPart(score, score.tracks[0].id)!;
-    expect(part.tracks[0].measures.map((m) => m.index)).toEqual([0, 1, 16, 25]);
+    expect(part.tracks[0].measures.map(m => m.index)).toEqual([0, 1, 16, 25]);
   });
 
   it('leaves the score it was given uncollapsed', () => {
@@ -186,7 +203,7 @@ describe('extractPart collapses silence', () => {
     const score = scoreWithSilence(4);
     const clarinet: Score = {
       ...score,
-      tracks: score.tracks.map((t) => ({ ...t, midiProgram: 71 })),
+      tracks: score.tracks.map(t => ({ ...t, midiProgram: 71 })),
     };
     const part = extractPart(clarinet, clarinet.tracks[0].id)!;
     expect(part.tracks[0].measures[1].multiMeasureRestCount).toBe(4);
@@ -209,17 +226,20 @@ describe('extractPart carries the score-wide marks', () => {
       (acc, track) =>
         track.measures.reduce(
           (inner, m) =>
-            addNoteCommand({
-              trackId: track.id,
-              measureId: m.id,
-              voiceIndex: 0,
-              pitch: pitch('C'),
-              startTick: m.startTick,
-              durationTicks: base.ppq,
-            }).execute(inner),
-          acc,
+            addNoteCommand(
+              {
+                trackId: track.id,
+                measureId: m.id,
+                voiceIndex: 0,
+                pitch: pitch('C'),
+                startTick: m.startTick,
+                durationTicks: base.ppq,
+              },
+              'Add note'
+            ).execute(inner),
+          acc
         ),
-      base,
+      base
     );
   }
 
@@ -228,8 +248,8 @@ describe('extractPart carries the score-wide marks', () => {
     const score = twoTrackFull();
     const labelsOf = (trackId: string) =>
       extractPart(score, trackId)!
-        .tracks[0].measures.filter((m) => m.rehearsalMark !== undefined)
-        .map((m) => [m.index, m.rehearsalMark] as const);
+        .tracks[0].measures.filter(m => m.rehearsalMark !== undefined)
+        .map(m => [m.index, m.rehearsalMark] as const);
 
     expect(labelsOf(score.tracks[0].id)).toEqual(labelsOf(score.tracks[1].id));
     expect(labelsOf(score.tracks[0].id).length).toBeGreaterThan(0);
@@ -243,12 +263,19 @@ describe('extractPart carries the score-wide marks', () => {
       ...base,
       tracks: base.tracks.map((t, i) =>
         i === 1
-          ? { ...t, measures: t.measures.map((m, j) => (j >= 4 && j <= 8 ? { ...m, voices: [] } : m)) }
-          : t,
+          ? {
+              ...t,
+              measures: t.measures.map((m, j) =>
+                j >= 4 && j <= 8 ? { ...m, voices: [] } : m
+              ),
+            }
+          : t
       ),
     };
     const first = extractPart(score, score.tracks[0].id)!;
-    expect(first.tracks[0].measures.some((m) => m.index === 9 && m.rehearsalMark)).toBe(true);
+    expect(
+      first.tracks[0].measures.some(m => m.index === 9 && m.rehearsalMark)
+    ).toBe(true);
   });
 });
 
@@ -265,23 +292,28 @@ describe('extractPart cues an entry after a long rest', () => {
     });
     const withProgram: Score = {
       ...base,
-      tracks: base.tracks.map((t, i) => (i === 0 ? { ...t, midiProgram: program } : t)),
+      tracks: base.tracks.map((t, i) =>
+        i === 0 ? { ...t, midiProgram: program } : t
+      ),
     };
     return withProgram.tracks.reduce(
       (acc, track) =>
         track.measures.reduce(
           (inner, m) =>
-            addNoteCommand({
-              trackId: track.id,
-              measureId: m.id,
-              voiceIndex: 0,
-              pitch: pitch('C'),
-              startTick: m.startTick,
-              durationTicks: base.ppq,
-            }).execute(inner),
-          acc,
+            addNoteCommand(
+              {
+                trackId: track.id,
+                measureId: m.id,
+                voiceIndex: 0,
+                pitch: pitch('C'),
+                startTick: m.startTick,
+                durationTicks: base.ppq,
+              },
+              'Add note'
+            ).execute(inner),
+          acc
         ),
-      withProgram,
+      withProgram
     );
   }
 
@@ -292,7 +324,12 @@ describe('extractPart cues an entry after a long rest', () => {
       tracks: score.tracks.map((t, i) =>
         i !== 0
           ? t
-          : { ...t, measures: t.measures.map((m, j) => (j >= from && j <= to ? { ...m, voices: [] } : m)) },
+          : {
+              ...t,
+              measures: t.measures.map((m, j) =>
+                j >= from && j <= to ? { ...m, voices: [] } : m
+              ),
+            }
       ),
     };
   }
@@ -300,7 +337,7 @@ describe('extractPart cues an entry after a long rest', () => {
   it('puts a cue on the bar before the entry', () => {
     const score = hush(twoTrack(30, 0), 1, 20);
     const part = extractPart(score, score.tracks[0].id)!;
-    const cued = part.tracks[0].measures.find((m) => m.cue !== undefined);
+    const cued = part.tracks[0].measures.find(m => m.cue !== undefined);
     expect(cued?.index).toBe(20);
     expect(cued?.cue?.label).toBe('Piano');
   });
@@ -311,18 +348,21 @@ describe('extractPart cues an entry after a long rest', () => {
     // worse than no cue. This is the test that catches a pipeline reordering.
     const cueNote = (score: Score) => {
       const part = extractPart(score, score.tracks[0].id)!;
-      const cue = part.tracks[0].measures.find((m) => m.cue !== undefined)!.cue!;
+      const cue = part.tracks[0].measures.find(m => m.cue !== undefined)!.cue!;
       return pitchToMidi(cue.events.filter(isNoteEvent)[0].pitch);
     };
 
     // Program 71 is a clarinet: written a tone above what it sounds.
-    expect(cueNote(hush(twoTrack(30, 71), 1, 20)) - cueNote(hush(twoTrack(30, 0), 1, 20))).toBe(2);
+    expect(
+      cueNote(hush(twoTrack(30, 71), 1, 20)) -
+        cueNote(hush(twoTrack(30, 0), 1, 20))
+    ).toBe(2);
   });
 
   it('leaves the cue bar written out rather than collapsed', () => {
     const score = hush(twoTrack(30, 0), 1, 20);
     const part = extractPart(score, score.tracks[0].id)!;
-    const cued = part.tracks[0].measures.find((m) => m.cue !== undefined)!;
+    const cued = part.tracks[0].measures.find(m => m.cue !== undefined)!;
     expect(cued.multiMeasureRestCount).toBeUndefined();
   });
 });

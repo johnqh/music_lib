@@ -3,7 +3,11 @@ import type { TempoEvent } from '@sudobility/music_types';
 const DEFAULT_BPM = 120;
 
 /** Seconds elapsed for a given tick delta at a constant bpm. */
-function deltaTicksToSeconds(deltaTicks: number, ppq: number, bpm: number): number {
+function deltaTicksToSeconds(
+  deltaTicks: number,
+  ppq: number,
+  bpm: number
+): number {
   return (deltaTicks / ppq) * (60 / bpm);
 }
 
@@ -25,7 +29,10 @@ export class TempoMap {
     this.breakpoints = TempoMap.buildBreakpoints(events, ppq);
   }
 
-  private static buildBreakpoints(events: TempoEvent[], ppq: number): Breakpoint[] {
+  private static buildBreakpoints(
+    events: TempoEvent[],
+    ppq: number
+  ): Breakpoint[] {
     const sorted = [...events].sort((a, b) => a.tick - b.tick);
     const breakpoints: Breakpoint[] = [];
 
@@ -50,9 +57,17 @@ export class TempoMap {
         continue;
       }
 
-      currentSeconds += deltaTicksToSeconds(event.tick - currentTick, ppq, currentBpm);
+      currentSeconds += deltaTicksToSeconds(
+        event.tick - currentTick,
+        ppq,
+        currentBpm
+      );
       currentTick = event.tick;
-      breakpoints.push({ tick: currentTick, seconds: currentSeconds, bpm: event.bpm });
+      breakpoints.push({
+        tick: currentTick,
+        seconds: currentSeconds,
+        bpm: event.bpm,
+      });
       currentBpm = event.bpm;
     }
 

@@ -14,7 +14,9 @@ describe('decomposeDuration', () => {
   });
 
   it('returns a single value when the ticks exactly match one duration', () => {
-    expect(decomposeDuration(ticksFor('quarter', PPQ), PPQ)).toEqual([ticksFor('quarter', PPQ)]);
+    expect(decomposeDuration(ticksFor('quarter', PPQ), PPQ)).toEqual([
+      ticksFor('quarter', PPQ),
+    ]);
   });
 
   it('decomposes 7/8 of a whole note into a dotted half plus an eighth (largest-first, greedy)', () => {
@@ -62,11 +64,15 @@ describe('splitAtBoundaries', () => {
   });
 
   it('returns the original segment unchanged when no boundary falls inside it', () => {
-    expect(splitAtBoundaries(0, 480, [960])).toEqual([{ startTick: 0, durationTicks: 480 }]);
+    expect(splitAtBoundaries(0, 480, [960])).toEqual([
+      { startTick: 0, durationTicks: 480 },
+    ]);
   });
 
   it('returns the original segment unchanged when there are no boundaries', () => {
-    expect(splitAtBoundaries(100, 500, [])).toEqual([{ startTick: 100, durationTicks: 500 }]);
+    expect(splitAtBoundaries(100, 500, [])).toEqual([
+      { startTick: 100, durationTicks: 500 },
+    ]);
   });
 
   it('splits a note that crosses multiple boundaries into multiple segments', () => {

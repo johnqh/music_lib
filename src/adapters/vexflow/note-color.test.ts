@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { noteColorFor, noteEmphasisFor, resolveNoteColorRole } from './note-color.js';
+import {
+  noteColorFor,
+  noteEmphasisFor,
+  resolveNoteColorRole,
+} from './note-color.js';
 import type { NoteColorRole, RenderTheme } from './types.js';
 
 const theme: RenderTheme = {
@@ -80,7 +84,7 @@ describe('noteEmphasisFor', () => {
   it('emphasises every non-normal state, so state is perceivable without color', () => {
     for (const role of ['selected', 'regenerated', 'playing'] as const) {
       expect(noteEmphasisFor(role).lineWidth).toBeGreaterThan(
-        noteEmphasisFor('normal').lineWidth,
+        noteEmphasisFor('normal').lineWidth
       );
     }
   });
@@ -90,7 +94,12 @@ describe('noteEmphasisFor', () => {
     // is applied to the notes that change on every note-on/note-off during
     // playback. Regression guard: reintroducing one here is what made
     // playback hesitate.
-    for (const role of ['normal', 'selected', 'regenerated', 'playing'] as const) {
+    for (const role of [
+      'normal',
+      'selected',
+      'regenerated',
+      'playing',
+    ] as const) {
       expect(noteEmphasisFor(role)).not.toHaveProperty('shadowBlur');
       expect(noteEmphasisFor(role)).not.toHaveProperty('shadowColor');
     }
@@ -111,7 +120,9 @@ describe('noteColorFor: inactive tracks', () => {
     // cmd-shift-click selects across every track, so dimming a selection that
     // happens to sit off the active track would hide what the user just did.
     for (const role of ['selected', 'regenerated', 'playing'] as const) {
-      expect(noteColorFor(role, theme, false)).toBe(noteColorFor(role, theme, true));
+      expect(noteColorFor(role, theme, false)).toBe(
+        noteColorFor(role, theme, true)
+      );
     }
   });
 });

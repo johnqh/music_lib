@@ -11,11 +11,20 @@ import { decomposeDuration } from '../../domain/time/durations.js';
 import { ticksFor } from '../../domain/time/ticks.js';
 
 /** MusicXML `<type>` element values this adapter supports (whole down to 32nd; no 64th+ or breve/long). */
-export type MusicXmlNoteType = 'whole' | 'half' | 'quarter' | 'eighth' | '16th' | '32nd';
+export type MusicXmlNoteType =
+  'whole' | 'half' | 'quarter' | 'eighth' | '16th' | '32nd';
 
-type BaseDurationName = 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth' | 'thirtysecond';
+type BaseDurationName =
+  'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth' | 'thirtysecond';
 
-const BASE_NAMES: BaseDurationName[] = ['whole', 'half', 'quarter', 'eighth', 'sixteenth', 'thirtysecond'];
+const BASE_NAMES: BaseDurationName[] = [
+  'whole',
+  'half',
+  'quarter',
+  'eighth',
+  'sixteenth',
+  'thirtysecond',
+];
 
 const BASE_NAME_TO_XML_TYPE: Record<BaseDurationName, MusicXmlNoteType> = {
   whole: 'whole',
@@ -40,7 +49,11 @@ export function isMusicXmlNoteType(value: string): value is MusicXmlNoteType {
   return Object.prototype.hasOwnProperty.call(XML_TYPE_TO_BASE_NAME, value);
 }
 
-export type NotatedDuration = { ticks: number; type: MusicXmlNoteType; dots: number };
+export type NotatedDuration = {
+  ticks: number;
+  type: MusicXmlNoteType;
+  dots: number;
+};
 
 /** Matches `ticks` exactly against a base or singly-dotted `DURATIONS` entry at `ppq`, or `null` if none fits. */
 function classifyExact(ticks: number, ppq: number): NotatedDuration | null {
@@ -73,7 +86,14 @@ function classifyExact(ticks: number, ppq: number): NotatedDuration | null {
  */
 export function notateDuration(ticks: number, ppq: number): NotatedDuration[] {
   const segments = decomposeDuration(ticks, ppq);
-  return segments.map((segmentTicks) => classifyExact(segmentTicks, ppq) ?? { ticks: segmentTicks, type: '32nd' as const, dots: 0 });
+  return segments.map(
+    segmentTicks =>
+      classifyExact(segmentTicks, ppq) ?? {
+        ticks: segmentTicks,
+        type: '32nd' as const,
+        dots: 0,
+      }
+  );
 }
 
 /**
@@ -83,7 +103,11 @@ export function notateDuration(ticks: number, ppq: number): NotatedDuration[] {
  * alone (e.g. a `<duration>`-less shorthand rest) even for a dot count
  * beyond the singly-dotted variants this adapter's own export emits.
  */
-export function ticksForNotatedType(type: MusicXmlNoteType, dots: number, ppq: number): number {
+export function ticksForNotatedType(
+  type: MusicXmlNoteType,
+  dots: number,
+  ppq: number
+): number {
   const baseTicks = ticksFor(XML_TYPE_TO_BASE_NAME[type], ppq);
   const multiplier = 2 - 2 ** -dots;
   return Math.round(baseTicks * multiplier);

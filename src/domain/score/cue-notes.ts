@@ -10,7 +10,13 @@
  */
 import { isNoteEvent } from '@sudobility/music_types';
 import { isSilentMeasure } from './collapse-rests.js';
-import type { Measure, MeasureCue, MusicalEvent, Score, Track } from '@sudobility/music_types';
+import type {
+  Measure,
+  MeasureCue,
+  MusicalEvent,
+  Score,
+  Track,
+} from '@sudobility/music_types';
 
 /**
  * Shortest rest that earns a cue.
@@ -24,7 +30,7 @@ export const MIN_REST_FOR_CUE = 8;
 function noteCount(measure: Measure): number {
   return measure.voices.reduce(
     (total, voice) => total + voice.events.filter(isNoteEvent).length,
-    0,
+    0
   );
 }
 
@@ -48,7 +54,10 @@ function busiestVoiceEvents(measure: Measure): MusicalEvent[] {
 }
 
 /** The other track with the most notes in bar `index`, or undefined if none plays. */
-function busiestOtherTrack(others: readonly Track[], index: number): Track | undefined {
+function busiestOtherTrack(
+  others: readonly Track[],
+  index: number
+): Track | undefined {
   let best: Track | undefined;
   let bestCount = 0;
   for (const track of others) {
@@ -69,12 +78,15 @@ function busiestOtherTrack(others: readonly Track[], index: number): Track | und
  * followed by an entry. A rest running to the end of the piece gets none:
  * there is nothing to prepare for.
  */
-export function measureCues(score: Score, trackId: string): Map<number, MeasureCue> {
+export function measureCues(
+  score: Score,
+  trackId: string
+): Map<number, MeasureCue> {
   const cues = new Map<number, MeasureCue>();
-  const track = score.tracks.find((t) => t.id === trackId);
+  const track = score.tracks.find(t => t.id === trackId);
   if (!track) return cues;
 
-  const others = score.tracks.filter((t) => t.id !== trackId);
+  const others = score.tracks.filter(t => t.id !== trackId);
 
   let index = 0;
   while (index < track.measures.length) {
@@ -84,7 +96,8 @@ export function measureCues(score: Score, trackId: string): Map<number, MeasureC
     }
 
     let end = index;
-    while (end < track.measures.length && isSilentMeasure(track.measures[end])) end += 1;
+    while (end < track.measures.length && isSilentMeasure(track.measures[end]))
+      end += 1;
 
     const entersAfter = end < track.measures.length;
     if (end - index >= MIN_REST_FOR_CUE && entersAfter) {
@@ -112,9 +125,9 @@ export function measureCues(score: Score, trackId: string): Map<number, MeasureC
  */
 export function applyCues(
   measures: readonly Measure[],
-  cues: ReadonlyMap<number, MeasureCue>,
+  cues: ReadonlyMap<number, MeasureCue>
 ): Measure[] {
-  return measures.map((measure) => {
+  return measures.map(measure => {
     const cue = cues.get(measure.index);
     return cue === undefined ? measure : { ...measure, cue };
   });

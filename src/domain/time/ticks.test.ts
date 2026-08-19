@@ -32,7 +32,7 @@ describe('DURATIONS', () => {
         'triplet-eighth',
         'triplet-sixteenth',
         'triplet-thirtysecond',
-      ].sort(),
+      ].sort()
     );
   });
 });
@@ -69,55 +69,73 @@ describe('ticksFor', () => {
 
 describe('measureDurationTicks', () => {
   it('4/4 measure equals 4 * ppq', () => {
-    expect(measureDurationTicks({ numerator: 4, denominator: 4 }, PPQ)).toBe(4 * PPQ);
+    expect(measureDurationTicks({ numerator: 4, denominator: 4 }, PPQ)).toBe(
+      4 * PPQ
+    );
   });
 
   it('6/8 measure equals 3 * ppq', () => {
-    expect(measureDurationTicks({ numerator: 6, denominator: 8 }, PPQ)).toBe(3 * PPQ);
+    expect(measureDurationTicks({ numerator: 6, denominator: 8 }, PPQ)).toBe(
+      3 * PPQ
+    );
   });
 
   it('3/4 measure equals 3 * ppq', () => {
-    expect(measureDurationTicks({ numerator: 3, denominator: 4 }, PPQ)).toBe(3 * PPQ);
+    expect(measureDurationTicks({ numerator: 3, denominator: 4 }, PPQ)).toBe(
+      3 * PPQ
+    );
   });
 
   it('2/2 (cut time) measure equals 4 * ppq', () => {
-    expect(measureDurationTicks({ numerator: 2, denominator: 2 }, PPQ)).toBe(4 * PPQ);
+    expect(measureDurationTicks({ numerator: 2, denominator: 2 }, PPQ)).toBe(
+      4 * PPQ
+    );
   });
 });
 
 describe('beatDurationTicks', () => {
   it('4/4 beat is a quarter note', () => {
-    expect(beatDurationTicks({ numerator: 4, denominator: 4 }, PPQ)).toBe(ticksFor('quarter', PPQ));
+    expect(beatDurationTicks({ numerator: 4, denominator: 4 }, PPQ)).toBe(
+      ticksFor('quarter', PPQ)
+    );
   });
 
   it('3/4 (simple triple) beat is a quarter note', () => {
-    expect(beatDurationTicks({ numerator: 3, denominator: 4 }, PPQ)).toBe(ticksFor('quarter', PPQ));
+    expect(beatDurationTicks({ numerator: 3, denominator: 4 }, PPQ)).toBe(
+      ticksFor('quarter', PPQ)
+    );
   });
 
   it('6/8 (compound duple) beat is a dotted quarter note', () => {
     expect(beatDurationTicks({ numerator: 6, denominator: 8 }, PPQ)).toBe(
-      ticksFor('dotted-quarter', PPQ),
+      ticksFor('dotted-quarter', PPQ)
     );
   });
 
   it('9/8 (compound triple) beat is a dotted quarter note', () => {
     expect(beatDurationTicks({ numerator: 9, denominator: 8 }, PPQ)).toBe(
-      ticksFor('dotted-quarter', PPQ),
+      ticksFor('dotted-quarter', PPQ)
     );
   });
 });
 
 describe('beatBoundaries', () => {
   it('4/4 has 4 beat boundaries starting at 0', () => {
-    expect(beatBoundaries({ numerator: 4, denominator: 4 }, PPQ)).toEqual([0, 480, 960, 1440]);
+    expect(beatBoundaries({ numerator: 4, denominator: 4 }, PPQ)).toEqual([
+      0, 480, 960, 1440,
+    ]);
   });
 
   it('6/8 has 2 beat boundaries (compound duple)', () => {
-    expect(beatBoundaries({ numerator: 6, denominator: 8 }, PPQ)).toEqual([0, 720]);
+    expect(beatBoundaries({ numerator: 6, denominator: 8 }, PPQ)).toEqual([
+      0, 720,
+    ]);
   });
 
   it('3/4 has 3 beat boundaries', () => {
-    expect(beatBoundaries({ numerator: 3, denominator: 4 }, PPQ)).toEqual([0, 480, 960]);
+    expect(beatBoundaries({ numerator: 3, denominator: 4 }, PPQ)).toEqual([
+      0, 480, 960,
+    ]);
   });
 });
 
@@ -134,7 +152,10 @@ describe('durationNameForTicks', () => {
         'dotted-quarter',
         'triplet-eighth',
       ] as const) {
-        expect(durationNameForTicks(ticksFor(name, ppq), ppq), `${name}@${ppq}`).toBe(name);
+        expect(
+          durationNameForTicks(ticksFor(name, ppq), ppq),
+          `${name}@${ppq}`
+        ).toBe(name);
       }
     }
   });

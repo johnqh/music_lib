@@ -49,7 +49,10 @@ function computeSnappedStart(original: number, opts: QuantizeOptions): number {
  * floor when unset) so quantization can never produce a zero/negative
  * duration, which every other event in the domain model forbids.
  */
-function computeSnappedDuration(original: number, opts: QuantizeOptions): number {
+function computeSnappedDuration(
+  original: number,
+  opts: QuantizeOptions
+): number {
   const grid = effectiveGridTicks(opts);
   if (grid <= 0) return Math.max(original, opts.minDurationTicks ?? 1);
 
@@ -61,10 +64,12 @@ function computeSnappedDuration(original: number, opts: QuantizeOptions): number
 /** Drops `NoteEvent`s whose *original* duration is shorter than `minDurationTicks`. `RestEvent`s are never dropped. */
 function dropShortNotes(
   events: MusicalEvent[],
-  minDurationTicks: number | undefined,
+  minDurationTicks: number | undefined
 ): MusicalEvent[] {
   if (minDurationTicks === undefined) return events;
-  return events.filter((event) => !isNoteEvent(event) || event.durationTicks >= minDurationTicks);
+  return events.filter(
+    event => !isNoteEvent(event) || event.durationTicks >= minDurationTicks
+  );
 }
 
 /** Groups events by (trackId, voiceId), preserving each group's first-seen order. */
@@ -83,7 +88,7 @@ function groupByVoice(events: MusicalEvent[]): MusicalEvent[][] {
     group.push(event);
   }
 
-  return order.map((key) => groups.get(key) as MusicalEvent[]);
+  return order.map(key => groups.get(key) as MusicalEvent[]);
 }
 
 /**
@@ -94,7 +99,10 @@ function groupByVoice(events: MusicalEvent[]): MusicalEvent[][] {
  * anchor. Anchoring (rather than comparing each event to its immediate
  * neighbor) bounds how far a chain of close onsets can drift in total.
  */
-function applyChordGrouping(sorted: MusicalEvent[], tolerance: number): MusicalEvent[] {
+function applyChordGrouping(
+  sorted: MusicalEvent[],
+  tolerance: number
+): MusicalEvent[] {
   let anchor = 0;
   return sorted.map((event, index) => {
     if (index === 0) {
@@ -117,7 +125,7 @@ function applyChordGrouping(sorted: MusicalEvent[], tolerance: number): MusicalE
  * into the next one" meaning of overlap resolution.
  */
 function applyResolveOverlaps(sorted: MusicalEvent[]): MusicalEvent[] {
-  const result = sorted.map((event) => ({ ...event }));
+  const result = sorted.map(event => ({ ...event }));
   for (let i = 0; i < result.length - 1; i += 1) {
     const current = result[i];
     const next = result[i + 1];
@@ -138,7 +146,7 @@ function applyResolveOverlaps(sorted: MusicalEvent[]): MusicalEvent[] {
  * next one. Events sharing an exact start tick (a chord) are left alone.
  */
 function applyLegatoCleanup(sorted: MusicalEvent[]): MusicalEvent[] {
-  const result = sorted.map((event) => ({ ...event }));
+  const result = sorted.map(event => ({ ...event }));
   for (let i = 0; i < result.length - 1; i += 1) {
     const current = result[i];
     const next = result[i + 1];
@@ -153,7 +161,11 @@ function applyLegatoCleanup(sorted: MusicalEvent[]): MusicalEvent[] {
 }
 
 /** Inserts a fresh `RestEvent` for every remaining silent gap between consecutive events (already sorted by `startTick`). */
-function applyFillGaps(sorted: MusicalEvent[], trackId: string, voiceId: string): MusicalEvent[] {
+function applyFillGaps(
+  sorted: MusicalEvent[],
+  trackId: string,
+  voiceId: string
+): MusicalEvent[] {
   const result: MusicalEvent[] = [];
   let cursor: number | null = null;
 
@@ -176,7 +188,10 @@ function applyFillGaps(sorted: MusicalEvent[], trackId: string, voiceId: string)
 }
 
 /** Runs the chord-grouping/overlap-resolution/legato/gap-filling stages (each opt-in) over one (trackId, voiceId) group. */
-function processVoiceGroup(group: MusicalEvent[], opts: QuantizeOptions): MusicalEvent[] {
+function processVoiceGroup(
+  group: MusicalEvent[],
+  opts: QuantizeOptions
+): MusicalEvent[] {
   let current = [...group].sort((a, b) => a.startTick - b.startTick);
 
   if (opts.chordToleranceTicks !== undefined) {
@@ -205,22 +220,28 @@ function processVoiceGroup(group: MusicalEvent[], opts: QuantizeOptions): Musica
  * dropping is opt-in via `opts`; omitting a field disables that stage.
  * Returns a new array; never mutates `events` or its elements.
  */
-export function quantizeEvents(events: MusicalEvent[], opts: QuantizeOptions): MusicalEvent[] {
+export function quantizeEvents(
+  events: MusicalEvent[],
+  opts: QuantizeOptions
+): MusicalEvent[] {
   const survivors = dropShortNotes(events, opts.minDurationTicks);
 
-  const withStarts = survivors.map((event) =>
+  const withStarts = survivors.map(event =>
     opts.quantizeStarts
       ? { ...event, startTick: computeSnappedStart(event.startTick, opts) }
-      : { ...event },
+      : { ...event }
   );
 
-  const withDurations = withStarts.map((event) =>
+  const withDurations = withStarts.map(event =>
     opts.quantizeDurations
-      ? { ...event, durationTicks: computeSnappedDuration(event.durationTicks, opts) }
-      : event,
+      ? {
+          ...event,
+          durationTicks: computeSnappedDuration(event.durationTicks, opts),
+        }
+      : event
   );
 
   return groupByVoice(withDurations)
-    .map((group) => processVoiceGroup(group, opts))
+    .map(group => processVoiceGroup(group, opts))
     .flat();
 }

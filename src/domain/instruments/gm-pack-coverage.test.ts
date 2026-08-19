@@ -22,9 +22,9 @@ describe('GM pack coverage', () => {
   const available = new Set<string>(PACK_NAMES);
 
   it('names a pack that exists for every one of the 128 GM programs', () => {
-    const missing = GM_INSTRUMENTS.filter((i) => !available.has(gmPackName(i.program, i.name))).map(
-      (i) => `${i.program} "${i.name}" -> ${gmPackName(i.program, i.name)}`,
-    );
+    const missing = GM_INSTRUMENTS.filter(
+      i => !available.has(gmPackName(i.program, i.name))
+    ).map(i => `${i.program} "${i.name}" -> ${gmPackName(i.program, i.name)}`);
     expect(missing).toEqual([]);
   });
 

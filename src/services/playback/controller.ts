@@ -14,6 +14,7 @@
  * as a store action — playback is real-time device control, not score
  * history.
  */
+import { libraryMessage } from '../messages.js';
 import type { PlaybackEngine } from './types.js';
 import { scoreEndTick } from '../../domain/score/queries.js';
 import { selectionToRange } from '../../domain/selection/selection.js';
@@ -34,8 +35,9 @@ function measureAt(score: Score, tick: number) {
   const track = score.tracks[0];
   if (!track || track.measures.length === 0) return null;
   return (
-    track.measures.find((m) => tick >= m.startTick && tick < m.startTick + m.durationTicks) ??
-    track.measures[track.measures.length - 1]
+    track.measures.find(
+      m => tick >= m.startTick && tick < m.startTick + m.durationTicks
+    ) ?? track.measures[track.measures.length - 1]
   );
 }
 
@@ -53,24 +55,26 @@ export class PlaybackController {
 
   constructor(
     private readonly engine: PlaybackEngine,
-    private readonly store: PlaybackStoreApi,
+    private readonly store: PlaybackStoreApi
   ) {
     engine.setObserver({
-      onPositionTick: (tick) => this.bus.publishPosition(tick),
-      onActiveNotes: (notes) => this.bus.publishSounding(notes),
-      onStateChange: (state) => {
+      onPositionTick: tick => this.bus.publishPosition(tick),
+      onActiveNotes: notes => this.bus.publishSounding(notes),
+      onStateChange: state => {
         this.bus.publishTransport(state);
         this.store.getState().setPlaybackState(state);
         // Stopping or pausing commits the engine's final position to the edit
         // caret, so the two coincide whenever the transport is not running —
         // which is the whole basis of "play from the caret" still working.
-        if (state !== 'playing') this.store.getState().setCaretTick(this.bus.positionTick);
+        if (state !== 'playing')
+          this.store.getState().setCaretTick(this.bus.positionTick);
       },
       // Optional on the contract: an engine with nothing to load never calls it.
-      onLoadStateChange: (state) => this.store.getState().setSynthLoad(state),
+      onLoadStateChange: state => this.store.getState().setSynthLoad(state),
     });
 
-    let lastVisibleTrackIds: string[] | null = this.store.getState().visibleTrackIds;
+    let lastVisibleTrackIds: string[] | null =
+      this.store.getState().visibleTrackIds;
     let lastScore: Score | null = this.store.getState().score;
     // Routed through the same guarded `handleScoreChange` path as every
     // later change (try/catch -> error toast on a rejected loadScore),
@@ -78,7 +82,7 @@ export class PlaybackController {
     // corrupt initial score must not surface as an unhandled rejection.
     if (lastScore) this.handleScoreChange(lastScore);
 
-    this.unsubscribe = this.store.subscribe((state) => {
+    this.unsubscribe = this.store.subscribe(state => {
       if (state.score !== lastScore) {
         lastScore = state.score;
         if (lastScore) this.handleScoreChange(lastScore);
@@ -115,7 +119,11 @@ export class PlaybackController {
       // "Play from the caret" needs no code here — the engine resumes from
       // the transport position, and a caret seek is exactly what set it.
       this.store.getState().clearSelection();
-      this.engine.play().catch((error: unknown) => this.reportError('Playback failed to start', error));
+      this.engine
+        .play()
+        .catch((error: unknown) =>
+          this.reportError(libraryMessage('playbackFailed'), error)
+        );
     }
   }
 
@@ -134,7 +142,9 @@ export class PlaybackController {
 
   seekToMeasure(measureIndex: number): void {
     const score = this.store.getState().score;
-    const measure = score?.tracks[0]?.measures.find((m) => m.index === measureIndex);
+    const measure = score?.tracks[0]?.measures.find(
+      m => m.index === measureIndex
+    );
     if (!measure) return;
     this.seek(measure.startTick);
   }
@@ -188,7 +198,11 @@ export class PlaybackController {
       return;
     }
     if (!score) return;
-    const range = selectionToRange(score, selection) ?? { startTick: 0, endTick: scoreEndTick(score), trackIds: [] };
+    const range = selectionToRange(score, selection) ?? {
+      startTick: 0,
+      endTick: scoreEndTick(score),
+      trackIds: [],
+    };
     this.setLoop(range);
   }
 
@@ -266,7 +280,7 @@ export class PlaybackController {
       // tracks would sound again on the next load without this.
       this.applyTrackAudibility();
     } catch (error) {
-      this.reportError('Failed to load the score for playback', error);
+      this.reportError(libraryMessage('scoreLoadFailed'), error);
     }
   }
 
@@ -296,11 +310,16 @@ export class PlaybackController {
 
   private reportError(message: string, error: unknown): void {
     const detail = error instanceof Error ? error.message : String(error);
-    this.store.getState().pushToast({ message: `${message}: ${detail}`, severity: 'error' });
+    this.store
+      .getState()
+      .pushToast({ message: `${message}: ${detail}`, severity: 'error' });
   }
 }
 
-export function createPlaybackController(engine: PlaybackEngine, store: PlaybackStoreApi): PlaybackController {
+export function createPlaybackController(
+  engine: PlaybackEngine,
+  store: PlaybackStoreApi
+): PlaybackController {
   return new PlaybackController(engine, store);
 }
 
@@ -310,7 +329,10 @@ function realController(): PlaybackController {
   if (!singleton) {
     // The engine comes from the registry, not from here: this file must not
     // know which platform it is running on.
-    singleton = createPlaybackController(getMusicPlatform().playback, useAppStore);
+    singleton = createPlaybackController(
+      getMusicPlatform().playback,
+      useAppStore
+    );
   }
   return singleton;
 }
@@ -325,10 +347,13 @@ function realController(): PlaybackController {
  * working unchanged when the engine moved out to music_io: the Proxy resolves
  * the engine on first use, by which time the app has registered a platform.
  */
-export const playbackController: PlaybackController = new Proxy({} as PlaybackController, {
-  get(_target, prop) {
-    const controller = realController();
-    const value = Reflect.get(controller, prop, controller);
-    return typeof value === 'function' ? value.bind(controller) : value;
-  },
-});
+export const playbackController: PlaybackController = new Proxy(
+  {} as PlaybackController,
+  {
+    get(_target, prop) {
+      const controller = realController();
+      const value = Reflect.get(controller, prop, controller);
+      return typeof value === 'function' ? value.bind(controller) : value;
+    },
+  }
+);

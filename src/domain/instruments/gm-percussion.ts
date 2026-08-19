@@ -79,7 +79,7 @@ const TABLE: readonly GmPercussion[] = [
   { midi: 81, name: 'Open Triangle', short: 'Tri' },
 ];
 
-const BY_MIDI = new Map(TABLE.map((drum) => [drum.midi, drum]));
+const BY_MIDI = new Map(TABLE.map(drum => [drum.midi, drum]));
 
 export const GM_PERCUSSION: readonly GmPercussion[] = TABLE;
 

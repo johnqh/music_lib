@@ -17,7 +17,10 @@ export type PaperSize = 'a4' | 'letter' | 'legal';
 export type PaperOrientation = 'portrait' | 'landscape';
 
 /** Portrait dimensions in millimetres; landscape swaps them. */
-export const PAPER_DIMENSIONS_MM: Record<PaperSize, { width: number; height: number }> = {
+export const PAPER_DIMENSIONS_MM: Record<
+  PaperSize,
+  { width: number; height: number }
+> = {
   a4: { width: 210, height: 297 },
   letter: { width: 215.9, height: 279.4 }, // 8.5in x 11in
   legal: { width: 215.9, height: 355.6 }, // 8.5in x 14in
@@ -43,12 +46,14 @@ export function usablePageHeight(
   paper: PaperSize,
   orientation: PaperOrientation,
   logicalWidth: number,
-  marginMm: number = PAGE_MARGIN_MM,
+  marginMm: number = PAGE_MARGIN_MM
 ): number {
   const { width, height } = PAPER_DIMENSIONS_MM[paper];
   const shortSide = orientation === 'portrait' ? width : height;
   const longSide = orientation === 'portrait' ? height : width;
-  return (logicalWidth * (longSide - 2 * marginMm)) / (shortSide - 2 * marginMm);
+  return (
+    (logicalWidth * (longSide - 2 * marginMm)) / (shortSide - 2 * marginMm)
+  );
 }
 
 /** The systems printed on one page, by index into `LayoutPlan.systems`. */
@@ -102,11 +107,18 @@ function leadingFreeBars(track: Track, indices: readonly number[]): number {
  * must be reading again by their first on the next, so both sides count.
  * Zero after the last system: there is no turn there.
  */
-export function turnFreeBars(plan: LayoutPlan, track: Track, lastSystemIndex: number): number {
+export function turnFreeBars(
+  plan: LayoutPlan,
+  track: Track,
+  lastSystemIndex: number
+): number {
   const last = plan.systems[lastSystemIndex];
   const next = plan.systems[lastSystemIndex + 1];
   if (!last || !next) return 0;
-  return trailingFreeBars(track, last.measureIndices) + leadingFreeBars(track, next.measureIndices);
+  return (
+    trailingFreeBars(track, last.measureIndices) +
+    leadingFreeBars(track, next.measureIndices)
+  );
 }
 
 /**
@@ -116,7 +128,12 @@ export function turnFreeBars(plan: LayoutPlan, track: Track, lastSystemIndex: nu
  * Searched downward with a strict improvement test, so a tie keeps the fullest
  * page — pulling back with nothing to show for it is pure loss.
  */
-function bestTurn(plan: LayoutPlan, track: Track, start: number, greedyEnd: number): number {
+function bestTurn(
+  plan: LayoutPlan,
+  track: Track,
+  start: number,
+  greedyEnd: number
+): number {
   let best = greedyEnd;
   let bestScore = turnFreeBars(plan, track, greedyEnd - 1);
 
@@ -145,7 +162,7 @@ function bestTurn(plan: LayoutPlan, track: Track, start: number, greedyEnd: numb
 export function paginate(
   plan: LayoutPlan,
   pageHeight: number,
-  turnTrack?: Track,
+  turnTrack?: Track
 ): PrintPage[] {
   const pages: PrintPage[] = [];
   let start = 0;

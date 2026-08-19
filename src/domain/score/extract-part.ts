@@ -25,7 +25,7 @@ import type { Score } from '@sudobility/music_types';
  * of them is a bug.
  */
 export function extractPart(score: Score, trackId: string): Score | null {
-  const track = score.tracks.find((t) => t.id === trackId);
+  const track = score.tracks.find(t => t.id === trackId);
   if (!track) return null;
 
   // Cues first, at concert pitch: chosen from the other tracks as they sound,
@@ -34,7 +34,9 @@ export function extractPart(score: Score, trackId: string): Score | null {
 
   const semitones = trackWrittenTransposition(track);
   const written =
-    semitones === 0 ? cued : cued.map((measure) => transposeMeasure(measure, semitones));
+    semitones === 0
+      ? cued
+      : cued.map(measure => transposeMeasure(measure, semitones));
 
   // Marks come from the WHOLE score, not this track: "from B" has to mean the
   // same bar in every part, and a per-track derivation would give each player

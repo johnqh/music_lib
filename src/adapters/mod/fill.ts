@@ -27,7 +27,7 @@ export function fillVoiceWithRests(
   measureDurationTicks: number,
   ppq: number,
   trackId: UUID,
-  voiceId: UUID,
+  voiceId: UUID
 ): MusicalEvent[] {
   const measureEnd = measureStartTick + measureDurationTicks;
   const out: MusicalEvent[] = [];
@@ -37,7 +37,13 @@ export function fillVoiceWithRests(
   const addRests = (from: number, to: number): void => {
     let cursor = from;
     for (const ticks of decomposeDuration(to - from, ppq)) {
-      out.push({ id: createId(), startTick: cursor, durationTicks: ticks, voiceId, trackId });
+      out.push({
+        id: createId(),
+        startTick: cursor,
+        durationTicks: ticks,
+        voiceId,
+        trackId,
+      });
       cursor += ticks;
     }
   };

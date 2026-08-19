@@ -85,7 +85,6 @@ export * from './adapters/vexflow/playhead.js';
 export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/note-color.js';
 
-
 // adapters/mod
 export * from './adapters/mod/types.js';
 export * from './adapters/mod/timing.js';
@@ -109,6 +108,7 @@ export * from './adapters/musicxml/duration-map.js';
 
 // services
 export * from './services/errors.js';
+export * from './services/messages.js';
 export * from './services/import-export/musicxml-service.js';
 export * from './services/export/render-events.js';
 export * from './services/perf/benchmark.js';

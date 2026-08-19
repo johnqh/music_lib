@@ -56,7 +56,11 @@ describe('tempoChanges', () => {
   });
 
   it('carries speed and tempo forward together', () => {
-    const changes = tempoChanges([[cell()], [cell({ speed: 0x03 })], [cell({ bpm: 0x64 })]]);
+    const changes = tempoChanges([
+      [cell()],
+      [cell({ speed: 0x03 })],
+      [cell({ bpm: 0x64 })],
+    ]);
     expect(changes[2]).toEqual({ row: 2, bpm: 200 });
   });
 

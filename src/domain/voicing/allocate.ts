@@ -14,7 +14,11 @@ const DEFAULT_SPLIT_POINT = 60; // middle C
 
 export type AllocateVoicesOptions = { maxVoices: number; splitPoint?: number };
 
-export type VoiceGroup = { voiceIndex: number; staff: 'upper' | 'lower'; notes: NoteEvent[] };
+export type VoiceGroup = {
+  voiceIndex: number;
+  staff: 'upper' | 'lower';
+  notes: NoteEvent[];
+};
 
 /**
  * Groups `notes` into chronological clusters of notes sharing the exact
@@ -40,7 +44,7 @@ function groupChordClusters(notes: NoteEvent[]): NoteEvent[][] {
     cluster.push(note);
   }
 
-  return order.map((key) => byKey.get(key) as NoteEvent[]);
+  return order.map(key => byKey.get(key) as NoteEvent[]);
 }
 
 /** Mutable voice-assignment tracking used only within `allocateVoices`. */
@@ -55,11 +59,18 @@ type VoiceSlot = { lastEnd: number; notes: NoteEvent[] };
  * (at capacity, all busy) reuses the least-overlapping slot (largest
  * `lastEnd`) rather than exceeding `maxVoices`.
  */
-function chooseVoiceIndex(voices: VoiceSlot[], startTick: number, maxVoices: number): number {
+function chooseVoiceIndex(
+  voices: VoiceSlot[],
+  startTick: number,
+  maxVoices: number
+): number {
   let bestFreeIndex = -1;
   for (let i = 0; i < voices.length; i += 1) {
     if (voices[i].lastEnd <= startTick) {
-      if (bestFreeIndex === -1 || voices[i].lastEnd > voices[bestFreeIndex].lastEnd) {
+      if (
+        bestFreeIndex === -1 ||
+        voices[i].lastEnd > voices[bestFreeIndex].lastEnd
+      ) {
         bestFreeIndex = i;
       }
     }
@@ -72,7 +83,8 @@ function chooseVoiceIndex(voices: VoiceSlot[], startTick: number, maxVoices: num
 
   let leastOverlapIndex = 0;
   for (let i = 1; i < voices.length; i += 1) {
-    if (voices[i].lastEnd > voices[leastOverlapIndex].lastEnd) leastOverlapIndex = i;
+    if (voices[i].lastEnd > voices[leastOverlapIndex].lastEnd)
+      leastOverlapIndex = i;
   }
   return leastOverlapIndex;
 }
@@ -84,7 +96,10 @@ function chooseVoiceIndex(voices: VoiceSlot[], startTick: number, maxVoices: num
  * `voiceIndex` — one per staff — since staff assignment is per-note while
  * voice assignment is per-cluster.
  */
-export function allocateVoices(notes: NoteEvent[], opts: AllocateVoicesOptions): VoiceGroup[] {
+export function allocateVoices(
+  notes: NoteEvent[],
+  opts: AllocateVoicesOptions
+): VoiceGroup[] {
   if (notes.length === 0) return [];
 
   const splitPoint = opts.splitPoint ?? DEFAULT_SPLIT_POINT;
@@ -104,10 +119,12 @@ export function allocateVoices(notes: NoteEvent[], opts: AllocateVoicesOptions):
 
   const result: VoiceGroup[] = [];
   voices.forEach((voice, voiceIndex) => {
-    const upper = voice.notes.filter((n) => pitchToMidi(n.pitch) >= splitPoint);
-    const lower = voice.notes.filter((n) => pitchToMidi(n.pitch) < splitPoint);
-    if (upper.length > 0) result.push({ voiceIndex, staff: 'upper', notes: upper });
-    if (lower.length > 0) result.push({ voiceIndex, staff: 'lower', notes: lower });
+    const upper = voice.notes.filter(n => pitchToMidi(n.pitch) >= splitPoint);
+    const lower = voice.notes.filter(n => pitchToMidi(n.pitch) < splitPoint);
+    if (upper.length > 0)
+      result.push({ voiceIndex, staff: 'upper', notes: upper });
+    if (lower.length > 0)
+      result.push({ voiceIndex, staff: 'lower', notes: lower });
   });
 
   return result;

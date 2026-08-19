@@ -154,7 +154,7 @@ function isCrossHead(key: string): boolean {
  * meets its stem correctly.
  */
 export function crossHeadStemOffsets(
-  keys: string[],
+  keys: string[]
 ): { stem_up_y_base_offset: number; stem_down_y_base_offset: number } | null {
   if (keys.length === 0 || !keys.every(isCrossHead)) return null;
   return {

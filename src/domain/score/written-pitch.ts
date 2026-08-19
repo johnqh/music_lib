@@ -14,18 +14,28 @@ import { gmWrittenTransposition } from '../instruments/gm-transposition.js';
 import { trackWrittenTransposition } from '../instruments/track-instrument.js';
 import { transposeKeySignature, transposePitch } from '../pitch/transpose.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { KeySignature, Measure, MusicalEvent, Pitch, Score, Track } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  Measure,
+  MusicalEvent,
+  Pitch,
+  Score,
+  Track,
+} from '@sudobility/music_types';
 
 /** `events` with every pitch moved by `semitones`, respelled in `keySignature`. */
 export function transposeEvents(
   events: readonly MusicalEvent[],
   semitones: number,
-  keySignature: KeySignature,
+  keySignature: KeySignature
 ): MusicalEvent[] {
-  return events.map((event) =>
+  return events.map(event =>
     isNoteEvent(event)
-      ? { ...event, pitch: transposePitch(event.pitch, semitones, keySignature) }
-      : event,
+      ? {
+          ...event,
+          pitch: transposePitch(event.pitch, semitones, keySignature),
+        }
+      : event
   );
 }
 
@@ -39,7 +49,7 @@ export function transposeMeasure(measure: Measure, semitones: number): Measure {
   const transposed: Measure = {
     ...measure,
     keySignature,
-    voices: measure.voices.map((voice) => ({
+    voices: measure.voices.map(voice => ({
       ...voice,
       events: transposeEvents(voice.events, semitones, keySignature),
     })),
@@ -75,17 +85,20 @@ export function writtenScore(score: Score): Score {
   // track's program is a kit, and kits 24 and 25 are guitar programs — which
   // transpose by an octave. A TR-808 part was drawn an octave away from its own
   // drums' staff positions.
-  if (!score.tracks.some((track) => trackWrittenTransposition(track) !== 0)) {
+  if (!score.tracks.some(track => trackWrittenTransposition(track) !== 0)) {
     return score;
   }
 
   return {
     ...score,
-    tracks: score.tracks.map((track) => {
+    tracks: score.tracks.map(track => {
       const semitones = trackWrittenTransposition(track);
       return semitones === 0
         ? track
-        : { ...track, measures: track.measures.map((m) => transposeMeasure(m, semitones)) };
+        : {
+            ...track,
+            measures: track.measures.map(m => transposeMeasure(m, semitones)),
+          };
     }),
   };
 }
@@ -100,10 +113,12 @@ export function writtenScore(score: Score): Score {
 export function soundingPitch(
   written: Pitch,
   midiProgram: number,
-  soundingKey: KeySignature,
+  soundingKey: KeySignature
 ): Pitch {
   const semitones = gmWrittenTransposition(midiProgram);
-  return semitones === 0 ? written : transposePitch(written, -semitones, soundingKey);
+  return semitones === 0
+    ? written
+    : transposePitch(written, -semitones, soundingKey);
 }
 
 /**
@@ -115,8 +130,10 @@ export function soundingPitch(
 export function soundingPitchForTrack(
   written: Pitch,
   track: Pick<Track, 'clef' | 'midiProgram'>,
-  soundingKey: KeySignature,
+  soundingKey: KeySignature
 ): Pitch {
   const semitones = trackWrittenTransposition(track);
-  return semitones === 0 ? written : transposePitch(written, -semitones, soundingKey);
+  return semitones === 0
+    ? written
+    : transposePitch(written, -semitones, soundingKey);
 }

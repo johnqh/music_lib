@@ -14,7 +14,12 @@ import type { NoteColorRole, RenderTheme } from './types.js';
  * normally coexist — this ordering only resolves the case where the user
  * selects notes while playback is already running.
  */
-const PRECEDENCE: readonly NoteColorRole[] = ['playing', 'regenerated', 'selected', 'normal'];
+const PRECEDENCE: readonly NoteColorRole[] = [
+  'playing',
+  'regenerated',
+  'selected',
+  'normal',
+];
 
 /**
  * The role to draw a VexFlow note with, given every domain event id it
@@ -23,7 +28,7 @@ const PRECEDENCE: readonly NoteColorRole[] = ['playing', 'regenerated', 'selecte
  */
 export function resolveNoteColorRole(
   eventIds: readonly string[],
-  noteColors: ReadonlyMap<string, NoteColorRole> | undefined,
+  noteColors: ReadonlyMap<string, NoteColorRole> | undefined
 ): NoteColorRole {
   if (!noteColors || noteColors.size === 0) return 'normal';
   let best = PRECEDENCE.length - 1;
@@ -74,7 +79,7 @@ export function noteEmphasisFor(role: NoteColorRole): { lineWidth: number } {
 export function noteColorFor(
   role: NoteColorRole,
   theme: RenderTheme,
-  onActiveTrack = true,
+  onActiveTrack = true
 ): string {
   switch (role) {
     case 'playing':

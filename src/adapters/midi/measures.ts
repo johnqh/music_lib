@@ -8,12 +8,24 @@
  */
 import { createId } from '../../domain/score/ids.js';
 import { splitNoteAcrossMeasures } from '../../domain/score/ties.js';
-import type { KeySignature, Measure, MusicalEvent, NoteEvent, TimeSignature } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  Measure,
+  MusicalEvent,
+  NoteEvent,
+  TimeSignature,
+} from '@sudobility/music_types';
 import { measureDurationTicks } from '../../domain/time/ticks.js';
 
-export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
+export const DEFAULT_TIME_SIGNATURE: TimeSignature = {
+  numerator: 4,
+  denominator: 4,
+};
 
-export type TimeSignatureChange = { tick: number; timeSignature: TimeSignature };
+export type TimeSignatureChange = {
+  tick: number;
+  timeSignature: TimeSignature;
+};
 
 export type MeasureSpan = {
   index: number;
@@ -36,9 +48,16 @@ export type MeasureSpan = {
  * than truncating a partial measure — a documented simplification, not a
  * full mid-measure meter change.
  */
-export function buildMeasureSpans(changes: TimeSignatureChange[], ppq: number, endTick: number): MeasureSpan[] {
+export function buildMeasureSpans(
+  changes: TimeSignatureChange[],
+  ppq: number,
+  endTick: number
+): MeasureSpan[] {
   const sorted = [...changes].sort((a, b) => a.tick - b.tick);
-  const withOrigin = sorted.length > 0 && sorted[0].tick === 0 ? sorted : [{ tick: 0, timeSignature: DEFAULT_TIME_SIGNATURE }, ...sorted];
+  const withOrigin =
+    sorted.length > 0 && sorted[0].tick === 0
+      ? sorted
+      : [{ tick: 0, timeSignature: DEFAULT_TIME_SIGNATURE }, ...sorted];
 
   const spans: MeasureSpan[] = [];
   let cursor = 0;
@@ -50,10 +69,17 @@ export function buildMeasureSpans(changes: TimeSignatureChange[], ppq: number, e
     if (measureTicks <= 0) continue;
 
     const isLastSegment = i === withOrigin.length - 1;
-    const segmentEnd = isLastSegment ? Math.max(endTick, cursor + measureTicks) : withOrigin[i + 1].tick;
+    const segmentEnd = isLastSegment
+      ? Math.max(endTick, cursor + measureTicks)
+      : withOrigin[i + 1].tick;
 
     while (cursor < segmentEnd) {
-      spans.push({ index, startTick: cursor, durationTicks: measureTicks, timeSignature });
+      spans.push({
+        index,
+        startTick: cursor,
+        durationTicks: measureTicks,
+        timeSignature,
+      });
       cursor += measureTicks;
       index += 1;
     }
@@ -61,7 +87,12 @@ export function buildMeasureSpans(changes: TimeSignatureChange[], ppq: number, e
 
   if (spans.length === 0) {
     const measureTicks = measureDurationTicks(DEFAULT_TIME_SIGNATURE, ppq);
-    spans.push({ index: 0, startTick: 0, durationTicks: measureTicks, timeSignature: DEFAULT_TIME_SIGNATURE });
+    spans.push({
+      index: 0,
+      startTick: 0,
+      durationTicks: measureTicks,
+      timeSignature: DEFAULT_TIME_SIGNATURE,
+    });
   }
 
   return spans;
@@ -79,7 +110,7 @@ function fillVoiceGaps(
   startTick: number,
   durationTicks: number,
   trackId: string,
-  voiceId: string,
+  voiceId: string
 ): MusicalEvent[] {
   const sorted = [...notes].sort((a, b) => a.startTick - b.startTick);
   const events: MusicalEvent[] = [];
@@ -88,14 +119,26 @@ function fillVoiceGaps(
 
   for (const note of sorted) {
     if (note.startTick > cursor) {
-      events.push({ id: createId(), startTick: cursor, durationTicks: note.startTick - cursor, voiceId, trackId });
+      events.push({
+        id: createId(),
+        startTick: cursor,
+        durationTicks: note.startTick - cursor,
+        voiceId,
+        trackId,
+      });
     }
     events.push({ ...note, trackId, voiceId });
     cursor = Math.max(cursor, note.startTick + note.durationTicks);
   }
 
   if (cursor < endTick) {
-    events.push({ id: createId(), startTick: cursor, durationTicks: endTick - cursor, voiceId, trackId });
+    events.push({
+      id: createId(),
+      startTick: cursor,
+      durationTicks: endTick - cursor,
+      voiceId,
+      trackId,
+    });
   }
 
   return events;
@@ -115,21 +158,31 @@ export function assembleTrackMeasures(
   voiceLanes: NoteEvent[][],
   spans: MeasureSpan[],
   keySignature: KeySignature,
-  trackId: string,
+  trackId: string
 ): Measure[] {
-  const boundaries = spans.map((s) => s.startTick);
+  const boundaries = spans.map(s => s.startTick);
   const lanes = voiceLanes.length > 0 ? voiceLanes : [[]];
-  const splitLanes = lanes.map((lane) => lane.flatMap((note) => splitNoteAcrossMeasures(note, boundaries)));
+  const splitLanes = lanes.map(lane =>
+    lane.flatMap(note => splitNoteAcrossMeasures(note, boundaries))
+  );
 
-  return spans.map((span) => {
+  return spans.map(span => {
     const spanEnd = span.startTick + span.durationTicks;
     const voices = splitLanes.map((lane, laneIndex) => {
-      const notesInSpan = lane.filter((n) => n.startTick >= span.startTick && n.startTick < spanEnd);
+      const notesInSpan = lane.filter(
+        n => n.startTick >= span.startTick && n.startTick < spanEnd
+      );
       const voiceId = createId();
       return {
         id: voiceId,
         name: `Voice ${laneIndex + 1}`,
-        events: fillVoiceGaps(notesInSpan, span.startTick, span.durationTicks, trackId, voiceId),
+        events: fillVoiceGaps(
+          notesInSpan,
+          span.startTick,
+          span.durationTicks,
+          trackId,
+          voiceId
+        ),
       };
     });
 

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { quantizeEvents } from './quantize.js';
 import type { QuantizeOptions } from './options.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
-import type { MusicalEvent, NoteEvent, RestEvent } from '@sudobility/music_types';
+import type {
+  MusicalEvent,
+  NoteEvent,
+  RestEvent,
+} from '@sudobility/music_types';
 
 const TRACK = 't1';
 const VOICE = 'v1';
@@ -10,7 +14,7 @@ const VOICE = 'v1';
 function note(
   startTick: number,
   durationTicks: number,
-  overrides: Partial<NoteEvent> = {},
+  overrides: Partial<NoteEvent> = {}
 ): NoteEvent {
   return {
     id: overrides.id ?? `n-${startTick}-${durationTicks}-${Math.random()}`,
@@ -27,7 +31,7 @@ function note(
 function rest(
   startTick: number,
   durationTicks: number,
-  overrides: Partial<RestEvent> = {},
+  overrides: Partial<RestEvent> = {}
 ): RestEvent {
   return {
     id: overrides.id ?? `r-${startTick}-${durationTicks}-${Math.random()}`,
@@ -39,7 +43,11 @@ function rest(
   };
 }
 
-const baseOpts: QuantizeOptions = { grid: 480, quantizeStarts: true, quantizeDurations: false };
+const baseOpts: QuantizeOptions = {
+  grid: 480,
+  quantizeStarts: true,
+  quantizeDurations: false,
+};
 
 describe('quantizeEvents', () => {
   it('is a pure function: never mutates the input array or its events', () => {
@@ -148,7 +156,11 @@ describe('quantizeEvents', () => {
     });
 
     it('clamps a duration that quantizes to zero up to minDurationTicks', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeDurations: true, minDurationTicks: 60 };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeDurations: true,
+        minDurationTicks: 60,
+      };
       // grid=480; a 100-tick note rounds down to 0 grid units.
       const [result] = quantizeEvents([note(0, 100, { id: 'a' })], opts);
       expect(result.durationTicks).toBe(60);
@@ -166,52 +178,64 @@ describe('quantizeEvents', () => {
       const opts: QuantizeOptions = { ...baseOpts, minDurationTicks: 100 };
       const result = quantizeEvents(
         [note(0, 50, { id: 'short' }), note(500, 480, { id: 'long' })],
-        opts,
+        opts
       );
-      expect(result.some((e) => e.id === 'short')).toBe(false);
-      expect(result.some((e) => e.id === 'long')).toBe(true);
+      expect(result.some(e => e.id === 'short')).toBe(false);
+      expect(result.some(e => e.id === 'long')).toBe(true);
     });
 
     it('never drops rests, even shorter than minDurationTicks', () => {
       const opts: QuantizeOptions = { ...baseOpts, minDurationTicks: 100 };
       const result = quantizeEvents([rest(0, 50, { id: 'short-rest' })], opts);
-      expect(result.some((e) => e.id === 'short-rest')).toBe(true);
+      expect(result.some(e => e.id === 'short-rest')).toBe(true);
     });
 
     it('does not drop anything when minDurationTicks is not configured', () => {
       const result = quantizeEvents([note(0, 1, { id: 'tiny' })], baseOpts);
-      expect(result.some((e) => e.id === 'tiny')).toBe(true);
+      expect(result.some(e => e.id === 'tiny')).toBe(true);
     });
   });
 
   describe('chord onset grouping (chordToleranceTicks)', () => {
     it('groups near-simultaneous onsets in the same track+voice onto a shared start tick', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, chordToleranceTicks: 10 };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        chordToleranceTicks: 10,
+      };
       const events = [note(0, 480, { id: 'a' }), note(8, 480, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
-      const b = result.find((e) => e.id === 'b')!;
+      const a = result.find(e => e.id === 'a')!;
+      const b = result.find(e => e.id === 'b')!;
       expect(a.startTick).toBe(b.startTick);
     });
 
     it('leaves onsets further apart than the tolerance ungrouped', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, chordToleranceTicks: 10 };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        chordToleranceTicks: 10,
+      };
       const events = [note(0, 480, { id: 'a' }), note(50, 480, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
-      const b = result.find((e) => e.id === 'b')!;
+      const a = result.find(e => e.id === 'a')!;
+      const b = result.find(e => e.id === 'b')!;
       expect(a.startTick).not.toBe(b.startTick);
     });
 
     it('does not group onsets from different voices', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, chordToleranceTicks: 10 };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        chordToleranceTicks: 10,
+      };
       const events = [
         note(0, 480, { id: 'a', voiceId: 'v1' }),
         note(8, 480, { id: 'b', voiceId: 'v2' }),
       ];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
-      const b = result.find((e) => e.id === 'b')!;
+      const a = result.find(e => e.id === 'a')!;
+      const b = result.find(e => e.id === 'b')!;
       expect(a.startTick).toBe(0);
       expect(b.startTick).toBe(8);
     });
@@ -219,70 +243,102 @@ describe('quantizeEvents', () => {
 
   describe('resolveOverlaps', () => {
     it('trims a note that overlaps the next note in the same track+voice', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, resolveOverlaps: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        resolveOverlaps: true,
+      };
       const events = [note(0, 500, { id: 'a' }), note(480, 480, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
+      const a = result.find(e => e.id === 'a')!;
       expect(a.startTick + a.durationTicks).toBe(480);
     });
 
     it('does not trim notes that share the same start tick (a chord, not an overlap)', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, resolveOverlaps: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        resolveOverlaps: true,
+      };
       const events = [note(0, 480, { id: 'a' }), note(0, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
+      const a = result.find(e => e.id === 'a')!;
       expect(a.durationTicks).toBe(480);
     });
 
     it('does not trim notes in different tracks even if their ticks overlap', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, resolveOverlaps: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        resolveOverlaps: true,
+      };
       const events = [
         note(0, 500, { id: 'a', trackId: 't1' }),
         note(480, 480, { id: 'b', trackId: 't2' }),
       ];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
+      const a = result.find(e => e.id === 'a')!;
       expect(a.durationTicks).toBe(500);
     });
   });
 
   describe('legatoCleanup', () => {
     it('extends a note to reach the next note start in the same track+voice', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, legatoCleanup: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        legatoCleanup: true,
+      };
       const events = [note(0, 200, { id: 'a' }), note(480, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
+      const a = result.find(e => e.id === 'a')!;
       expect(a.startTick + a.durationTicks).toBe(480);
     });
 
     it('does not shrink a note that already reaches (or overlaps) the next note', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, legatoCleanup: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        legatoCleanup: true,
+      };
       const events = [note(0, 500, { id: 'a' }), note(480, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const a = result.find((e) => e.id === 'a')!;
+      const a = result.find(e => e.id === 'a')!;
       expect(a.durationTicks).toBe(500);
     });
   });
 
   describe('fillGaps', () => {
     it('inserts a rest to fill a silent gap within a track+voice', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, fillGaps: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        fillGaps: true,
+      };
       const events = [note(0, 240, { id: 'a' }), note(480, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
-      const gapFiller = result.find((e) => isRestEvent(e) && e.startTick === 240);
+      const gapFiller = result.find(e => isRestEvent(e) && e.startTick === 240);
       expect(gapFiller).toBeDefined();
       expect(gapFiller?.durationTicks).toBe(240);
     });
 
     it('does not insert a rest when there is no gap', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, fillGaps: true };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        fillGaps: true,
+      };
       const events = [note(0, 480, { id: 'a' }), note(480, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
       expect(result).toHaveLength(2);
     });
 
     it('does not insert gap-filling rests when fillGaps is false', () => {
-      const opts: QuantizeOptions = { ...baseOpts, quantizeStarts: false, fillGaps: false };
+      const opts: QuantizeOptions = {
+        ...baseOpts,
+        quantizeStarts: false,
+        fillGaps: false,
+      };
       const events = [note(0, 240, { id: 'a' }), note(480, 240, { id: 'b' })];
       const result = quantizeEvents(events, opts);
       expect(result).toHaveLength(2);
@@ -305,15 +361,15 @@ describe('quantizeEvents', () => {
       ];
       const result = quantizeEvents(events, opts);
 
-      expect(result.some((e) => e.id === 'noise')).toBe(false);
-      const a = result.find((e) => e.id === 'a')!;
-      const b = result.find((e) => e.id === 'b')!;
+      expect(result.some(e => e.id === 'noise')).toBe(false);
+      const a = result.find(e => e.id === 'a')!;
+      const b = result.find(e => e.id === 'b')!;
       expect(a.startTick).toBe(480);
       expect(a.durationTicks).toBe(480);
       expect(b.startTick).toBe(1440);
       expect(isNoteEvent(a) && isNoteEvent(b)).toBe(true);
       // a gap-filling rest should cover [960, 1440).
-      const gapFiller = result.find((e) => isRestEvent(e) && e.startTick === 960);
+      const gapFiller = result.find(e => isRestEvent(e) && e.startTick === 960);
       expect(gapFiller?.durationTicks).toBe(480);
     });
   });

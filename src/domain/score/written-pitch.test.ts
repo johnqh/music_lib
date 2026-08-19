@@ -27,15 +27,18 @@ function scoreWithPrograms(programs: number[]): Score {
   };
   return withPrograms.tracks.reduce(
     (acc, track) =>
-      addNoteCommand({
-        trackId: track.id,
-        measureId: track.measures[0].id,
-        voiceIndex: 0,
-        pitch: pitch('C'),
-        startTick: 0,
-        durationTicks: base.ppq,
-      }).execute(acc),
-    withPrograms,
+      addNoteCommand(
+        {
+          trackId: track.id,
+          measureId: track.measures[0].id,
+          voiceIndex: 0,
+          pitch: pitch('C'),
+          startTick: 0,
+          durationTicks: base.ppq,
+        },
+        'Add note'
+      ).execute(acc),
+    withPrograms
   );
 }
 
@@ -46,11 +49,19 @@ describe('writtenScore', () => {
     const score = scoreWithPrograms([71, 65, 0]);
     const written = writtenScore(score);
     const noteOf = (s: Score, track: number) =>
-      allNotes(s).find((n) => n.trackId === s.tracks[track].id)!;
+      allNotes(s).find(n => n.trackId === s.tracks[track].id)!;
 
-    expect(pitchToMidi(noteOf(written, 0).pitch) - pitchToMidi(noteOf(score, 0).pitch)).toBe(2);
-    expect(pitchToMidi(noteOf(written, 1).pitch) - pitchToMidi(noteOf(score, 1).pitch)).toBe(9);
-    expect(pitchToMidi(noteOf(written, 2).pitch)).toBe(pitchToMidi(noteOf(score, 2).pitch));
+    expect(
+      pitchToMidi(noteOf(written, 0).pitch) -
+        pitchToMidi(noteOf(score, 0).pitch)
+    ).toBe(2);
+    expect(
+      pitchToMidi(noteOf(written, 1).pitch) -
+        pitchToMidi(noteOf(score, 1).pitch)
+    ).toBe(9);
+    expect(pitchToMidi(noteOf(written, 2).pitch)).toBe(
+      pitchToMidi(noteOf(score, 2).pitch)
+    );
   });
 
   it('moves the key signature with the pitches, per track', () => {
@@ -76,9 +87,11 @@ describe('writtenScore', () => {
   it('keeps every event and measure id, so selection survives the toggle', () => {
     const score = scoreWithPrograms([71]);
     const written = writtenScore(score);
-    expect(allNotes(written).map((n) => n.id)).toEqual(allNotes(score).map((n) => n.id));
-    expect(written.tracks[0].measures.map((m) => m.id)).toEqual(
-      score.tracks[0].measures.map((m) => m.id),
+    expect(allNotes(written).map(n => n.id)).toEqual(
+      allNotes(score).map(n => n.id)
+    );
+    expect(written.tracks[0].measures.map(m => m.id)).toEqual(
+      score.tracks[0].measures.map(m => m.id)
     );
   });
 });
@@ -122,7 +135,8 @@ describe('round-trip fidelity', () => {
             const w = transposePitch(p, semitones, writtenKey);
             const back = transposePitch(w, -semitones, key);
             if (pitchToMidi(back) !== pitchToMidi(p)) pitchWrong += 1;
-            else if (back.step !== p.step || back.accidental !== p.accidental) spellingOnly += 1;
+            else if (back.step !== p.step || back.accidental !== p.accidental)
+              spellingOnly += 1;
           }
         }
       }
@@ -142,7 +156,11 @@ describe('round-trip fidelity', () => {
         const writtenKey = transposeKeySignature(key, semitones);
         for (const step of ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const) {
           const p = { step, accidental: 0, octave: 4 } as unknown as Pitch;
-          const back = transposePitch(transposePitch(p, semitones, writtenKey), -semitones, key);
+          const back = transposePitch(
+            transposePitch(p, semitones, writtenKey),
+            -semitones,
+            key
+          );
           expect(pitchToMidi(back)).toBe(pitchToMidi(p));
         }
       }

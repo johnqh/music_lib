@@ -54,9 +54,11 @@ function defaultClefFor(track: MidiTrackSummary): Clef {
  * Sustain pedal extension is honored, with no near-duplicate merging or piano
  * staff split, and key detection on.
  */
-export function defaultMidiImportOptions(summary: MidiSummary): MidiImportOptions {
+export function defaultMidiImportOptions(
+  summary: MidiSummary
+): MidiImportOptions {
   return {
-    trackSelections: summary.tracks.map((track) => ({
+    trackSelections: summary.tracks.map(track => ({
       sourceIndex: track.index,
       include: track.noteCount > 0,
       clef: defaultClefFor(track),

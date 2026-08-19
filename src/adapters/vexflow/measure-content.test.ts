@@ -1,14 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { Accidental, Voice } from 'vexflow';
 import type { StaveNote } from 'vexflow';
-import { CUE_GLYPH_SCALE, buildMeasureContent, buildTies } from './measure-content.js';
+import {
+  CUE_GLYPH_SCALE,
+  buildMeasureContent,
+  buildTies,
+} from './measure-content.js';
 import type { Channel } from './measure-content.js';
 import type { MeasureLayout } from './layout.js';
-import { buildVoiceContent, groupSimultaneous, keySignatureToVexSpec } from './convert.js';
+import {
+  buildVoiceContent,
+  groupSimultaneous,
+  keySignatureToVexSpec,
+} from './convert.js';
 import type { MusicalEvent } from '@sudobility/music_types';
 import type { DisplayGroup } from './display-timing.js';
 import type { NoteMeta } from './convert.js';
-import type { KeySignature, Measure, NoteEvent, Pitch, Track } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  Measure,
+  NoteEvent,
+  Pitch,
+  Track,
+} from '@sudobility/music_types';
 import { ticksFor } from '../../domain/time/ticks.js';
 
 /**
@@ -18,19 +32,25 @@ import { ticksFor } from '../../domain/time/ticks.js';
  * it was written with.
  */
 function recorded(events: MusicalEvent[]): DisplayGroup[] {
-  return groupSimultaneous(events).map((group) => ({
+  return groupSimultaneous(events).map(group => ({
     events: group,
     durationTicks: group[0].durationTicks,
   }));
 }
 
-
-function pitch(step: Pitch['step'], accidental: Pitch['accidental'], octave: number): Pitch {
+function pitch(
+  step: Pitch['step'],
+  accidental: Pitch['accidental'],
+  octave: number
+): Pitch {
   return { step, accidental, octave };
 }
 
 /** A single-note (non-chord) channel entry, built the same way buildMeasureContent does. */
-function channelEntryFor(events: NoteEvent[]): { note: StaveNote; meta: NoteMeta } {
+function channelEntryFor(events: NoteEvent[]): {
+  note: StaveNote;
+  meta: NoteMeta;
+} {
   const { notes, metas } = buildVoiceContent(recorded(events), 480);
   return { note: notes[0], meta: metas[0] };
 }
@@ -40,18 +60,68 @@ describe('buildTies (finding 1: pitch-matched chord ties, not array adjacency)',
     const quarter = ticksFor('quarter', 480);
     // Measure 1 chord: C4 (ties forward), E4 (does not), G4 (does not).
     const chordA = channelEntryFor([
-      { id: 'a-c', pitch: pitch('C', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't', tieStart: true },
-      { id: 'a-e', pitch: pitch('E', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
-      { id: 'a-g', pitch: pitch('G', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'a-c',
+        pitch: pitch('C', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStart: true,
+      },
+      {
+        id: 'a-e',
+        pitch: pitch('E', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
+      {
+        id: 'a-g',
+        pitch: pitch('G', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ]);
     // Measure 2 chord: C4 (receives the tie), F4, A4 — different pitches
     // than measure 1's E4/G4, and NOT flagged tieStop, so array-index
     // matching (old behavior) would have wrongly tied E4->F4 and G4->A4
     // too, on top of getting C4 right only by coincidence of index 0.
     const chordB = channelEntryFor([
-      { id: 'b-c', pitch: pitch('C', 0, 4), startTick: quarter, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't', tieStop: true },
-      { id: 'b-f', pitch: pitch('F', 0, 4), startTick: quarter, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
-      { id: 'b-a', pitch: pitch('A', 0, 4), startTick: quarter, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'b-c',
+        pitch: pitch('C', 0, 4),
+        startTick: quarter,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStop: true,
+      },
+      {
+        id: 'b-f',
+        pitch: pitch('F', 0, 4),
+        startTick: quarter,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
+      {
+        id: 'b-a',
+        pitch: pitch('A', 0, 4),
+        startTick: quarter,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ]);
     const channel: Channel = [chordA, chordB];
 
@@ -65,12 +135,30 @@ describe('buildTies (finding 1: pitch-matched chord ties, not array adjacency)',
   it('produces no tie when the flagged pitches do not actually match between the two notes', () => {
     const quarter = ticksFor('quarter', 480);
     const a = channelEntryFor([
-      { id: 'a', pitch: pitch('C', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't', tieStart: true },
+      {
+        id: 'a',
+        pitch: pitch('C', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStart: true,
+      },
     ]);
     // tieStop is set, but the pitch is different (D4 vs C4) — e.g. corrupt
     // data, or two coincidentally-adjacent unrelated notes; must not tie.
     const b = channelEntryFor([
-      { id: 'b', pitch: pitch('D', 0, 4), startTick: quarter, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't', tieStop: true },
+      {
+        id: 'b',
+        pitch: pitch('D', 0, 4),
+        startTick: quarter,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStop: true,
+      },
     ]);
     const ties = buildTies([a, b]);
     expect(ties).toHaveLength(0);
@@ -79,12 +167,48 @@ describe('buildTies (finding 1: pitch-matched chord ties, not array adjacency)',
   it('ties every matching member of an all-tied chord (all pitches identical)', () => {
     const half = ticksFor('half', 480);
     const a = channelEntryFor([
-      { id: 'a-c', pitch: pitch('C', 0, 4), startTick: 0, durationTicks: half, velocity: 80, voiceId: 'v', trackId: 't', tieStart: true },
-      { id: 'a-e', pitch: pitch('E', 0, 4), startTick: 0, durationTicks: half, velocity: 80, voiceId: 'v', trackId: 't', tieStart: true },
+      {
+        id: 'a-c',
+        pitch: pitch('C', 0, 4),
+        startTick: 0,
+        durationTicks: half,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStart: true,
+      },
+      {
+        id: 'a-e',
+        pitch: pitch('E', 0, 4),
+        startTick: 0,
+        durationTicks: half,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStart: true,
+      },
     ]);
     const b = channelEntryFor([
-      { id: 'b-c', pitch: pitch('C', 0, 4), startTick: half, durationTicks: half, velocity: 80, voiceId: 'v', trackId: 't', tieStop: true },
-      { id: 'b-e', pitch: pitch('E', 0, 4), startTick: half, durationTicks: half, velocity: 80, voiceId: 'v', trackId: 't', tieStop: true },
+      {
+        id: 'b-c',
+        pitch: pitch('C', 0, 4),
+        startTick: half,
+        durationTicks: half,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStop: true,
+      },
+      {
+        id: 'b-e',
+        pitch: pitch('E', 0, 4),
+        startTick: half,
+        durationTicks: half,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+        tieStop: true,
+      },
     ]);
     const ties = buildTies([a, b]);
     expect(ties).toHaveLength(1);
@@ -96,12 +220,22 @@ describe('buildTies (finding 1: pitch-matched chord ties, not array adjacency)',
 
 describe('key-signature-aware accidentals (finding 3)', () => {
   /** Mirrors exactly what buildMeasureContent does: build notes, then let VexFlow decide accidental glyphs from the key signature. */
-  function accidentalCategoriesFor(events: NoteEvent[], keySignature: KeySignature): string[][] {
+  function accidentalCategoriesFor(
+    events: NoteEvent[],
+    keySignature: KeySignature
+  ): string[][] {
     const { notes } = buildVoiceContent(recorded(events), 480);
-    const voice = new Voice({ num_beats: 4, beat_value: 4 }).setMode(Voice.Mode.SOFT);
+    const voice = new Voice({ num_beats: 4, beat_value: 4 }).setMode(
+      Voice.Mode.SOFT
+    );
     voice.addTickables(notes);
     Accidental.applyAccidentals([voice], keySignatureToVexSpec(keySignature));
-    return notes.map((n) => n.getModifiers().filter((m) => m.getCategory() === 'Accidental').map(() => 'Accidental'));
+    return notes.map(n =>
+      n
+        .getModifiers()
+        .filter(m => m.getCategory() === 'Accidental')
+        .map(() => 'Accidental')
+    );
   }
 
   const quarter = ticksFor('quarter', 480);
@@ -110,7 +244,15 @@ describe('key-signature-aware accidentals (finding 3)', () => {
 
   it('draws no accidental for an F# in G major (implied by the key signature)', () => {
     const events: NoteEvent[] = [
-      { id: 'n', pitch: pitch('F', 1, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'n',
+        pitch: pitch('F', 1, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ];
     const [categories] = accidentalCategoriesFor(events, gMajor);
     expect(categories).toEqual([]);
@@ -118,7 +260,15 @@ describe('key-signature-aware accidentals (finding 3)', () => {
 
   it('draws a natural sign for an F-natural in G major (contradicts the key signature)', () => {
     const events: NoteEvent[] = [
-      { id: 'n', pitch: pitch('F', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'n',
+        pitch: pitch('F', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ];
     const [categories] = accidentalCategoriesFor(events, gMajor);
     expect(categories).toEqual(['Accidental']);
@@ -126,7 +276,15 @@ describe('key-signature-aware accidentals (finding 3)', () => {
 
   it('draws an accidental for a chromatic note in C major', () => {
     const events: NoteEvent[] = [
-      { id: 'n', pitch: pitch('C', 1, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'n',
+        pitch: pitch('C', 1, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ];
     const [categories] = accidentalCategoriesFor(events, cMajor);
     expect(categories).toEqual(['Accidental']);
@@ -134,7 +292,15 @@ describe('key-signature-aware accidentals (finding 3)', () => {
 
   it('draws no accidental for an in-key natural note in C major', () => {
     const events: NoteEvent[] = [
-      { id: 'n', pitch: pitch('D', 0, 4), startTick: 0, durationTicks: quarter, velocity: 80, voiceId: 'v', trackId: 't' },
+      {
+        id: 'n',
+        pitch: pitch('D', 0, 4),
+        startTick: 0,
+        durationTicks: quarter,
+        velocity: 80,
+        voiceId: 'v',
+        trackId: 't',
+      },
     ];
     const [categories] = accidentalCategoriesFor(events, cMajor);
     expect(categories).toEqual([]);
@@ -172,7 +338,15 @@ describe('cue notes', () => {
         {
           id: 'v1',
           name: 'Voice 1',
-          events: [{ id: 'r1', startTick: 0, durationTicks: 1920, voiceId: 'v1', trackId: 't1' }],
+          events: [
+            {
+              id: 'r1',
+              startTick: 0,
+              durationTicks: 1920,
+              voiceId: 'v1',
+              trackId: 't1',
+            },
+          ],
         },
       ],
       ...(cue ? { cue } : {}),
@@ -197,11 +371,21 @@ describe('cue notes', () => {
   } as unknown as MeasureLayout;
 
   function build(measure: Measure) {
-    return buildMeasureContent(measure, track, placement, undefined, 480, new Map(), []);
+    return buildMeasureContent(
+      measure,
+      track,
+      placement,
+      undefined,
+      480,
+      new Map(),
+      []
+    );
   }
 
   it('draws the cue at a reduced glyph scale', () => {
-    const { voices } = build(measureWith({ label: 'Flute', events: cueEvents }));
+    const { voices } = build(
+      measureWith({ label: 'Flute', events: cueEvents })
+    );
     const tickables = voices[0].getTickables() as StaveNote[];
     expect(tickables[0].render_options.glyph_font_scale).toBe(CUE_GLYPH_SCALE);
   });
@@ -214,8 +398,12 @@ describe('cue notes', () => {
     const cued = build(measureWith({ label: 'Flute', events: cueEvents }));
 
     const isRest = (n: StaveNote) => n.getNoteType() === 'r';
-    expect((plain.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(true);
-    expect((cued.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(false);
+    expect((plain.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(
+      true
+    );
+    expect((cued.voices[0].getTickables() as StaveNote[]).some(isRest)).toBe(
+      false
+    );
   });
 
   it('does not register cue notes for ties or hit-testing', () => {
@@ -230,7 +418,7 @@ describe('cue notes', () => {
       undefined,
       480,
       channels,
-      metas,
+      metas
     );
     expect(channels.size).toBe(0);
     expect(metas).toHaveLength(0);

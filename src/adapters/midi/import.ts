@@ -10,14 +10,24 @@
  * to surface (spec §15: "Do not claim MIDI import perfectly reconstructs
  * notation").
  */
-import type { MidiCodec, MidiFile, MidiTrackData as SourceMidiTrack } from '@sudobility/music_types';
+import type {
+  MidiCodec,
+  MidiFile,
+  MidiTrackData as SourceMidiTrack,
+} from '@sudobility/music_types';
 import { detectKeySignature } from './key-detection.js';
 import { assembleTrackMeasures, buildMeasureSpans } from './measures.js';
 import type { TimeSignatureChange } from './measures.js';
 import type { MidiImportOptions } from './import-options.js';
 import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch.js';
 import { createId } from '../../domain/score/ids.js';
-import type { KeySignature, NoteEvent, Score, TempoEvent, Track } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  NoteEvent,
+  Score,
+  TempoEvent,
+  Track,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { QuantizeOptions } from '../../domain/quantization/options.js';
 import { quantizeEvents } from '../../domain/quantization/quantize.js';
@@ -51,17 +61,24 @@ const ALWAYS_WARNING =
 
 // ---- Tempo / time signature -----------------------------------------------
 
-function buildTempoMap(sourceTempos: Array<{ ticks: number; bpm: number }>, ratio: number, warnings: string[]): TempoEvent[] {
+function buildTempoMap(
+  sourceTempos: Array<{ ticks: number; bpm: number }>,
+  ratio: number,
+  warnings: string[]
+): TempoEvent[] {
   const converted = sourceTempos
-    .map((t) => ({ tick: Math.round(t.ticks * ratio), bpm: t.bpm }))
+    .map(t => ({ tick: Math.round(t.ticks * ratio), bpm: t.bpm }))
     .sort((a, b) => a.tick - b.tick);
-  const withOrigin = converted.length > 0 && converted[0].tick === 0 ? converted : [{ tick: 0, bpm: DEFAULT_TEMPO_BPM }, ...converted];
+  const withOrigin =
+    converted.length > 0 && converted[0].tick === 0
+      ? converted
+      : [{ tick: 0, bpm: DEFAULT_TEMPO_BPM }, ...converted];
 
-  return withOrigin.map((t) => {
+  return withOrigin.map(t => {
     const bpm = Math.min(MAX_BPM, Math.max(MIN_BPM, t.bpm));
     if (bpm !== t.bpm) {
       warnings.push(
-        `Tempo event at tick ${t.tick} (${t.bpm.toFixed(1)} bpm) was outside the supported ${MIN_BPM}-${MAX_BPM} bpm range and was clamped to ${bpm} bpm.`,
+        `Tempo event at tick ${t.tick} (${t.bpm.toFixed(1)} bpm) was outside the supported ${MIN_BPM}-${MAX_BPM} bpm range and was clamped to ${bpm} bpm.`
       );
     }
     return { id: createId(), tick: t.tick, bpm };
@@ -70,11 +87,14 @@ function buildTempoMap(sourceTempos: Array<{ ticks: number; bpm: number }>, rati
 
 function convertTimeSignatures(
   sourceTimeSignatures: Array<{ ticks: number; timeSignature: number[] }>,
-  ratio: number,
+  ratio: number
 ): TimeSignatureChange[] {
-  return sourceTimeSignatures.map((t) => ({
+  return sourceTimeSignatures.map(t => ({
     tick: Math.round(t.ticks * ratio),
-    timeSignature: { numerator: t.timeSignature[0], denominator: t.timeSignature[1] },
+    timeSignature: {
+      numerator: t.timeSignature[0],
+      denominator: t.timeSignature[1],
+    },
   }));
 }
 
@@ -83,8 +103,14 @@ function convertTimeSignatures(
 type Interval = { start: number; end: number };
 
 /** Pedal-down `[start, end)` intervals (target ticks) from a track's CC64 events; an unreleased pedal closes at `trackEndTick`. */
-function sustainIntervals(sourceTrack: SourceMidiTrack, ratio: number, trackEndTick: number): Interval[] {
-  const events = [...(sourceTrack.controlChanges[SUSTAIN_CC_NUMBER] ?? [])].sort((a, b) => a.ticks - b.ticks);
+function sustainIntervals(
+  sourceTrack: SourceMidiTrack,
+  ratio: number,
+  trackEndTick: number
+): Interval[] {
+  const events = [
+    ...(sourceTrack.controlChanges[SUSTAIN_CC_NUMBER] ?? []),
+  ].sort((a, b) => a.ticks - b.ticks);
   const intervals: Interval[] = [];
   let downStart: number | null = null;
 
@@ -98,7 +124,8 @@ function sustainIntervals(sourceTrack: SourceMidiTrack, ratio: number, trackEndT
       downStart = null;
     }
   }
-  if (downStart !== null) intervals.push({ start: downStart, end: trackEndTick });
+  if (downStart !== null)
+    intervals.push({ start: downStart, end: trackEndTick });
 
   return intervals;
 }
@@ -113,7 +140,12 @@ function extendThroughSustain(rawEnd: number, intervals: Interval[]): number {
 
 // ---- Raw note extraction -----------------------------------------------------
 
-type RawNote = { midi: number; startTick: number; durationTicks: number; velocity: number };
+type RawNote = {
+  midi: number;
+  startTick: number;
+  durationTicks: number;
+  velocity: number;
+};
 
 /**
  * Converts a source track's notes to target-tick `RawNote`s, optionally
@@ -123,15 +155,29 @@ type RawNote = { midi: number; startTick: number; durationTicks: number; velocit
  * overlaps are left intact; preserving performance timing means not shortening
  * source notes unless a cleanup stage explicitly asks for it.
  */
-function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPedal: MidiImportOptions['sustainPedal']): RawNote[] {
+function extractRawNotes(
+  sourceTrack: SourceMidiTrack,
+  ratio: number,
+  sustainPedal: MidiImportOptions['sustainPedal']
+): RawNote[] {
   const trackEndTick = Math.round(sourceTrack.durationTicks * ratio);
-  const intervals = sustainPedal === 'extend' ? sustainIntervals(sourceTrack, ratio, trackEndTick) : [];
+  const intervals =
+    sustainPedal === 'extend'
+      ? sustainIntervals(sourceTrack, ratio, trackEndTick)
+      : [];
 
-  const spans = sourceTrack.notes.map((note) => {
+  const spans = sourceTrack.notes.map(note => {
     const startTick = Math.round(note.ticks * ratio);
     const rawEnd = Math.round((note.ticks + note.durationTicks) * ratio);
-    const endTick = intervals.length > 0 ? extendThroughSustain(rawEnd, intervals) : rawEnd;
-    return { midi: note.midi, startTick, rawEnd, endTick, velocity: note.velocity };
+    const endTick =
+      intervals.length > 0 ? extendThroughSustain(rawEnd, intervals) : rawEnd;
+    return {
+      midi: note.midi,
+      startTick,
+      rawEnd,
+      endTick,
+      velocity: note.velocity,
+    };
   });
 
   const byPitch = new Map<number, typeof spans>();
@@ -143,17 +189,23 @@ function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPed
   for (const bucket of byPitch.values()) {
     bucket.sort((a, b) => a.startTick - b.startTick);
     for (let i = 0; i < bucket.length - 1; i += 1) {
-      if (bucket[i].rawEnd <= bucket[i + 1].startTick && bucket[i].endTick > bucket[i + 1].startTick) {
+      if (
+        bucket[i].rawEnd <= bucket[i + 1].startTick &&
+        bucket[i].endTick > bucket[i + 1].startTick
+      ) {
         bucket[i].endTick = bucket[i + 1].startTick;
       }
     }
   }
 
-  return spans.map((span) => ({
+  return spans.map(span => ({
     midi: span.midi,
     startTick: span.startTick,
     durationTicks: Math.max(1, span.endTick - span.startTick),
-    velocity: Math.min(MAX_VELOCITY, Math.max(0, Math.round(span.velocity * MAX_VELOCITY))),
+    velocity: Math.min(
+      MAX_VELOCITY,
+      Math.max(0, Math.round(span.velocity * MAX_VELOCITY))
+    ),
   }));
 }
 
@@ -161,7 +213,9 @@ function extractRawNotes(sourceTrack: SourceMidiTrack, ratio: number, sustainPed
 
 /** Grid unit in ticks for `options.quantizeGrid`, or `1` (a no-op grid) when quantization is off. */
 function gridTicksFor(options: MidiImportOptions): number {
-  return options.quantizeGrid !== null ? ticksFor(options.quantizeGrid, SCORE_PPQ) : 1;
+  return options.quantizeGrid !== null
+    ? ticksFor(options.quantizeGrid, SCORE_PPQ)
+    : 1;
 }
 
 /**
@@ -179,11 +233,21 @@ function gridTicksFor(options: MidiImportOptions): number {
  */
 /** Folds `next` into `base`: keeps `base`'s start, extends to cover both spans, keeps the louder velocity. */
 function mergeInto(base: NoteEvent, next: NoteEvent): NoteEvent {
-  const end = Math.max(base.startTick + base.durationTicks, next.startTick + next.durationTicks);
-  return { ...base, durationTicks: end - base.startTick, velocity: Math.max(base.velocity, next.velocity) };
+  const end = Math.max(
+    base.startTick + base.durationTicks,
+    next.startTick + next.durationTicks
+  );
+  return {
+    ...base,
+    durationTicks: end - base.startTick,
+    velocity: Math.max(base.velocity, next.velocity),
+  };
 }
 
-function mergeNearDuplicateNotes(notes: NoteEvent[], toleranceTicks: number): { notes: NoteEvent[]; mergedCount: number } {
+function mergeNearDuplicateNotes(
+  notes: NoteEvent[],
+  toleranceTicks: number
+): { notes: NoteEvent[]; mergedCount: number } {
   const byPitch = new Map<number, NoteEvent[]>();
   for (const note of notes) {
     const midi = pitchToMidi(note.pitch);
@@ -199,7 +263,10 @@ function mergeNearDuplicateNotes(notes: NoteEvent[], toleranceTicks: number): { 
     const sorted = [...bucket].sort((a, b) => a.startTick - b.startTick);
     let current: NoteEvent | null = null;
     for (const note of sorted) {
-      if (current !== null && note.startTick - current.startTick <= toleranceTicks) {
+      if (
+        current !== null &&
+        note.startTick - current.startTick <= toleranceTicks
+      ) {
         current = mergeInto(current, note);
         mergedCount += 1;
       } else {
@@ -222,7 +289,11 @@ type PreparedSelection = {
   notes: NoteEvent[];
 };
 
-type PrepareStageCounts = { droppedShort: number; mergedDuplicates: number; trimmedOverlaps: number };
+type PrepareStageCounts = {
+  droppedShort: number;
+  mergedDuplicates: number;
+  trimmedOverlaps: number;
+};
 
 type PreparedNotes = { notes: NoteEvent[] } & PrepareStageCounts;
 
@@ -242,8 +313,11 @@ type PreparedNotes = { notes: NoteEvent[] } & PrepareStageCounts;
  *    trim a repeated pitch down to the next same-pitch onset. Different-pitch
  *    overlaps are real polyphony and must survive into voice allocation.
  */
-function trimSamePitchOverlaps(notes: NoteEvent[]): { notes: NoteEvent[]; trimmedCount: number } {
-  const byId = new Map(notes.map((note) => [note.id, note]));
+function trimSamePitchOverlaps(notes: NoteEvent[]): {
+  notes: NoteEvent[];
+  trimmedCount: number;
+} {
+  const byId = new Map(notes.map(note => [note.id, note]));
   const byPitch = new Map<number, NoteEvent[]>();
   for (const note of notes) {
     const midi = pitchToMidi(note.pitch);
@@ -254,10 +328,15 @@ function trimSamePitchOverlaps(notes: NoteEvent[]): { notes: NoteEvent[]; trimme
 
   let trimmedCount = 0;
   for (const bucket of byPitch.values()) {
-    const sorted = [...bucket].sort((a, b) => a.startTick - b.startTick || a.durationTicks - b.durationTicks);
+    const sorted = [...bucket].sort(
+      (a, b) => a.startTick - b.startTick || a.durationTicks - b.durationTicks
+    );
     for (let i = 0; i < sorted.length; i += 1) {
       let nextIndex = i + 1;
-      while (nextIndex < sorted.length && sorted[nextIndex].startTick === sorted[i].startTick) {
+      while (
+        nextIndex < sorted.length &&
+        sorted[nextIndex].startTick === sorted[i].startTick
+      ) {
         nextIndex += 1;
       }
       const next = sorted[nextIndex];
@@ -275,11 +354,15 @@ function trimSamePitchOverlaps(notes: NoteEvent[]): { notes: NoteEvent[]; trimme
     }
   }
 
-  return { notes: notes.map((note) => byId.get(note.id)!), trimmedCount };
+  return { notes: notes.map(note => byId.get(note.id)!), trimmedCount };
 }
 
-function prepareSelectionNotes(raw: RawNote[], tempTrackId: string, options: MidiImportOptions): PreparedNotes {
-  const initialEvents: NoteEvent[] = raw.map((n) => ({
+function prepareSelectionNotes(
+  raw: RawNote[],
+  tempTrackId: string,
+  options: MidiImportOptions
+): PreparedNotes {
+  const initialEvents: NoteEvent[] = raw.map(n => ({
     id: createId(),
     pitch: midiToPitch(n.midi),
     startTick: n.startTick,
@@ -298,17 +381,21 @@ function prepareSelectionNotes(raw: RawNote[], tempTrackId: string, options: Mid
     tripletGrid: quantizing && options.tripletDetection,
     minDurationTicks: options.minDurationTicks,
   };
-  const snapped = quantizeEvents(initialEvents, snapQuantizeOptions).filter(isNoteEvent);
+  const snapped = quantizeEvents(initialEvents, snapQuantizeOptions).filter(
+    isNoteEvent
+  );
   const droppedShort = initialEvents.length - snapped.length;
 
-  const { notes: deduped, mergedCount: mergedDuplicates } = options.mergeNearDuplicates
-    ? mergeNearDuplicateNotes(snapped, NEAR_DUPLICATE_TOLERANCE_TICKS)
-    : { notes: snapped, mergedCount: 0 };
+  const { notes: deduped, mergedCount: mergedDuplicates } =
+    options.mergeNearDuplicates
+      ? mergeNearDuplicateNotes(snapped, NEAR_DUPLICATE_TOLERANCE_TICKS)
+      : { notes: snapped, mergedCount: 0 };
 
   const shouldTrimSamePitchOverlaps = quantizing || options.mergeNearDuplicates;
-  const { notes: resolved, trimmedCount: trimmedOverlaps } = shouldTrimSamePitchOverlaps
-    ? trimSamePitchOverlaps(deduped)
-    : { notes: deduped, trimmedCount: 0 };
+  const { notes: resolved, trimmedCount: trimmedOverlaps } =
+    shouldTrimSamePitchOverlaps
+      ? trimSamePitchOverlaps(deduped)
+      : { notes: deduped, trimmedCount: 0 };
 
   return { notes: resolved, droppedShort, mergedDuplicates, trimmedOverlaps };
 }
@@ -328,11 +415,14 @@ function trackPan(sourceTrack: SourceMidiTrack): number {
 function buildSingleTrack(
   prepared: PreparedSelection,
   spans: ReturnType<typeof buildMeasureSpans>,
-  keySignature: KeySignature,
+  keySignature: KeySignature
 ): Track {
   const trackId = createId();
-  const groups = allocateVoices(prepared.notes, { maxVoices: DEFAULT_MAX_VOICES, splitPoint: Number.NEGATIVE_INFINITY });
-  const lanes = groups.map((g) => g.notes);
+  const groups = allocateVoices(prepared.notes, {
+    maxVoices: DEFAULT_MAX_VOICES,
+    splitPoint: Number.NEGATIVE_INFINITY,
+  });
+  const lanes = groups.map(g => g.notes);
   const measures = assembleTrackMeasures(lanes, spans, keySignature, trackId);
   const clef = prepared.selection.clef;
 
@@ -341,7 +431,10 @@ function buildSingleTrack(
     name: prepared.selection.name,
     instrumentName: prepared.sourceTrack.instrument.name || 'Instrument',
     midiProgram: prepared.sourceTrack.instrument.number,
-    midiChannel: clef === 'percussion' ? PERCUSSION_CHANNEL : Math.min(15, Math.max(0, prepared.sourceTrack.channel)),
+    midiChannel:
+      clef === 'percussion'
+        ? PERCUSSION_CHANNEL
+        : Math.min(15, Math.max(0, prepared.sourceTrack.channel)),
     clef,
     volume: trackVolume(prepared.sourceTrack),
     pan: trackPan(prepared.sourceTrack),
@@ -356,11 +449,14 @@ function buildSplitTracks(
   prepared: PreparedSelection,
   spans: ReturnType<typeof buildMeasureSpans>,
   keySignature: KeySignature,
-  splitPointMidi: number,
+  splitPointMidi: number
 ): Track[] {
-  const groups = allocateVoices(prepared.notes, { maxVoices: DEFAULT_MAX_VOICES, splitPoint: splitPointMidi });
-  const upperLanes = groups.filter((g) => g.staff === 'upper').map((g) => g.notes);
-  const lowerLanes = groups.filter((g) => g.staff === 'lower').map((g) => g.notes);
+  const groups = allocateVoices(prepared.notes, {
+    maxVoices: DEFAULT_MAX_VOICES,
+    splitPoint: splitPointMidi,
+  });
+  const upperLanes = groups.filter(g => g.staff === 'upper').map(g => g.notes);
+  const lowerLanes = groups.filter(g => g.staff === 'lower').map(g => g.notes);
 
   const rhId = createId();
   const lhId = createId();
@@ -416,58 +512,86 @@ export type MidiImportResult = { score: Score; warnings: string[] };
  * `MidiFile` is plain data and therefore structured-cloneable; a `MidiCodec` is
  * not, and giving the worker one would make music_lib depend on music_io.
  */
-export function importMidiFile(midi: MidiFile, options: MidiImportOptions): MidiImportResult {
+export function importMidiFile(
+  midi: MidiFile,
+  options: MidiImportOptions
+): MidiImportResult {
   const warnings: string[] = [ALWAYS_WARNING];
   const ratio = SCORE_PPQ / midi.header.ppq;
 
   const tempoMap = buildTempoMap(midi.header.tempos, ratio, warnings);
-  const timeSignatureChanges = convertTimeSignatures(midi.header.timeSignatures, ratio);
+  const timeSignatureChanges = convertTimeSignatures(
+    midi.header.timeSignatures,
+    ratio
+  );
 
   const preparedSelections: PreparedSelection[] = [];
   for (const selection of options.trackSelections) {
     if (!selection.include) continue;
     const sourceTrack = midi.tracks[selection.sourceIndex];
     if (!sourceTrack) {
-      warnings.push(`Track selection references source track ${selection.sourceIndex}, which doesn't exist in this file; it was skipped.`);
+      warnings.push(
+        `Track selection references source track ${selection.sourceIndex}, which doesn't exist in this file; it was skipped.`
+      );
       continue;
     }
 
     const raw = extractRawNotes(sourceTrack, ratio, options.sustainPedal);
-    const prepared = prepareSelectionNotes(raw, `import-${selection.sourceIndex}`, options);
+    const prepared = prepareSelectionNotes(
+      raw,
+      `import-${selection.sourceIndex}`,
+      options
+    );
     if (prepared.droppedShort > 0) {
-      warnings.push(`Track "${selection.name}": dropped ${prepared.droppedShort} note(s) shorter than ${options.minDurationTicks} ticks.`);
+      warnings.push(
+        `Track "${selection.name}": dropped ${prepared.droppedShort} note(s) shorter than ${options.minDurationTicks} ticks.`
+      );
     }
     if (prepared.mergedDuplicates > 0) {
-      warnings.push(`Track "${selection.name}": merged ${prepared.mergedDuplicates} near-duplicate note(s).`);
+      warnings.push(
+        `Track "${selection.name}": merged ${prepared.mergedDuplicates} near-duplicate note(s).`
+      );
     }
     if (prepared.trimmedOverlaps > 0) {
-      warnings.push(`Track "${selection.name}": trimmed ${prepared.trimmedOverlaps} overlapping repeated-pitch note(s).`);
+      warnings.push(
+        `Track "${selection.name}": trimmed ${prepared.trimmedOverlaps} overlapping repeated-pitch note(s).`
+      );
     }
 
     preparedSelections.push({ selection, sourceTrack, notes: prepared.notes });
   }
 
   if (preparedSelections.length === 0) {
-    warnings.push('No tracks were selected for import; the imported score has no tracks.');
+    warnings.push(
+      'No tracks were selected for import; the imported score has no tracks.'
+    );
   }
 
-  const allNotes = preparedSelections.flatMap((p) => p.notes);
-  const keySignature = options.detectKey ? detectKeySignature(allNotes) : DEFAULT_KEY_SIGNATURE;
-  const respelledSelections = preparedSelections.map((p) => ({
+  const allNotes = preparedSelections.flatMap(p => p.notes);
+  const keySignature = options.detectKey
+    ? detectKeySignature(allNotes)
+    : DEFAULT_KEY_SIGNATURE;
+  const respelledSelections = preparedSelections.map(p => ({
     ...p,
-    notes: p.notes.map((n) => ({ ...n, pitch: midiToPitch(pitchToMidi(n.pitch), keySignature) })),
+    notes: p.notes.map(n => ({
+      ...n,
+      pitch: midiToPitch(pitchToMidi(n.pitch), keySignature),
+    })),
   }));
 
   const endTick = respelledSelections.reduce((max, p) => {
-    const localMax = p.notes.reduce((m, n) => Math.max(m, n.startTick + n.durationTicks), 0);
+    const localMax = p.notes.reduce(
+      (m, n) => Math.max(m, n.startTick + n.durationTicks),
+      0
+    );
     return Math.max(max, localMax);
   }, 0);
   const spans = buildMeasureSpans(timeSignatureChanges, SCORE_PPQ, endTick);
 
-  const tracks: Track[] = respelledSelections.flatMap((prepared) =>
+  const tracks: Track[] = respelledSelections.flatMap(prepared =>
     options.pianoStaffSplit
       ? buildSplitTracks(prepared, spans, keySignature, options.splitPointMidi)
-      : [buildSingleTrack(prepared, spans, keySignature)],
+      : [buildSingleTrack(prepared, spans, keySignature)]
   );
 
   const now = new Date().toISOString();
@@ -478,7 +602,10 @@ export function importMidiFile(midi: MidiFile, options: MidiImportOptions): Midi
     metadata: {
       // The neutral model makes `name` optional, since not every Standard MIDI
       // File carries one; @tonejs/midi papered over that with an empty string.
-      title: (midi.header.name ?? '').trim().length > 0 ? midi.header.name!.trim() : 'Imported MIDI',
+      title:
+        (midi.header.name ?? '').trim().length > 0
+          ? midi.header.name!.trim()
+          : 'Imported MIDI',
       createdAt: now,
       updatedAt: now,
     },
@@ -493,7 +620,7 @@ export function importMidiFile(midi: MidiFile, options: MidiImportOptions): Midi
 export function importMidi(
   data: ArrayBuffer,
   options: MidiImportOptions,
-  codec: MidiCodec,
+  codec: MidiCodec
 ): MidiImportResult {
   return importMidiFile(codec.decode(data), options);
 }

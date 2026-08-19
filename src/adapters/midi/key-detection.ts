@@ -27,13 +27,19 @@ function keySignatureForTonicPitchClass(
       return { fifths, mode };
     }
   }
-  throw new Error(`keySignatureForTonicPitchClass: no key signature found for pitch class ${pitchClass}`);
+  throw new Error(
+    `keySignatureForTonicPitchClass: no key signature found for pitch class ${pitchClass}`
+  );
 }
 
 /** Krumhansl-Kessler major-key profile (tonic at index 0), a canonical perceptual "fit" weighting per scale degree. */
-const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const MAJOR_PROFILE = [
+  6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88,
+];
 /** Krumhansl-Kessler minor-key profile (tonic at index 0). */
-const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+const MINOR_PROFILE = [
+  6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
+];
 
 const PITCH_CLASSES = 12;
 
@@ -62,7 +68,9 @@ function correlate(a: number[], b: number[]): number {
 function pitchClassHistogram(notes: NoteEvent[]): number[] {
   const histogram = new Array(PITCH_CLASSES).fill(0) as number[];
   for (const note of notes) {
-    const pitchClass = ((pitchToMidi(note.pitch) % PITCH_CLASSES) + PITCH_CLASSES) % PITCH_CLASSES;
+    const pitchClass =
+      ((pitchToMidi(note.pitch) % PITCH_CLASSES) + PITCH_CLASSES) %
+      PITCH_CLASSES;
     histogram[pitchClass] += note.durationTicks;
   }
   return histogram;
@@ -78,7 +86,7 @@ function pitchClassHistogram(notes: NoteEvent[]): number[] {
  */
 export function detectKeySignature(notes: NoteEvent[]): KeySignature {
   const histogram = pitchClassHistogram(notes);
-  if (histogram.every((v) => v === 0)) {
+  if (histogram.every(v => v === 0)) {
     return { fifths: 0, mode: 'major' };
   }
 
@@ -91,7 +99,10 @@ export function detectKeySignature(notes: NoteEvent[]): KeySignature {
       ['major', MAJOR_PROFILE],
       ['minor', MINOR_PROFILE],
     ] as const) {
-      const expected = Array.from({ length: PITCH_CLASSES }, (_, pc) => profile[(pc - tonic + PITCH_CLASSES) % PITCH_CLASSES]);
+      const expected = Array.from(
+        { length: PITCH_CLASSES },
+        (_, pc) => profile[(pc - tonic + PITCH_CLASSES) % PITCH_CLASSES]
+      );
       const score = correlate(histogram, expected);
       if (score > bestScore) {
         bestScore = score;

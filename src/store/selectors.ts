@@ -17,13 +17,13 @@
  * store update (even ones that didn't touch selection/score) and
  * re-render every time.
  */
-import { findEvent } from "../domain/score/queries.js";
-import { selectionToRange } from "../domain/selection/selection.js";
-import type { ScoreRange } from "../domain/selection/types.js";
-import type { NoteEvent } from "@sudobility/music_types";
-import { isNoteEvent } from "@sudobility/music_types";
-import { beatDurationTicks } from "../domain/time/ticks.js";
-import type { AppState } from "./useAppStore.js";
+import { findEvent } from '../domain/score/queries.js';
+import { selectionToRange } from '../domain/selection/selection.js';
+import type { ScoreRange } from '../domain/selection/types.js';
+import type { NoteEvent } from '@sudobility/music_types';
+import { isNoteEvent } from '@sudobility/music_types';
+import { beatDurationTicks } from '../domain/time/ticks.js';
+import type { AppState } from './useAppStore.js';
 
 /**
  * Builds a selector that recomputes only when either of its two tracked
@@ -36,7 +36,7 @@ import type { AppState } from "./useAppStore.js";
 function memoize2<A, B, R>(
   getA: (state: AppState) => A,
   getB: (state: AppState) => B,
-  compute: (a: A, b: B) => R,
+  compute: (a: A, b: B) => R
 ): (state: AppState) => R {
   let hasResult = false;
   let lastA: A;
@@ -59,16 +59,16 @@ function memoize2<A, B, R>(
 
 /** Every `NoteEvent` named by `state.selection.eventIds` that still resolves in `state.score` (rests and stale ids are skipped). Memoized on (`score`, `selection.eventIds`) reference identity. */
 export const selectSelectedNotes = memoize2(
-  (state) => state.score,
-  (state) => state.selection.eventIds,
+  state => state.score,
+  state => state.selection.eventIds,
   (score, eventIds): NoteEvent[] => {
     if (!score) return [];
     return eventIds
-      .map((id) => findEvent(score, id))
+      .map(id => findEvent(score, id))
       .filter(
-        (event): event is NoteEvent => event !== null && isNoteEvent(event),
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
       );
-  },
+  }
 );
 
 /** How many note events are currently selected (spec §9). A plain number, so no memoization of its own is needed beyond `selectSelectedNotes`'s. */
@@ -78,12 +78,12 @@ export function selectSelectedNoteCount(state: AppState): number {
 
 /** The current selection's tick/track span (spec §9's `ScoreRange`), aligned to full measures — `null` if the selection has no resolvable tick extent or there's no score loaded. Memoized on (`score`, `selection`) reference identity. */
 export const selectSelectedMeasureRange = memoize2(
-  (state) => state.score,
-  (state) => state.selection,
+  state => state.score,
+  state => state.selection,
   (score, selection): ScoreRange | null => {
     if (!score) return null;
     return selectionToRange(score, selection);
-  },
+  }
 );
 
 export type MeasureBeat = { measureIndex: number; beat: number };
@@ -97,8 +97,8 @@ export type MeasureBeat = { measureIndex: number; beat: number };
  * (`score`, `caretTick`) reference/value identity.
  */
 export const selectCurrentMeasureBeat = memoize2(
-  (state) => state.score,
-  (state) => state.caretTick,
+  state => state.score,
+  state => state.caretTick,
   (score, caretTick): MeasureBeat | null => {
     if (!score) return null;
     const track = score.tracks[0];
@@ -106,15 +106,14 @@ export const selectCurrentMeasureBeat = memoize2(
 
     const measure =
       track.measures.find(
-        (m) =>
-          caretTick >= m.startTick &&
-          caretTick < m.startTick + m.durationTicks,
+        m =>
+          caretTick >= m.startTick && caretTick < m.startTick + m.durationTicks
       ) ?? track.measures[track.measures.length - 1];
 
     const beatTicks = beatDurationTicks(measure.timeSignature, score.ppq);
     const beat = Math.floor((caretTick - measure.startTick) / beatTicks) + 1;
     return { measureIndex: measure.index + 1, beat };
-  },
+  }
 );
 
 /**
@@ -129,16 +128,16 @@ export const selectCurrentMeasureBeat = memoize2(
  * in score order regardless of the order the boxes were ticked.
  */
 export const selectVisibleTrackIds = memoize2(
-  (state) => state.score,
-  (state) => state.visibleTrackIds,
+  state => state.score,
+  state => state.visibleTrackIds,
   (score, visibleTrackIds): string[] => {
     if (!score || score.tracks.length === 0) return [];
-    const all = score.tracks.map((t) => t.id);
+    const all = score.tracks.map(t => t.id);
     if (!visibleTrackIds) return all;
     const wanted = new Set(visibleTrackIds);
-    const kept = all.filter((id) => wanted.has(id));
+    const kept = all.filter(id => wanted.has(id));
     return kept.length > 0 ? kept : all;
-  },
+  }
 );
 
 /**
@@ -157,11 +156,11 @@ export const selectVisibleTrackIds = memoize2(
  */
 export const selectActiveTrackId = memoize2(
   selectVisibleTrackIds,
-  (state) => state.activeTrackId,
+  state => state.activeTrackId,
   (visibleIds, activeTrackId): string | null => {
     if (visibleIds.length === 0) return null;
     if (activeTrackId && visibleIds.includes(activeTrackId))
       return activeTrackId;
     return visibleIds[0];
-  },
+  }
 );

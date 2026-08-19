@@ -8,7 +8,11 @@ import { validateScore } from '../../domain/validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import { allNotes } from '../../domain/score/queries.js';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import { createMusicIo } from '@sudobility/music_io/mocks';
 
 // The real codec, via the mocks entry: MIDI encoding is pure byte manipulation,
@@ -19,7 +23,10 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;
 }
 
-function importFixture(scoreFactory: () => ReturnType<typeof twinkleScore>, optionsOverride: Partial<ReturnType<typeof defaultMidiImportOptions>> = {}) {
+function importFixture(
+  scoreFactory: () => ReturnType<typeof twinkleScore>,
+  optionsOverride: Partial<ReturnType<typeof defaultMidiImportOptions>> = {}
+) {
   const score = scoreFactory();
   const bytes = exportMidi(score, codec);
   const buffer = toArrayBuffer(bytes);
@@ -31,7 +38,7 @@ function importFixture(scoreFactory: () => ReturnType<typeof twinkleScore>, opti
 describe('importMidi', () => {
   it('produces a valid score (zero validateScore errors) from a simple exported fixture', () => {
     const { score } = importFixture(twinkleScore);
-    const errors = validateScore(score).filter((i) => i.severity === 'error');
+    const errors = validateScore(score).filter(i => i.severity === 'error');
     expect(errors).toEqual([]);
   });
 
@@ -66,7 +73,9 @@ describe('importMidi', () => {
   });
 
   it('quantizes note starts/durations to the requested grid', () => {
-    const { score } = importFixture(twinkleScore, { quantizeGrid: 'sixteenth' });
+    const { score } = importFixture(twinkleScore, {
+      quantizeGrid: 'sixteenth',
+    });
     const quarterTicks = 480;
     for (const note of allNotes(score)) {
       expect(note.startTick % (quarterTicks / 4)).toBe(0);
@@ -75,14 +84,22 @@ describe('importMidi', () => {
 
   it('reproduces the same pitch content and note count as the exported fixture when quantized to sixteenths', () => {
     const source = twinkleScore();
-    const { score } = importFixture(twinkleScore, { quantizeGrid: 'sixteenth' });
+    const { score } = importFixture(twinkleScore, {
+      quantizeGrid: 'sixteenth',
+    });
 
-    const sourceNotes = allNotes(source).sort((a, b) => a.startTick - b.startTick);
-    const importedNotes = allNotes(score).sort((a, b) => a.startTick - b.startTick);
+    const sourceNotes = allNotes(source).sort(
+      (a, b) => a.startTick - b.startTick
+    );
+    const importedNotes = allNotes(score).sort(
+      (a, b) => a.startTick - b.startTick
+    );
 
     expect(importedNotes).toHaveLength(sourceNotes.length);
     for (let i = 0; i < sourceNotes.length; i += 1) {
-      expect(pitchToMidi(importedNotes[i].pitch)).toBe(pitchToMidi(sourceNotes[i].pitch));
+      expect(pitchToMidi(importedNotes[i].pitch)).toBe(
+        pitchToMidi(sourceNotes[i].pitch)
+      );
       expect(importedNotes[i].startTick).toBe(sourceNotes[i].startTick);
       expect(importedNotes[i].durationTicks).toBe(sourceNotes[i].durationTicks);
     }
@@ -102,19 +119,29 @@ describe('importMidi', () => {
   });
 
   it('splits into "Piano RH"/"Piano LH" tracks when pianoStaffSplit is set', () => {
-    const { score } = importFixture(chordScore, { pianoStaffSplit: true, splitPointMidi: 60 });
-    const names = score.tracks.map((t) => t.name);
+    const { score } = importFixture(chordScore, {
+      pianoStaffSplit: true,
+      splitPointMidi: 60,
+    });
+    const names = score.tracks.map(t => t.name);
     expect(names).toEqual(['Piano RH', 'Piano LH']);
     expect(score.tracks[0].clef).toBe('treble');
     expect(score.tracks[1].clef).toBe('bass');
 
-    const errors = validateScore(score).filter((i) => i.severity === 'error');
+    const errors = validateScore(score).filter(i => i.severity === 'error');
     expect(errors).toEqual([]);
   });
 
   it('drops notes shorter than minDurationTicks and warns', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Short Notes', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Short Notes',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     track.addNote({ midi: 60, ticks: 0, durationTicks: 2, velocity: 0.8 }); // extremely short
@@ -122,19 +149,31 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), minDurationTicks: 30 };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      minDurationTicks: 30,
+    };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     expect(allNotes(score).filter(isNoteEvent)).toHaveLength(1);
-    expect(warnings.some((w) => w.includes('dropped') && w.includes('shorter than'))).toBe(true);
+    expect(
+      warnings.some(w => w.includes('dropped') && w.includes('shorter than'))
+    ).toBe(true);
     // Only the short-note stage changed anything here - merge/overlap stages must stay silent.
-    expect(warnings.some((w) => w.includes('merged'))).toBe(false);
-    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
+    expect(warnings.some(w => w.includes('merged'))).toBe(false);
+    expect(warnings.some(w => w.includes('trimmed'))).toBe(false);
   });
 
   it('merges near-duplicate same-pitch onsets when mergeNearDuplicates is true, warning only about the merge', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Duplicates', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Duplicates',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     // Two near-identical, overlapping C4 triggers 10 ticks apart - an accidental
@@ -149,7 +188,12 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, mergeNearDuplicates: true, minDurationTicks: 1 };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+      mergeNearDuplicates: true,
+      minDurationTicks: 1,
+    };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     const notes = allNotes(score)
@@ -159,15 +203,24 @@ describe('importMidi', () => {
     expect(notes[0].startTick).toBe(0);
     expect(notes[0].durationTicks).toBe(470); // spans through the later onset's end (10 + 460)
 
-    expect(warnings.some((w) => w.includes('merged') && w.includes('near-duplicate'))).toBe(true);
+    expect(
+      warnings.some(w => w.includes('merged') && w.includes('near-duplicate'))
+    ).toBe(true);
     // The merge must not be misattributed to the short-note or overlap stages.
-    expect(warnings.some((w) => w.includes('dropped'))).toBe(false);
-    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
+    expect(warnings.some(w => w.includes('dropped'))).toBe(false);
+    expect(warnings.some(w => w.includes('trimmed'))).toBe(false);
   });
 
   it('preserves overlapping different-pitch notes for voice allocation and playback', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Polyphony', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Polyphony',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     // A held C4 with an entering D4 is valid polyphony. The importer used to
@@ -179,7 +232,10 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+    };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     const notes = allNotes(score)
@@ -189,14 +245,21 @@ describe('importMidi', () => {
     expect(notes[0].durationTicks).toBe(960);
     expect(notes[1].durationTicks).toBe(480);
 
-    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
-    expect(warnings.some((w) => w.includes('dropped'))).toBe(false);
-    expect(warnings.some((w) => w.includes('merged'))).toBe(false);
+    expect(warnings.some(w => w.includes('trimmed'))).toBe(false);
+    expect(warnings.some(w => w.includes('dropped'))).toBe(false);
+    expect(warnings.some(w => w.includes('merged'))).toBe(false);
   });
 
   it('preserves raw overlapping repeated pitches when timing cleanup is off', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Raw Repeated Pitch Overlap', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Raw Repeated Pitch Overlap',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     track.addNote({ midi: 60, ticks: 0, durationTicks: 500, velocity: 0.8 });
@@ -204,22 +267,39 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, minDurationTicks: 1 };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+      minDurationTicks: 1,
+    };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     const notes = allNotes(score)
       .filter(isNoteEvent)
       .sort((a, b) => a.startTick - b.startTick);
-    expect(notes.map((note) => [pitchToMidi(note.pitch), note.startTick, note.durationTicks])).toEqual([
+    expect(
+      notes.map(note => [
+        pitchToMidi(note.pitch),
+        note.startTick,
+        note.durationTicks,
+      ])
+    ).toEqual([
       [60, 0, 500],
       [60, 480, 480],
     ]);
-    expect(warnings.some((w) => w.includes('trimmed'))).toBe(false);
+    expect(warnings.some(w => w.includes('trimmed'))).toBe(false);
   });
 
   it('trims overlapping repeated pitches and warns without touching independent pitches', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Repeated Pitch Overlap', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Repeated Pitch Overlap',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     // Coarse quantization can create a residual same-pitch overlap even when
@@ -231,24 +311,43 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: 'half' as const, minDurationTicks: 1 };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: 'half' as const,
+      minDurationTicks: 1,
+    };
     const { score, warnings } = importMidi(buffer, options, codec);
 
     const notes = allNotes(score)
       .filter(isNoteEvent)
-      .sort((a, b) => a.startTick - b.startTick || pitchToMidi(a.pitch) - pitchToMidi(b.pitch));
+      .sort(
+        (a, b) =>
+          a.startTick - b.startTick ||
+          pitchToMidi(a.pitch) - pitchToMidi(b.pitch)
+      );
     expect(notes).toHaveLength(3);
-    expect(notes.map((n) => [pitchToMidi(n.pitch), n.startTick, n.durationTicks])).toEqual([
+    expect(
+      notes.map(n => [pitchToMidi(n.pitch), n.startTick, n.durationTicks])
+    ).toEqual([
       [60, 960, 960],
       [64, 960, 960],
       [60, 1920, 960],
     ]);
-    expect(warnings.some((w) => w.includes('trimmed') && w.includes('overlapping'))).toBe(true);
+    expect(
+      warnings.some(w => w.includes('trimmed') && w.includes('overlapping'))
+    ).toBe(true);
   });
 
   it('clamps only sustain-created same-pitch overlap, not the raw note length', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Sustain Repeated Pitch', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Sustain Repeated Pitch',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     track.addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
@@ -258,13 +357,23 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, minDurationTicks: 1 };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+      minDurationTicks: 1,
+    };
     const { score } = importMidi(buffer, options, codec);
 
     const notes = allNotes(score)
       .filter(isNoteEvent)
       .sort((a, b) => a.startTick - b.startTick);
-    expect(notes.map((note) => [pitchToMidi(note.pitch), note.startTick, note.durationTicks])).toEqual([
+    expect(
+      notes.map(note => [
+        pitchToMidi(note.pitch),
+        note.startTick,
+        note.durationTicks,
+      ])
+    ).toEqual([
       [60, 0, 720],
       [60, 720, 240],
     ]);
@@ -272,7 +381,14 @@ describe('importMidi', () => {
 
   it('extends a note through a held sustain pedal when sustainPedal is "extend"', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Sustain', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Sustain',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     // Note released at tick 480, but pedal is held down through tick 960.
@@ -282,7 +398,10 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+    };
     const { score } = importMidi(buffer, options, codec);
 
     const [note] = allNotes(score);
@@ -291,7 +410,14 @@ describe('importMidi', () => {
 
   it('does not extend a note when sustainPedal is "ignore"', () => {
     const midi = new Midi();
-    midi.header.fromJSON({ name: 'Sustain', ppq: 480, meta: [], tempos: [{ ticks: 0, bpm: 120 }], timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }], keySignatures: [] });
+    midi.header.fromJSON({
+      name: 'Sustain',
+      ppq: 480,
+      meta: [],
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, timeSignature: [4, 4] }],
+      keySignatures: [],
+    });
     const track = midi.addTrack();
     track.name = 'Piano';
     track.addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
@@ -300,7 +426,11 @@ describe('importMidi', () => {
 
     const buffer = toArrayBuffer(midi.toArray());
     const summary = analyzeMidi(buffer, codec);
-    const options = { ...defaultMidiImportOptions(summary), quantizeGrid: null, sustainPedal: 'ignore' as const };
+    const options = {
+      ...defaultMidiImportOptions(summary),
+      quantizeGrid: null,
+      sustainPedal: 'ignore' as const,
+    };
     const { score } = importMidi(buffer, options, codec);
 
     const [note] = allNotes(score);
@@ -309,7 +439,9 @@ describe('importMidi', () => {
 
   it('always includes the "performance timing, not full notation" warning', () => {
     const { warnings } = importFixture(twinkleScore);
-    expect(warnings.some((w) => /performance timing|approximates/i.test(w))).toBe(true);
+    expect(warnings.some(w => /performance timing|approximates/i.test(w))).toBe(
+      true
+    );
   });
 
   it('warns and produces an empty-track score when no selections are included', () => {
@@ -318,20 +450,34 @@ describe('importMidi', () => {
     const buffer = toArrayBuffer(bytes);
     const summary = analyzeMidi(buffer, codec);
     const options = defaultMidiImportOptions(summary);
-    options.trackSelections.forEach((s) => {
+    options.trackSelections.forEach(s => {
       s.include = false;
     });
 
     const { score: imported, warnings } = importMidi(buffer, options, codec);
     expect(imported.tracks).toEqual([]);
-    expect(warnings.some((w) => w.includes('No tracks were selected'))).toBe(true);
+    expect(warnings.some(w => w.includes('No tracks were selected'))).toBe(
+      true
+    );
   });
 
   it('estimates a key signature when detectKey is true and defaults to C major when false', () => {
-    const { score: withDetect } = importFixture(twinkleScore, { detectKey: true, quantizeGrid: null });
-    const { score: withoutDetect } = importFixture(twinkleScore, { detectKey: false, quantizeGrid: null });
+    const { score: withDetect } = importFixture(twinkleScore, {
+      detectKey: true,
+      quantizeGrid: null,
+    });
+    const { score: withoutDetect } = importFixture(twinkleScore, {
+      detectKey: false,
+      quantizeGrid: null,
+    });
 
-    expect(withDetect.tracks[0].measures[0].keySignature).toEqual({ fifths: 0, mode: 'major' });
-    expect(withoutDetect.tracks[0].measures[0].keySignature).toEqual({ fifths: 0, mode: 'major' });
+    expect(withDetect.tracks[0].measures[0].keySignature).toEqual({
+      fifths: 0,
+      mode: 'major',
+    });
+    expect(withoutDetect.tracks[0].measures[0].keySignature).toEqual({
+      fifths: 0,
+      mode: 'major',
+    });
   });
 });

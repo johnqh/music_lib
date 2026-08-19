@@ -88,10 +88,13 @@ function buildClefXml(clef: Clef): string {
 // ---- Tempo directions ---------------------------------------------------------
 
 /** Tempo events whose tick falls within `[measure.startTick, measure end)`, sorted by tick. */
-function tempoEventsInMeasure(tempoMap: TempoEvent[], measure: Measure): TempoEvent[] {
+function tempoEventsInMeasure(
+  tempoMap: TempoEvent[],
+  measure: Measure
+): TempoEvent[] {
   const end = measure.startTick + measure.durationTicks;
   return tempoMap
-    .filter((t) => t.tick >= measure.startTick && t.tick < end)
+    .filter(t => t.tick >= measure.startTick && t.tick < end)
     .sort((a, b) => a.tick - b.tick);
 }
 
@@ -106,7 +109,9 @@ function tempoEventsInMeasure(tempoMap: TempoEvent[], measure: Measure): TempoEv
 function buildTempoDirectionXml(tempo: TempoEvent, measure: Measure): string {
   const offsetTicks = tempo.tick - measure.startTick;
   const offsetXml = offsetTicks > 0 ? `<offset>${offsetTicks}</offset>` : '';
-  const bpm = Number.isInteger(tempo.bpm) ? String(tempo.bpm) : tempo.bpm.toFixed(2);
+  const bpm = Number.isInteger(tempo.bpm)
+    ? String(tempo.bpm)
+    : tempo.bpm.toFixed(2);
   return (
     `<direction placement="above">` +
     `<direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>${bpm}</per-minute></metronome></direction-type>` +
@@ -119,14 +124,19 @@ function buildTempoDirectionXml(tempo: TempoEvent, measure: Measure): string {
 // ---- Notes --------------------------------------------------------------------
 
 /** Domain `Articulation` -> MusicXML `<articulations>` child element name. `marcato` maps to MusicXML's `<strong-accent>` (its name for the same mark). */
-const ARTICULATION_ELEMENT: Record<NonNullable<NoteEvent['articulation']>, string> = {
+const ARTICULATION_ELEMENT: Record<
+  NonNullable<NoteEvent['articulation']>,
+  string
+> = {
   staccato: 'staccato',
   accent: 'accent',
   tenuto: 'tenuto',
   marcato: 'strong-accent',
 };
 
-function buildArticulationXml(articulation: NonNullable<NoteEvent['articulation']>): string {
+function buildArticulationXml(
+  articulation: NonNullable<NoteEvent['articulation']>
+): string {
   const name = ARTICULATION_ELEMENT[articulation];
   return name === 'strong-accent' ? '<strong-accent type="up"/>' : `<${name}/>`;
 }
@@ -146,8 +156,14 @@ type NoteSegmentOptions = {
 };
 
 /** One `<note>` element for a pitched note segment (one of possibly several tied segments notating a single `NoteEvent`). */
-function buildPitchedNoteXml(note: NoteEvent, opts: NoteSegmentOptions): string {
-  const tieElements = [opts.tieStop ? '<tie type="stop"/>' : '', opts.tieStart ? '<tie type="start"/>' : ''].join('');
+function buildPitchedNoteXml(
+  note: NoteEvent,
+  opts: NoteSegmentOptions
+): string {
+  const tieElements = [
+    opts.tieStop ? '<tie type="stop"/>' : '',
+    opts.tieStart ? '<tie type="start"/>' : '',
+  ].join('');
   const tiedNotations = [
     opts.tieStop ? '<tied type="stop"/>' : '',
     opts.tieStart ? '<tied type="start"/>' : '',
@@ -155,7 +171,10 @@ function buildPitchedNoteXml(note: NoteEvent, opts: NoteSegmentOptions): string 
   const articulationsXml = note.articulation
     ? `<articulations>${buildArticulationXml(note.articulation)}</articulations>`
     : '';
-  const notations = tiedNotations || articulationsXml ? `<notations>${tiedNotations}${articulationsXml}</notations>` : '';
+  const notations =
+    tiedNotations || articulationsXml
+      ? `<notations>${tiedNotations}${articulationsXml}</notations>`
+      : '';
   const dots = '<dot/>'.repeat(opts.segment.dots);
 
   return (
@@ -173,11 +192,12 @@ function buildPitchedNoteXml(note: NoteEvent, opts: NoteSegmentOptions): string 
 }
 
 /** One `<note><rest/></note>` element for a rest segment (a rest whose length needs splitting across several `<type>`s isn't tied — MusicXML has no tie concept for rests). */
-function buildRestNoteXml(segment: NotatedDuration, voiceNumber: number): string {
+function buildRestNoteXml(
+  segment: NotatedDuration,
+  voiceNumber: number
+): string {
   const dots = '<dot/>'.repeat(segment.dots);
-  return (
-    `<note><rest/><duration>${segment.ticks}</duration><voice>${voiceNumber}</voice><type>${segment.type}</type>${dots}</note>\n`
-  );
+  return `<note><rest/><duration>${segment.ticks}</duration><voice>${voiceNumber}</voice><type>${segment.type}</type>${dots}</note>\n`;
 }
 
 /** Groups `events` by exact `startTick`, in ascending tick order, preserving each group's original relative order. */
@@ -194,7 +214,7 @@ function groupByStartTick(events: MusicalEvent[]): MusicalEvent[][] {
     group.push(event);
   }
   order.sort((a, b) => a - b);
-  return order.map((tick) => groups.get(tick) as MusicalEvent[]);
+  return order.map(tick => groups.get(tick) as MusicalEvent[]);
 }
 
 /**
@@ -207,7 +227,11 @@ function groupByStartTick(events: MusicalEvent[]): MusicalEvent[][] {
  * does; a same-tick note with a genuinely different duration is notated at
  * the root's length instead of its own).
  */
-function buildVoiceEventsXml(voice: Voice, voiceNumber: number, ppq: number): string {
+function buildVoiceEventsXml(
+  voice: Voice,
+  voiceNumber: number,
+  ppq: number
+): string {
   let xml = '';
   for (const group of groupByStartTick(voice.events)) {
     const root = group[0];
@@ -226,7 +250,10 @@ function buildVoiceEventsXml(voice: Voice, voiceNumber: number, ppq: number): st
           isChord: groupIndex > 0,
           segment,
           tieStop: segmentIndex === 0 ? Boolean(note.tieStop) : true,
-          tieStart: segmentIndex === segments.length - 1 ? Boolean(note.tieStart) : true,
+          tieStart:
+            segmentIndex === segments.length - 1
+              ? Boolean(note.tieStart)
+              : true,
           voiceNumber,
         });
       });
@@ -245,14 +272,20 @@ function buildMeasureXml(
   clef: Clef,
   ppq: number,
   tempoMap: TempoEvent[],
-  includeTempo: boolean,
+  includeTempo: boolean
 ): string {
   const attrs: string[] = [];
   if (isFirstMeasure) attrs.push(`<divisions>${ppq}</divisions>`);
-  if (!prevKeySignature || !sameKeySignature(prevKeySignature, measure.keySignature)) {
+  if (
+    !prevKeySignature ||
+    !sameKeySignature(prevKeySignature, measure.keySignature)
+  ) {
     attrs.push(buildKeyXml(measure.keySignature));
   }
-  if (!prevTimeSignature || !sameTimeSignature(prevTimeSignature, measure.timeSignature)) {
+  if (
+    !prevTimeSignature ||
+    !sameTimeSignature(prevTimeSignature, measure.timeSignature)
+  ) {
     attrs.push(buildTimeXml(measure.timeSignature));
   }
   if (isFirstMeasure) attrs.push(buildClefXml(clef));
@@ -279,13 +312,28 @@ function buildMeasureXml(
   return xml;
 }
 
-function buildPartXml(track: Track, partId: string, ppq: number, tempoMap: TempoEvent[], includeTempo: boolean): string {
+function buildPartXml(
+  track: Track,
+  partId: string,
+  ppq: number,
+  tempoMap: TempoEvent[],
+  includeTempo: boolean
+): string {
   let xml = `<part id="${partId}">\n`;
   let prevTimeSignature: TimeSignature | null = null;
   let prevKeySignature: KeySignature | null = null;
 
   track.measures.forEach((measure, index) => {
-    xml += buildMeasureXml(measure, index === 0, prevTimeSignature, prevKeySignature, track.clef, ppq, tempoMap, includeTempo);
+    xml += buildMeasureXml(
+      measure,
+      index === 0,
+      prevTimeSignature,
+      prevKeySignature,
+      track.clef,
+      ppq,
+      tempoMap,
+      includeTempo
+    );
     prevTimeSignature = measure.timeSignature;
     prevKeySignature = measure.keySignature;
   });
@@ -308,9 +356,13 @@ function buildPartXml(track: Track, partId: string, ppq: number, tempoMap: Tempo
  */
 export function exportMusicXml(score: Score): string {
   const partIds = score.tracks.map((_, i) => `P${i + 1}`);
-  const partList = score.tracks.map((track, i) => buildScorePartXml(track, partIds[i])).join('');
+  const partList = score.tracks
+    .map((track, i) => buildScorePartXml(track, partIds[i]))
+    .join('');
   const parts = score.tracks
-    .map((track, i) => buildPartXml(track, partIds[i], score.ppq, score.tempoMap, i === 0))
+    .map((track, i) =>
+      buildPartXml(track, partIds[i], score.ppq, score.tempoMap, i === 0)
+    )
     .join('');
 
   const work = `<work><work-title>${escapeXml(score.metadata.title)}</work-title></work>\n`;

@@ -5,7 +5,11 @@ import { midiToPitch, pitchToMidi } from './pitch.js';
  * Transposes a pitch by a number of semitones (may be negative), re-spelling
  * the result according to the given key signature (see `midiToPitch`).
  */
-export function transposePitch(p: Pitch, semitones: number, key?: KeySignature): Pitch {
+export function transposePitch(
+  p: Pitch,
+  semitones: number,
+  key?: KeySignature
+): Pitch {
   return midiToPitch(pitchToMidi(p) + semitones, key);
 }
 
@@ -56,7 +60,10 @@ export function shiftDiatonic(p: Pitch, steps: number): Pitch {
  * An octave leaves the key untouched, which falls out of the arithmetic rather
  * than needing a special case.
  */
-export function transposeKeySignature(key: KeySignature, semitones: number): KeySignature {
+export function transposeKeySignature(
+  key: KeySignature,
+  semitones: number
+): KeySignature {
   const raw = (((semitones * 7) % 12) + 12) % 12;
   const delta = raw > 6 ? raw - 12 : raw;
 

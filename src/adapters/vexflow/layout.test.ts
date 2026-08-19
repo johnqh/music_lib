@@ -12,12 +12,25 @@ import {
   systemAtY,
 } from './layout.js';
 import type { RenderTheme } from './types.js';
-import { chordScore, denseVsSparseScore, stressScore, testRenderTheme, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  denseVsSparseScore,
+  stressScore,
+  testRenderTheme,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 
 const theme: RenderTheme = testRenderTheme();
 
 function options(overrides: Partial<Parameters<typeof computeLayout>[1]> = {}) {
-  return { zoom: 1, layoutMode: 'page' as const, width: 900, theme, ...overrides };
+  return {
+    zoom: 1,
+    layoutMode: 'page' as const,
+    width: 900,
+    theme,
+    ...overrides,
+  };
 }
 
 describe('computeLayout', () => {
@@ -26,7 +39,9 @@ describe('computeLayout', () => {
     const plan = computeLayout(score, options());
 
     expect(plan.trackLayouts).toHaveLength(1);
-    expect(plan.trackLayouts[0].measures).toHaveLength(score.tracks[0].measures.length);
+    expect(plan.trackLayouts[0].measures).toHaveLength(
+      score.tracks[0].measures.length
+    );
     for (const m of plan.trackLayouts[0].measures) {
       expect(m.box.width).toBeGreaterThan(0);
       expect(m.box.height).toBeGreaterThan(0);
@@ -38,15 +53,20 @@ describe('computeLayout', () => {
     const plan = computeLayout(score, options({ width: 300 }));
     expect(plan.systems.length).toBeGreaterThan(1);
     // Every measure is accounted for exactly once across systems.
-    const allIndices = plan.systems.flatMap((s) => s.measureIndices);
+    const allIndices = plan.systems.flatMap(s => s.measureIndices);
     expect(allIndices).toEqual(score.tracks[0].measures.map((_, i) => i));
   });
 
   it('keeps every measure in a single system in continuous mode regardless of width', () => {
     const score = twinkleScore();
-    const plan = computeLayout(score, options({ layoutMode: 'continuous', width: 300 }));
+    const plan = computeLayout(
+      score,
+      options({ layoutMode: 'continuous', width: 300 })
+    );
     expect(plan.systems).toHaveLength(1);
-    expect(plan.systems[0].measureIndices).toHaveLength(score.tracks[0].measures.length);
+    expect(plan.systems[0].measureIndices).toHaveLength(
+      score.tracks[0].measures.length
+    );
   });
 
   it('gives the first measure of each system extra width for clef/key/time', () => {
@@ -54,10 +74,13 @@ describe('computeLayout', () => {
     // 650 + the gutter: the width budget has to leave room for a second
     // measure, or every measure is first-in-system and there is nothing to
     // compare against.
-    const plan = computeLayout(score, options({ width: 650 + TRACK_INFO_WIDTH }));
+    const plan = computeLayout(
+      score,
+      options({ width: 650 + TRACK_INFO_WIDTH })
+    );
     const measures = plan.trackLayouts[0].measures;
-    const firstOfFirstSystem = measures.find((m) => m.isFirstInSystem);
-    const nonFirst = measures.find((m) => !m.isFirstInSystem);
+    const firstOfFirstSystem = measures.find(m => m.isFirstInSystem);
+    const nonFirst = measures.find(m => !m.isFirstInSystem);
     expect(firstOfFirstSystem).toBeDefined();
     expect(nonFirst).toBeDefined();
     expect(firstOfFirstSystem!.box.width).toBeGreaterThan(nonFirst!.box.width);
@@ -71,15 +94,22 @@ describe('computeLayout', () => {
     const bassY = plan.trackLayouts[1].measures[0].box.y;
     expect(bassY).toBeGreaterThan(trebleY);
     // Same measure index shares x/width across tracks in the same system.
-    expect(plan.trackLayouts[0].measures[0].box.x).toBe(plan.trackLayouts[1].measures[0].box.x);
-    expect(plan.trackLayouts[0].measures[0].box.width).toBe(plan.trackLayouts[1].measures[0].box.width);
+    expect(plan.trackLayouts[0].measures[0].box.x).toBe(
+      plan.trackLayouts[1].measures[0].box.x
+    );
+    expect(plan.trackLayouts[0].measures[0].box.width).toBe(
+      plan.trackLayouts[1].measures[0].box.width
+    );
   });
 
   it('honors trackIds filtering and ordering', () => {
     const score = twoTrackScore();
     const [treble, bass] = score.tracks;
-    const plan = computeLayout(score, options({ trackIds: [bass.id, treble.id] }));
-    expect(plan.tracks.map((t) => t.id)).toEqual([bass.id, treble.id]);
+    const plan = computeLayout(
+      score,
+      options({ trackIds: [bass.id, treble.id] })
+    );
+    expect(plan.tracks.map(t => t.id)).toEqual([bass.id, treble.id]);
   });
 
   it('keeps measure widths in fixed logical units, independent of zoom', () => {
@@ -92,24 +122,42 @@ describe('computeLayout', () => {
     // comparison).
     const score = chordScore();
     const generousWidth = 5000;
-    const small = computeLayout(score, options({ zoom: 0.5, width: generousWidth }));
-    const large = computeLayout(score, options({ zoom: 2, width: generousWidth }));
+    const small = computeLayout(
+      score,
+      options({ zoom: 0.5, width: generousWidth })
+    );
+    const large = computeLayout(
+      score,
+      options({ zoom: 2, width: generousWidth })
+    );
     expect(small.systems).toHaveLength(1);
     expect(large.systems).toHaveLength(1);
     // The measure box itself is zoom-invariant in logical units. (totalWidth
     // is deliberately NOT compared here: it's floored at `options.width /
     // zoom` so the page fills the given screen width, which legitimately
     // differs in logical units between zoom levels — see computeLayout.)
-    expect(large.trackLayouts[0].measures[1].box.width).toBe(small.trackLayouts[0].measures[1].box.width);
-    expect(large.trackLayouts[0].measures[0].box.width).toBe(small.trackLayouts[0].measures[0].box.width);
+    expect(large.trackLayouts[0].measures[1].box.width).toBe(
+      small.trackLayouts[0].measures[1].box.width
+    );
+    expect(large.trackLayouts[0].measures[0].box.width).toBe(
+      small.trackLayouts[0].measures[0].box.width
+    );
   });
 
   it('divides the available screen width by zoom for page-mode wrapping, so a higher zoom fits fewer measures per system', () => {
     const score = twinkleScore(); // 8 measures
     const screenWidth = 900;
-    const zoomedOut = computeLayout(score, options({ zoom: 0.5, width: screenWidth }));
-    const zoomedIn = computeLayout(score, options({ zoom: 2, width: screenWidth }));
-    expect(zoomedOut.systems[0].measureIndices.length).toBeGreaterThan(zoomedIn.systems[0].measureIndices.length);
+    const zoomedOut = computeLayout(
+      score,
+      options({ zoom: 0.5, width: screenWidth })
+    );
+    const zoomedIn = computeLayout(
+      score,
+      options({ zoom: 2, width: screenWidth })
+    );
+    expect(zoomedOut.systems[0].measureIndices.length).toBeGreaterThan(
+      zoomedIn.systems[0].measureIndices.length
+    );
   });
 
   it('produces a positive total width and height', () => {
@@ -124,8 +172,12 @@ describe('boxForMeasureIndex (Task 17 virtualization)', () => {
   it('matches the box computeLayout already assigned that track/measure', () => {
     const score = twoTrackScore();
     const plan = computeLayout(score, options());
-    expect(boxForMeasureIndex(plan, 0, 2)).toEqual(plan.trackLayouts[0].measures[2].box);
-    expect(boxForMeasureIndex(plan, 1, 0)).toEqual(plan.trackLayouts[1].measures[0].box);
+    expect(boxForMeasureIndex(plan, 0, 2)).toEqual(
+      plan.trackLayouts[0].measures[2].box
+    );
+    expect(boxForMeasureIndex(plan, 1, 0)).toEqual(
+      plan.trackLayouts[1].measures[0].box
+    );
   });
 
   it('returns null for an out-of-range track index', () => {
@@ -147,26 +199,41 @@ describe('systemAtY / measureAtXInSystem', () => {
 
   it('finds the system containing a y inside it, for every system', () => {
     for (const system of stressPlan.systems) {
-      expect(systemAtY(stressPlan, (system.yTop + system.yBottom) / 2)).toBe(system);
+      expect(systemAtY(stressPlan, (system.yTop + system.yBottom) / 2)).toBe(
+        system
+      );
     }
   });
 
   it('returns null above the first system, below the last, and in inter-system gaps', () => {
     expect(systemAtY(stressPlan, stressPlan.systems[0].yTop - 1)).toBeNull();
-    expect(systemAtY(stressPlan, stressPlan.systems.at(-1)!.yBottom + 1)).toBeNull();
-    const gapY = (stressPlan.systems[0].yBottom + stressPlan.systems[1].yTop) / 2;
+    expect(
+      systemAtY(stressPlan, stressPlan.systems.at(-1)!.yBottom + 1)
+    ).toBeNull();
+    const gapY =
+      (stressPlan.systems[0].yBottom + stressPlan.systems[1].yTop) / 2;
     expect(systemAtY(stressPlan, gapY)).toBeNull();
   });
 
   it('finds the measure containing an x, clamping outside the span', () => {
     const system = stressPlan.systems[1];
-    const layouts = system.measureIndices.map(
-      (i) => stressPlan.trackLayouts[0].measures.find((m) => m.measureIndex === i)!,
+    const layouts = system.measureIndices.map(i =>
+      stressPlan.trackLayouts[0].measures.find(m => m.measureIndex === i)!
     );
     const target = layouts[1];
-    expect(measureAtXInSystem(stressPlan, system, target.box.x + target.box.width / 2)).toBe(target);
-    expect(measureAtXInSystem(stressPlan, system, -9999)!.measureIndex).toBe(layouts[0].measureIndex);
-    expect(measureAtXInSystem(stressPlan, system, 99999)!.measureIndex).toBe(layouts.at(-1)!.measureIndex);
+    expect(
+      measureAtXInSystem(
+        stressPlan,
+        system,
+        target.box.x + target.box.width / 2
+      )
+    ).toBe(target);
+    expect(measureAtXInSystem(stressPlan, system, -9999)!.measureIndex).toBe(
+      layouts[0].measureIndex
+    );
+    expect(measureAtXInSystem(stressPlan, system, 99999)!.measureIndex).toBe(
+      layouts.at(-1)!.measureIndex
+    );
   });
 });
 
@@ -175,8 +242,12 @@ describe('density-aware measure widths', () => {
     const score = denseVsSparseScore(); // 16 sixteenths/measure vs 1 whole/measure
     const plan = computeLayout(score, options());
     for (let m = 0; m < score.tracks[0].measures.length; m += 1) {
-      const dense = plan.trackLayouts[0].measures.find((l) => l.measureIndex === m)!;
-      const sparse = plan.trackLayouts[1].measures.find((l) => l.measureIndex === m)!;
+      const dense = plan.trackLayouts[0].measures.find(
+        l => l.measureIndex === m
+      )!;
+      const sparse = plan.trackLayouts[1].measures.find(
+        l => l.measureIndex === m
+      )!;
       expect(dense.box.width).toBe(sparse.box.width);
       expect(dense.box.x).toBe(sparse.box.x);
       expect(dense.box.width).toBeGreaterThan(200);
@@ -188,9 +259,12 @@ describe('density-aware measure widths', () => {
     // exactly BASE_MEASURE_WIDTH — but nothing may ever come out narrower than
     // the base, which is what keeps a sparse bar readable.
     const plan = computeLayout(twinkleScore(), options()); // <=4 events per measure
-    const nonFirst = plan.trackLayouts[0].measures.filter((l) => !l.isFirstInSystem);
+    const nonFirst = plan.trackLayouts[0].measures.filter(
+      l => !l.isFirstInSystem
+    );
     expect(nonFirst.length).toBeGreaterThan(0);
-    for (const layout of nonFirst) expect(layout.box.width).toBeGreaterThanOrEqual(BASE_MEASURE_WIDTH);
+    for (const layout of nonFirst)
+      expect(layout.box.width).toBeGreaterThanOrEqual(BASE_MEASURE_WIDTH);
   });
 
   it('keeps the last system unjustified, so its measures stay at the base width', () => {
@@ -199,9 +273,11 @@ describe('density-aware measure widths', () => {
     const plan = computeLayout(twinkleScore(), options());
     const lastSystem = plan.systems[plan.systems.length - 1];
     const onLast = plan.trackLayouts[0].measures.filter(
-      (l) => lastSystem.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem,
+      l =>
+        lastSystem.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem
     );
-    for (const layout of onLast) expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
+    for (const layout of onLast)
+      expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
   });
 });
 
@@ -222,14 +298,16 @@ describe('measure-number gutter', () => {
   it('carves later gutters out of the existing system gap rather than overlapping the previous system', () => {
     const plan = computeLayout(stressScore(1, 40), options());
     for (let i = 1; i < plan.systems.length; i += 1) {
-      expect(plan.systems[i].gutterTop).toBeGreaterThanOrEqual(plan.systems[i - 1].yBottom);
+      expect(plan.systems[i].gutterTop).toBeGreaterThanOrEqual(
+        plan.systems[i - 1].yBottom
+      );
     }
   });
 
   it('leaves room for the gutter inside totalHeight', () => {
     const plan = computeLayout(twinkleScore(), options());
     expect(plan.totalHeight).toBeGreaterThanOrEqual(
-      plan.systems[plan.systems.length - 1].yBottom + MEASURE_HEADER_HEIGHT,
+      plan.systems[plan.systems.length - 1].yBottom + MEASURE_HEADER_HEIGHT
     );
   });
 });
@@ -256,7 +334,7 @@ describe('track-info gutter', () => {
     expect(plan.totalWidth).toBeGreaterThanOrEqual(lastMeasure.box.x);
   });
 
-  it('keeps every track\'s staves at the same x, so one gutter serves them all', () => {
+  it("keeps every track's staves at the same x, so one gutter serves them all", () => {
     const plan = computeLayout(twoTrackScore(), options());
     const a = plan.trackLayouts[0].measures[0].box.x;
     const b = plan.trackLayouts[1].measures[0].box.x;
@@ -277,7 +355,8 @@ describe('page mode fits the viewport width', () => {
         theme: testRenderTheme(),
       });
       expect(plan.totalWidth).toBeLessThanOrEqual(width);
-      for (const system of plan.systems) expect(system.xRight).toBeLessThanOrEqual(width);
+      for (const system of plan.systems)
+        expect(system.xRight).toBeLessThanOrEqual(width);
     });
   }
 
@@ -320,30 +399,40 @@ describe('showTrackInfo', () => {
     const without = computeLayout(score, options({ showTrackInfo: false }));
 
     expect(without.systems[0].xLeft).toBeLessThan(withGutter.systems[0].xLeft);
-    expect(withGutter.systems[0].xLeft - without.systems[0].xLeft).toBe(TRACK_INFO_WIDTH);
+    expect(withGutter.systems[0].xLeft - without.systems[0].xLeft).toBe(
+      TRACK_INFO_WIDTH
+    );
   });
 
   it('fits at least as much music per system without the gutter', () => {
     const score = twinkleScore();
     const withGutter = computeLayout(score, options());
     const without = computeLayout(score, options({ showTrackInfo: false }));
-    expect(without.systems.length).toBeLessThanOrEqual(withGutter.systems.length);
+    expect(without.systems.length).toBeLessThanOrEqual(
+      withGutter.systems.length
+    );
   });
 
   it('still keeps the layout inside the available width', () => {
     // The packing budget derives from leftMargin, so shrinking the margin must
     // not let totalWidth run past the viewport.
-    const without = computeLayout(stressScore(3, 24), options({ showTrackInfo: false, width: 700 }));
+    const without = computeLayout(
+      stressScore(3, 24),
+      options({ showTrackInfo: false, width: 700 })
+    );
     expect(without.totalWidth).toBeLessThanOrEqual(700);
   });
 });
 
 describe('system justification', () => {
-  const rightEdgeOf = (plan: ReturnType<typeof computeLayout>, systemIndex: number) => {
-    const boxes = plan.trackLayouts[0].measures.filter((m) =>
-      plan.systems[systemIndex].measureIndices.includes(m.measureIndex),
+  const rightEdgeOf = (
+    plan: ReturnType<typeof computeLayout>,
+    systemIndex: number
+  ) => {
+    const boxes = plan.trackLayouts[0].measures.filter(m =>
+      plan.systems[systemIndex].measureIndices.includes(m.measureIndex)
     );
-    return Math.max(...boxes.map((m) => m.box.x + m.box.width));
+    return Math.max(...boxes.map(m => m.box.x + m.box.width));
   };
 
   it('stretches a full system out to the margin', () => {
@@ -377,19 +466,22 @@ describe('system justification', () => {
     // a band of staff that resolves to no measure.
     const plan = computeLayout(twinkleScore(), options({ width: 1000 }));
     const first = plan.trackLayouts[0].measures
-      .filter((m) => plan.systems[0].measureIndices.includes(m.measureIndex))
+      .filter(m => plan.systems[0].measureIndices.includes(m.measureIndex))
       .sort((a, b) => a.box.x - b.box.x);
     for (let i = 1; i < first.length; i++) {
-      expect(first[i].box.x).toBeCloseTo(first[i - 1].box.x + first[i - 1].box.width, 5);
+      expect(first[i].box.x).toBeCloseTo(
+        first[i - 1].box.x + first[i - 1].box.width,
+        5
+      );
     }
   });
 
-  it('keeps each track\'s measures aligned across the system', () => {
+  it("keeps each track's measures aligned across the system", () => {
     // The shared barline grid: track 2's bar 3 must start where track 1's does.
     const plan = computeLayout(twoTrackScore(), options({ width: 1000 }));
     for (const measure of plan.trackLayouts[0].measures) {
       const other = plan.trackLayouts[1].measures.find(
-        (m) => m.measureIndex === measure.measureIndex,
+        m => m.measureIndex === measure.measureIndex
       );
       if (!other) continue;
       expect(other.box.x).toBeCloseTo(measure.box.x, 5);
@@ -404,15 +496,17 @@ describe('multi-measure rest width', () => {
     return computeLayout(
       {
         ...score,
-        tracks: score.tracks.map((t) => ({
+        tracks: score.tracks.map(t => ({
           ...t,
           measures: t.measures.map((m, i) =>
-            i === 1 && count !== undefined ? { ...m, multiMeasureRestCount: count } : m,
+            i === 1 && count !== undefined
+              ? { ...m, multiMeasureRestCount: count }
+              : m
           ),
         })),
       },
-      options(),
-    ).trackLayouts[0].measures.find((m) => m.measureIndex === 1)!.box.width;
+      options()
+    ).trackLayouts[0].measures.find(m => m.measureIndex === 1)!.box.width;
   };
 
   it('gives a collapsed measure more room than an ordinary one', () => {
@@ -430,7 +524,7 @@ describe('multi-measure rest width', () => {
 describe('computeLayout: fitting the page', () => {
   /** The right edge of the widest system, in logical units. */
   const rightEdge = (plan: ReturnType<typeof computeLayout>) =>
-    Math.max(...plan.systems.map((s) => s.xRight));
+    Math.max(...plan.systems.map(s => s.xRight));
 
   it.each([
     [1400, 1],
@@ -456,11 +550,14 @@ describe('computeLayout: fitting the page', () => {
     // it 435 units, and 525 with the clef/key/time header. Packing then gives
     // it a system of its own, and it still has to fit in it. Before, it kept
     // its natural width and the surplus was clipped away.
-    const naturalFirstMeasure = 16 * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING + SYSTEM_HEADER_WIDTH;
+    const naturalFirstMeasure =
+      16 * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING + SYSTEM_HEADER_WIDTH;
     const width = 600; // 360 of content once the gutter and margins are out
     const plan = computeLayout(denseVsSparseScore(), { ...options(), width });
     expect(rightEdge(plan)).toBeLessThanOrEqual(width);
-    expect(plan.trackLayouts[0].measures[0].box.width).toBeLessThan(naturalFirstMeasure);
+    expect(plan.trackLayouts[0].measures[0].box.width).toBeLessThan(
+      naturalFirstMeasure
+    );
   });
 
   it('still leaves the last system unstretched when it already fits', () => {
@@ -468,9 +565,10 @@ describe('computeLayout: fitting the page', () => {
     const plan = computeLayout(twinkleScore(), options());
     const last = plan.systems[plan.systems.length - 1];
     const onLast = plan.trackLayouts[0].measures.filter(
-      (l) => last.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem,
+      l => last.measureIndices.includes(l.measureIndex) && !l.isFirstInSystem
     );
-    for (const layout of onLast) expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
+    for (const layout of onLast)
+      expect(layout.box.width).toBe(BASE_MEASURE_WIDTH);
   });
 
   it('charges the clef/key/time header to the first measure of a system only', () => {
@@ -478,13 +576,18 @@ describe('computeLayout: fitting the page', () => {
     // used to add the header to every measure in case it turned out to be
     // first, which cost a bar per line for nothing.
     const gutterAndMargins = TRACK_INFO_WIDTH + 20;
-    const width = gutterAndMargins + SYSTEM_HEADER_WIDTH + BASE_MEASURE_WIDTH * 2;
+    const width =
+      gutterAndMargins + SYSTEM_HEADER_WIDTH + BASE_MEASURE_WIDTH * 2;
     const plan = computeLayout(twinkleScore(), { ...options(), width });
     expect(plan.systems[0].measureIndices).toHaveLength(2);
   });
 
   it('does not shrink continuous mode, which scrolls instead of wrapping', () => {
-    const plan = computeLayout(twinkleScore(), { ...options(), layoutMode: 'continuous', width: 400 });
+    const plan = computeLayout(twinkleScore(), {
+      ...options(),
+      layoutMode: 'continuous',
+      width: 400,
+    });
     expect(plan.totalWidth).toBeGreaterThan(400);
   });
 });

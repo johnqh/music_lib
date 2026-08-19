@@ -69,7 +69,9 @@ const PROGRAM_POLYPHONY: Record<number, number> = {
 export function gmMaxPolyphony(program: number): number {
   const override = PROGRAM_POLYPHONY[program];
   if (override !== undefined) return override;
-  return gmInstrument(program) ? FAMILY_POLYPHONY[gmFamilyOf(program)] : UNLIMITED_POLYPHONY;
+  return gmInstrument(program)
+    ? FAMILY_POLYPHONY[gmFamilyOf(program)]
+    : UNLIMITED_POLYPHONY;
 }
 
 /** Whether `program` can sound `count` notes at once. */

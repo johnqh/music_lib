@@ -16,7 +16,7 @@ describe('playbackPlan', () => {
   });
 
   it('sorts notes by tick', () => {
-    const ticks = playbackPlan(twinkleScore()).notes.map((n) => n.tick);
+    const ticks = playbackPlan(twinkleScore()).notes.map(n => n.tick);
     expect([...ticks].sort((a, b) => a - b)).toEqual(ticks);
   });
 
@@ -39,12 +39,12 @@ describe('playbackPlan', () => {
     const plan = playbackPlan(twinkleScore());
     expect(plan.clicks.length).toBeGreaterThan(0);
     expect(plan.clicks[0]).toEqual({ tick: 0, accent: true });
-    expect(plan.clicks.filter((c) => c.accent).length).toBeGreaterThan(1);
+    expect(plan.clicks.filter(c => c.accent).length).toBeGreaterThan(1);
   });
 
   it('reports the last tick any note ends on', () => {
     const plan = playbackPlan(twinkleScore());
-    const last = Math.max(...plan.notes.map((n) => n.tick + n.durTicks));
+    const last = Math.max(...plan.notes.map(n => n.tick + n.durTicks));
     expect(plan.durationTicks).toBe(last);
   });
 
@@ -64,7 +64,7 @@ describe('playbackPlan', () => {
     const score = {
       ...base,
       tracks: base.tracks.map((t, i) =>
-        i === 0 ? { ...t, clef: 'percussion' as const, midiProgram: 45 } : t,
+        i === 0 ? { ...t, clef: 'percussion' as const, midiProgram: 45 } : t
       ),
     };
     const track = playbackTracks(score)[0];
@@ -77,7 +77,9 @@ describe('playbackPlan', () => {
     const base = twoTrackScore();
     const score = {
       ...base,
-      tracks: base.tracks.map((t, i) => (i === 0 ? { ...t, muted: true, volume: 0.25 } : t)),
+      tracks: base.tracks.map((t, i) =>
+        i === 0 ? { ...t, muted: true, volume: 0.25 } : t
+      ),
     };
     const track = playbackTracks(score)[0];
     expect(track.muted).toBe(true);
@@ -93,7 +95,9 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
     const trackId = 'track-1';
     const voiceId = 'voice-1';
     const measureTicks = PPQ * 4;
-    const note = (over: Partial<NoteEvent> & { id: string; startTick: number }): NoteEvent => ({
+    const note = (
+      over: Partial<NoteEvent> & { id: string; startTick: number }
+    ): NoteEvent => ({
       pitch: { step: 'C', accidental: 0, octave: 4 },
       durationTicks: PPQ,
       velocity: 90,
@@ -102,7 +106,7 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
       ...over,
     });
     const base = twinkleScore();
-    const measures: Measure[] = [0, 1].map((i) => ({
+    const measures: Measure[] = [0, 1].map(i => ({
       id: `m${i}`,
       index: i,
       startTick: i * measureTicks,
@@ -115,9 +119,19 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
           name: 'Voice 1',
           events:
             i === 0
-              ? [note({ id: 'note-tie-start', startTick: measureTicks - PPQ, tieStart: true })]
+              ? [
+                  note({
+                    id: 'note-tie-start',
+                    startTick: measureTicks - PPQ,
+                    tieStart: true,
+                  }),
+                ]
               : [
-                  note({ id: 'note-tie-stop', startTick: measureTicks, tieStop: true }),
+                  note({
+                    id: 'note-tie-stop',
+                    startTick: measureTicks,
+                    tieStop: true,
+                  }),
                   note({
                     id: 'note-untied',
                     startTick: measureTicks + PPQ,
@@ -133,11 +147,11 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
 
   it('joins a note tied across a barline into one, dropping the continuation', () => {
     const notes = playbackPlan(tiedAcrossBarlineScore()).notes;
-    const ids = notes.map((n) => n.noteId);
+    const ids = notes.map(n => n.noteId);
     expect(ids).not.toContain('note-tie-stop');
     expect(ids).toContain('note-tie-start');
 
-    const joined = notes.find((n) => n.noteId === 'note-tie-start')!;
+    const joined = notes.find(n => n.noteId === 'note-tie-start')!;
     expect(joined.tick).toBe(PPQ * 3);
     expect(joined.durTicks).toBe(PPQ * 2);
     expect(notes).toHaveLength(2);
@@ -145,8 +159,8 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
 
   it('keeps trackId provenance across every track', () => {
     const score = twoTrackScore();
-    const ids = new Set(playbackPlan(score).notes.map((n) => n.trackId));
-    expect(ids).toEqual(new Set(score.tracks.map((t) => t.id)));
+    const ids = new Set(playbackPlan(score).notes.map(n => n.trackId));
+    expect(ids).toEqual(new Set(score.tracks.map(t => t.id)));
   });
 
   it('emits one click per beat across the measure grid', () => {

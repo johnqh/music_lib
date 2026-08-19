@@ -4,7 +4,7 @@ import { gmInstrument } from './gm.js';
 
 describe('gmKit', () => {
   it('has the eight kits General MIDI defines, at their own addresses', () => {
-    expect(GM_KITS.map((k) => k.program)).toEqual([0, 8, 16, 24, 25, 32, 40, 48]);
+    expect(GM_KITS.map(k => k.program)).toEqual([0, 8, 16, 24, 25, 32, 40, 48]);
     for (const kit of GM_KITS) expect(gmKit(kit.program)).toEqual(kit);
   });
 

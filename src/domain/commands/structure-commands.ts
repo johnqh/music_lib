@@ -3,7 +3,11 @@
  * §14). Each factory wraps a pure `(Score) => Score` transform via
  * `transformCommand`, matching the note-commands.ts pattern.
  */
-import { appendMeasure, createTrack, rebuildMeasureTicks } from '../score/factory.js';
+import {
+  appendMeasure,
+  createTrack,
+  rebuildMeasureTicks,
+} from '../score/factory.js';
 import { gmKitAt } from '../instruments/gm-kit.js';
 import { gmInstrument } from '../instruments/gm.js';
 import type { CreateTrackOptions } from '../score/factory.js';
@@ -27,21 +31,26 @@ import { reflowVoice, touchMetadata, withTracks } from './reflow.js';
 // ---- addMeasureCommand / deleteMeasureCommand ----------------------------------
 
 /** Appends one fully-rested measure to every track (reuses Task 3's `appendMeasure`). */
-export function addMeasureCommand(): ScoreCommand {
-  return transformCommand('Add measure', (score) => appendMeasure(score));
+export function addMeasureCommand(label: string): ScoreCommand {
+  return transformCommand(label, score => appendMeasure(score));
 }
 
 function deleteMeasure(score: Score, measureIndex: number): Score {
-  const tracks = score.tracks.map((track) => {
-    const filtered = track.measures.filter((m) => m.index !== measureIndex);
-    return filtered.length === track.measures.length ? track : { ...track, measures: filtered };
+  const tracks = score.tracks.map(track => {
+    const filtered = track.measures.filter(m => m.index !== measureIndex);
+    return filtered.length === track.measures.length
+      ? track
+      : { ...track, measures: filtered };
   });
   return rebuildMeasureTicks(withTracks(score, tracks));
 }
 
 /** Removes the measure at `measureIndex` from every track, retracking subsequent measures' ticks. */
-export function deleteMeasureCommand(measureIndex: number): ScoreCommand {
-  return transformCommand('Delete measure', (score) => deleteMeasure(score, measureIndex));
+export function deleteMeasureCommand(
+  measureIndex: number,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => deleteMeasure(score, measureIndex));
 }
 
 // ---- addTrackCommand / deleteTrackCommand --------------------------------------
@@ -77,30 +86,43 @@ export function restMeasureLike(reference: Measure, trackId: UUID): Measure {
 function addTrack(score: Score, options: CreateTrackOptions): Score {
   const track = createTrack(options);
   const referenceTrack = score.tracks[0];
-  const measures = referenceTrack ? referenceTrack.measures.map((m) => restMeasureLike(m, track.id)) : [];
-  return { ...score, tracks: [...score.tracks, { ...track, measures }], metadata: touchMetadata(score.metadata) };
+  const measures = referenceTrack
+    ? referenceTrack.measures.map(m => restMeasureLike(m, track.id))
+    : [];
+  return {
+    ...score,
+    tracks: [...score.tracks, { ...track, measures }],
+    metadata: touchMetadata(score.metadata),
+  };
 }
 
 /** Adds a new track, fully-rested with the same measure layout (count/signatures) as the score's first existing track. */
-export function addTrackCommand(options: CreateTrackOptions): ScoreCommand {
-  return transformCommand('Add track', (score) => addTrack(score, options));
+export function addTrackCommand(
+  options: CreateTrackOptions,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => addTrack(score, options));
 }
 
 function deleteTrack(score: Score, trackId: UUID): Score {
-  const tracks = score.tracks.filter((t) => t.id !== trackId);
+  const tracks = score.tracks.filter(t => t.id !== trackId);
   return withTracks(score, tracks);
 }
 
 /** Removes the track with id `trackId`. */
-export function deleteTrackCommand(trackId: UUID): ScoreCommand {
-  return transformCommand('Delete track', (score) => deleteTrack(score, trackId));
+export function deleteTrackCommand(trackId: UUID, label: string): ScoreCommand {
+  return transformCommand(label, score => deleteTrack(score, trackId));
 }
 
 // ---- changeTimeSignatureCommand / changeKeySignatureCommand -------------------
 
-function changeTimeSignature(score: Score, measureId: UUID, timeSignature: TimeSignature): Score {
-  const tracks = score.tracks.map((track) => {
-    const index = track.measures.findIndex((m) => m.id === measureId);
+function changeTimeSignature(
+  score: Score,
+  measureId: UUID,
+  timeSignature: TimeSignature
+): Score {
+  const tracks = score.tracks.map(track => {
+    const index = track.measures.findIndex(m => m.id === measureId);
     if (index === -1) return track;
 
     const measure = track.measures[index];
@@ -125,13 +147,23 @@ function changeTimeSignature(score: Score, measureId: UUID, timeSignature: TimeS
  * voices to fit the new length, and retracks every subsequent measure via
  * `rebuildMeasureTicks`.
  */
-export function changeTimeSignatureCommand(measureId: UUID, timeSignature: TimeSignature): ScoreCommand {
-  return transformCommand('Change time signature', (score) => changeTimeSignature(score, measureId, timeSignature));
+export function changeTimeSignatureCommand(
+  measureId: UUID,
+  timeSignature: TimeSignature,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    changeTimeSignature(score, measureId, timeSignature)
+  );
 }
 
-function changeKeySignature(score: Score, measureId: UUID, keySignature: KeySignature): Score {
-  const tracks = score.tracks.map((track) => {
-    const index = track.measures.findIndex((m) => m.id === measureId);
+function changeKeySignature(
+  score: Score,
+  measureId: UUID,
+  keySignature: KeySignature
+): Score {
+  const tracks = score.tracks.map(track => {
+    const index = track.measures.findIndex(m => m.id === measureId);
     if (index === -1) return track;
     const measures = track.measures.slice();
     measures[index] = { ...measures[index], keySignature };
@@ -141,14 +173,22 @@ function changeKeySignature(score: Score, measureId: UUID, keySignature: KeySign
 }
 
 /** Changes one measure's key signature. Existing note spellings are left as-is. */
-export function changeKeySignatureCommand(measureId: UUID, keySignature: KeySignature): ScoreCommand {
-  return transformCommand('Change key signature', (score) => changeKeySignature(score, measureId, keySignature));
+export function changeKeySignatureCommand(
+  measureId: UUID,
+  keySignature: KeySignature,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    changeKeySignature(score, measureId, keySignature)
+  );
 }
 
 // ---- changeClefCommand -----------------------------------------------------------
 
 function changeClef(score: Score, trackId: UUID, clef: Clef): Score {
-  const tracks = score.tracks.map((t) => (t.id === trackId ? { ...t, clef, ...programForClef(t, clef) } : t));
+  const tracks = score.tracks.map(t =>
+    t.id === trackId ? { ...t, clef, ...programForClef(t, clef) } : t
+  );
   return withTracks(score, tracks);
 }
 
@@ -172,49 +212,93 @@ function programForClef(track: Track, clef: Clef): Partial<Track> {
     return { midiProgram: kit.program, instrumentName: kit.name };
   }
   const instrument = gmInstrument(0);
-  return { midiProgram: 0, instrumentName: instrument?.name ?? 'Acoustic Grand Piano' };
+  return {
+    midiProgram: 0,
+    instrumentName: instrument?.name ?? 'Acoustic Grand Piano',
+  };
 }
 
 /** Changes a track's clef, reinterpreting its program if it crosses into or out of percussion. */
-export function changeClefCommand(trackId: UUID, clef: Clef): ScoreCommand {
-  return transformCommand('Change clef', (score) => changeClef(score, trackId, clef));
+export function changeClefCommand(
+  trackId: UUID,
+  clef: Clef,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => changeClef(score, trackId, clef));
 }
 
 // ---- changeTempoCommand -----------------------------------------------------------
 
-export type ChangeTempoParams = { tempoEventId?: UUID; tick: number; bpm: number };
+export type ChangeTempoParams = {
+  tempoEventId?: UUID;
+  tick: number;
+  bpm: number;
+};
 
 function changeTempo(score: Score, params: ChangeTempoParams): Score {
   const tempoMap: TempoEvent[] = params.tempoEventId
-    ? score.tempoMap.map((e) => (e.id === params.tempoEventId ? { ...e, tick: params.tick, bpm: params.bpm } : e))
-    : [...score.tempoMap, { id: createId(), tick: params.tick, bpm: params.bpm }];
+    ? score.tempoMap.map(e =>
+        e.id === params.tempoEventId
+          ? { ...e, tick: params.tick, bpm: params.bpm }
+          : e
+      )
+    : [
+        ...score.tempoMap,
+        { id: createId(), tick: params.tick, bpm: params.bpm },
+      ];
 
   const sorted = [...tempoMap].sort((a, b) => a.tick - b.tick);
-  return { ...score, tempoMap: sorted, metadata: touchMetadata(score.metadata) };
+  return {
+    ...score,
+    tempoMap: sorted,
+    metadata: touchMetadata(score.metadata),
+  };
 }
 
 /** Updates an existing tempo event (`tempoEventId` given) or inserts a new one, keeping `tempoMap` sorted by tick. */
-export function changeTempoCommand(params: ChangeTempoParams): ScoreCommand {
-  return transformCommand('Change tempo', (score) => changeTempo(score, params));
+export function changeTempoCommand(
+  params: ChangeTempoParams,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => changeTempo(score, params));
 }
 
 // ---- changeMetadataCommand --------------------------------------------------------
 
-function changeMetadata(score: Score, patch: Partial<Omit<ScoreMetadata, 'createdAt'>>): Score {
-  return { ...score, metadata: { ...score.metadata, ...patch, updatedAt: new Date().toISOString() } };
+function changeMetadata(
+  score: Score,
+  patch: Partial<Omit<ScoreMetadata, 'createdAt'>>
+): Score {
+  return {
+    ...score,
+    metadata: {
+      ...score.metadata,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    },
+  };
 }
 
 /** Patches score metadata (title/composer/description); `createdAt` is immutable, `updatedAt` is always refreshed. */
-export function changeMetadataCommand(patch: Partial<Omit<ScoreMetadata, 'createdAt'>>): ScoreCommand {
-  return transformCommand('Change metadata', (score) => changeMetadata(score, patch));
+export function changeMetadataCommand(
+  patch: Partial<Omit<ScoreMetadata, 'createdAt'>>,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => changeMetadata(score, patch));
 }
 
 // ---- changeTrackPropsCommand ------------------------------------------------------
 
 export type TrackPropsPatch = Partial<Omit<Track, 'id' | 'measures'>>;
 
-function changeTrackProps(score: Score, trackId: UUID, patch: TrackPropsPatch): Score {
-  const tracks = score.tracks.map((t) => (t.id === trackId ? { ...t, ...patch } : t));
+function changeTrackProps(
+  score: Score,
+  trackId: UUID,
+  patch: TrackPropsPatch
+): Score {
+  const tracks = score.tracks.map(t =>
+    t.id === trackId ? { ...t, ...patch } : t
+  );
   return withTracks(score, tracks);
 }
 
@@ -231,14 +315,20 @@ const MIX_PROPS = new Set<string>(['volume', 'pan', 'muted', 'solo']);
 
 /** A patch is mix only if *every* key in it is. An empty patch changes nothing, so it counts as mix. */
 function trackPatchKind(patch: TrackPropsPatch): CommandKind {
-  return Object.keys(patch).every((key) => MIX_PROPS.has(key)) ? 'mix' : 'content';
+  return Object.keys(patch).every(key => MIX_PROPS.has(key))
+    ? 'mix'
+    : 'content';
 }
 
 /** Patches a track's non-structural properties (name, instrument, MIDI program/channel, clef, volume, pan, mute, solo). */
-export function changeTrackPropsCommand(trackId: UUID, patch: TrackPropsPatch): ScoreCommand {
+export function changeTrackPropsCommand(
+  trackId: UUID,
+  patch: TrackPropsPatch,
+  label: string
+): ScoreCommand {
   return transformCommand(
-    'Change track properties',
-    (score) => changeTrackProps(score, trackId, patch),
-    trackPatchKind(patch),
+    label,
+    score => changeTrackProps(score, trackId, patch),
+    trackPatchKind(patch)
   );
 }

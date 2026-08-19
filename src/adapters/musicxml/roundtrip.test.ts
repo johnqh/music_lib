@@ -8,6 +8,7 @@
  * the brief.
  */
 import { describe, expect, it } from 'vitest';
+import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { exportMusicXml } from './export.js';
 import { importMusicXml } from './import.js';
 import { createId } from '../../domain/score/ids.js';
@@ -17,22 +18,37 @@ import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { allNotes } from '../../domain/score/queries.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
-import { chordScore, twinkleScore, twoTrackScore } from '../../test/fixtures.js';
+import {
+  chordScore,
+  twinkleScore,
+  twoTrackScore,
+} from '../../test/fixtures.js';
 import { MockXmlParser } from '@sudobility/music_io/mocks';
 
 const parser = new MockXmlParser();
 
 function roundTrip(source: Score): { imported: Score; warnings: string[] } {
   const xml = exportMusicXml(source);
-  const { score, warnings } = importMusicXml(xml, parser);
+  const { score, warnings } = importMusicXml(
+    xml,
+    parser,
+    TEST_MUSICXML_WARNINGS
+  );
   return { imported: score, warnings };
 }
 
-type NoteFingerprint = { startTick: number; durationTicks: number; midi: number; tieStart: boolean; tieStop: boolean; articulation: string | undefined };
+type NoteFingerprint = {
+  startTick: number;
+  durationTicks: number;
+  midi: number;
+  tieStart: boolean;
+  tieStop: boolean;
+  articulation: string | undefined;
+};
 
 function fingerprint(score: Score): NoteFingerprint[] {
   return allNotes(score)
-    .map((n) => ({
+    .map(n => ({
       startTick: n.startTick,
       durationTicks: n.durationTicks,
       midi: pitchToMidi(n.pitch),
@@ -70,7 +86,11 @@ function baseScore(title: string, tracks: Track[]): Score {
     id: createId(),
     version: 1,
     ppq: PPQ,
-    metadata: { title, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+    metadata: {
+      title,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    },
     tempoMap: [{ id: createId(), tick: 0, bpm: 110 }],
     tracks,
   };
@@ -85,13 +105,53 @@ function twoVoiceScore(): Score {
   const voice2Id = createId();
 
   const voice1Events: NoteEvent[] = [
-    { id: createId(), pitch: { step: 'E', accidental: 0, octave: 5 }, startTick: 0, durationTicks: q, velocity: 80, voiceId: voice1Id, trackId },
-    { id: createId(), pitch: { step: 'D', accidental: 0, octave: 5 }, startTick: q, durationTicks: q, velocity: 80, voiceId: voice1Id, trackId },
-    { id: createId(), pitch: { step: 'C', accidental: 0, octave: 5 }, startTick: 2 * q, durationTicks: q, velocity: 80, voiceId: voice1Id, trackId },
-    { id: createId(), pitch: { step: 'D', accidental: 0, octave: 5 }, startTick: 3 * q, durationTicks: q, velocity: 80, voiceId: voice1Id, trackId },
+    {
+      id: createId(),
+      pitch: { step: 'E', accidental: 0, octave: 5 },
+      startTick: 0,
+      durationTicks: q,
+      velocity: 80,
+      voiceId: voice1Id,
+      trackId,
+    },
+    {
+      id: createId(),
+      pitch: { step: 'D', accidental: 0, octave: 5 },
+      startTick: q,
+      durationTicks: q,
+      velocity: 80,
+      voiceId: voice1Id,
+      trackId,
+    },
+    {
+      id: createId(),
+      pitch: { step: 'C', accidental: 0, octave: 5 },
+      startTick: 2 * q,
+      durationTicks: q,
+      velocity: 80,
+      voiceId: voice1Id,
+      trackId,
+    },
+    {
+      id: createId(),
+      pitch: { step: 'D', accidental: 0, octave: 5 },
+      startTick: 3 * q,
+      durationTicks: q,
+      velocity: 80,
+      voiceId: voice1Id,
+      trackId,
+    },
   ];
   const voice2Events: NoteEvent[] = [
-    { id: createId(), pitch: { step: 'C', accidental: 0, octave: 3 }, startTick: 0, durationTicks: measureTicks, velocity: 80, voiceId: voice2Id, trackId },
+    {
+      id: createId(),
+      pitch: { step: 'C', accidental: 0, octave: 3 },
+      startTick: 0,
+      durationTicks: measureTicks,
+      velocity: 80,
+      voiceId: voice2Id,
+      trackId,
+    },
   ];
 
   const measure: Measure = {
@@ -107,7 +167,9 @@ function twoVoiceScore(): Score {
     ],
   };
 
-  return baseScore('Two Voices', [baseTrack({ id: trackId, measures: [measure] })]);
+  return baseScore('Two Voices', [
+    baseTrack({ id: trackId, measures: [measure] }),
+  ]);
 }
 
 /** A G4 half note tied across the barline from measure 1 (last two beats) into measure 2 (first two beats), then a new note. */
@@ -130,8 +192,25 @@ function tieAcrossBarlineScore(): Score {
         id: voice1Id,
         name: 'Voice 1',
         events: [
-          { id: createId(), pitch: { step: 'C', accidental: 0, octave: 4 }, startTick: 0, durationTicks: half, velocity: 80, voiceId: voice1Id, trackId },
-          { id: createId(), pitch: { step: 'G', accidental: 0, octave: 4 }, startTick: half, durationTicks: half, velocity: 80, voiceId: voice1Id, trackId, tieStart: true },
+          {
+            id: createId(),
+            pitch: { step: 'C', accidental: 0, octave: 4 },
+            startTick: 0,
+            durationTicks: half,
+            velocity: 80,
+            voiceId: voice1Id,
+            trackId,
+          },
+          {
+            id: createId(),
+            pitch: { step: 'G', accidental: 0, octave: 4 },
+            startTick: half,
+            durationTicks: half,
+            velocity: 80,
+            voiceId: voice1Id,
+            trackId,
+            tieStart: true,
+          },
         ],
       },
     ],
@@ -148,14 +227,33 @@ function tieAcrossBarlineScore(): Score {
         id: voice2Id,
         name: 'Voice 1',
         events: [
-          { id: createId(), pitch: { step: 'G', accidental: 0, octave: 4 }, startTick: measureTicks, durationTicks: half, velocity: 80, voiceId: voice2Id, trackId, tieStop: true },
-          { id: createId(), pitch: { step: 'A', accidental: 0, octave: 4 }, startTick: measureTicks + half, durationTicks: half, velocity: 80, voiceId: voice2Id, trackId },
+          {
+            id: createId(),
+            pitch: { step: 'G', accidental: 0, octave: 4 },
+            startTick: measureTicks,
+            durationTicks: half,
+            velocity: 80,
+            voiceId: voice2Id,
+            trackId,
+            tieStop: true,
+          },
+          {
+            id: createId(),
+            pitch: { step: 'A', accidental: 0, octave: 4 },
+            startTick: measureTicks + half,
+            durationTicks: half,
+            velocity: 80,
+            voiceId: voice2Id,
+            trackId,
+          },
         ],
       },
     ],
   };
 
-  return baseScore('Tie Across Barline', [baseTrack({ measures: [measure1, measure2], id: trackId })]);
+  return baseScore('Tie Across Barline', [
+    baseTrack({ measures: [measure1, measure2], id: trackId }),
+  ]);
 }
 
 /** One measure, one note of each supported articulation. */
@@ -164,7 +262,12 @@ function articulationsScore(): Score {
   const measureTicks = measureDurationTicks(FOUR_FOUR, PPQ);
   const q = ticksFor('quarter', PPQ);
   const voiceId = createId();
-  const articulations: NonNullable<NoteEvent['articulation']>[] = ['staccato', 'accent', 'tenuto', 'marcato'];
+  const articulations: NonNullable<NoteEvent['articulation']>[] = [
+    'staccato',
+    'accent',
+    'tenuto',
+    'marcato',
+  ];
 
   const events: NoteEvent[] = articulations.map((articulation, i) => ({
     id: createId(),
@@ -187,7 +290,9 @@ function articulationsScore(): Score {
     voices: [{ id: voiceId, name: 'Voice 1', events }],
   };
 
-  return baseScore('Articulations', [baseTrack({ measures: [measure], id: trackId })]);
+  return baseScore('Articulations', [
+    baseTrack({ measures: [measure], id: trackId }),
+  ]);
 }
 
 /** Two 6/8 measures: a dotted-quarter + 3 eighths melody, one measure per bar. */
@@ -206,30 +311,37 @@ function sixEightScore(): Score {
     ['D', 4],
   ];
 
-  const measures: Measure[] = [0, 1].map((measureIndex) => {
+  const measures: Measure[] = [0, 1].map(measureIndex => {
     const voiceId = createId();
     const [step0] = pitches[0];
     const events: NoteEvent[] = [
       {
         id: createId(),
-        pitch: { step: step0 as NoteEvent['pitch']['step'], accidental: 0, octave: 4 },
+        pitch: {
+          step: step0 as NoteEvent['pitch']['step'],
+          accidental: 0,
+          octave: 4,
+        },
         startTick: measureIndex * measureTicks,
         durationTicks: dottedQuarter,
         velocity: 80,
         voiceId,
         trackId,
       },
-      ...[1, 2, 3].map(
-        (i): NoteEvent => ({
-          id: createId(),
-          pitch: { step: pitches[i][0] as NoteEvent['pitch']['step'], accidental: 0, octave: pitches[i][1] },
-          startTick: measureIndex * measureTicks + dottedQuarter + (i - 1) * eighth,
-          durationTicks: eighth,
-          velocity: 80,
-          voiceId,
-          trackId,
-        }),
-      ),
+      ...[1, 2, 3].map((i): NoteEvent => ({
+        id: createId(),
+        pitch: {
+          step: pitches[i][0] as NoteEvent['pitch']['step'],
+          accidental: 0,
+          octave: pitches[i][1],
+        },
+        startTick:
+          measureIndex * measureTicks + dottedQuarter + (i - 1) * eighth,
+        durationTicks: eighth,
+        velocity: 80,
+        voiceId,
+        trackId,
+      })),
     ];
     return {
       id: createId(),
@@ -277,8 +389,12 @@ describe.each([
     const { imported } = roundTrip(source);
     source.tracks.forEach((track, trackIndex) => {
       const importedTrack = imported.tracks[trackIndex];
-      expect(importedTrack.measures.map((m) => m.timeSignature)).toEqual(track.measures.map((m) => m.timeSignature));
-      expect(importedTrack.measures.map((m) => m.keySignature)).toEqual(track.measures.map((m) => m.keySignature));
+      expect(importedTrack.measures.map(m => m.timeSignature)).toEqual(
+        track.measures.map(m => m.timeSignature)
+      );
+      expect(importedTrack.measures.map(m => m.keySignature)).toEqual(
+        track.measures.map(m => m.keySignature)
+      );
     });
   });
 
@@ -287,17 +403,21 @@ describe.each([
     const { imported } = roundTrip(source);
     source.tracks.forEach((track, trackIndex) => {
       const importedTrack = imported.tracks[trackIndex];
-      expect(importedTrack.measures.map((m) => m.voices.length)).toEqual(track.measures.map((m) => m.voices.length));
+      expect(importedTrack.measures.map(m => m.voices.length)).toEqual(
+        track.measures.map(m => m.voices.length)
+      );
     });
   });
 
   it('produces a score with zero validateScore errors', () => {
     const { imported } = roundTrip(factory());
-    const errors = validateScore(imported).filter((issue) => issue.severity === 'error');
+    const errors = validateScore(imported).filter(
+      issue => issue.severity === 'error'
+    );
     expect(errors).toEqual([]);
   });
 
-  it('imports without warnings for this adapter\'s own clean export', () => {
+  it("imports without warnings for this adapter's own clean export", () => {
     const { warnings } = roundTrip(factory());
     expect(warnings).toEqual([]);
   });
@@ -328,10 +448,10 @@ describe('MusicXML round trip: chord grouping stays simultaneous', () => {
     const { imported } = roundTrip(source);
 
     // chordScore: each measure is a single voice with 3 simultaneous notes.
-    imported.tracks[0].measures.forEach((measure) => {
+    imported.tracks[0].measures.forEach(measure => {
       const notes = measure.voices[0].events.filter(isNoteEvent);
       expect(notes).toHaveLength(3);
-      expect(new Set(notes.map((n) => n.startTick)).size).toBe(1);
+      expect(new Set(notes.map(n => n.startTick)).size).toBe(1);
     });
   });
 });

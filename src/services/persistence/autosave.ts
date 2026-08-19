@@ -29,7 +29,7 @@ const DEFAULT_DEBOUNCE_MS = 2000;
 
 export function createAutosaver(
   save: () => Promise<void>,
-  debounceMs: number = DEFAULT_DEBOUNCE_MS,
+  debounceMs: number = DEFAULT_DEBOUNCE_MS
 ): Autosaver {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: Promise<void> | null = null;

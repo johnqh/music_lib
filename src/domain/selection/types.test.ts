@@ -19,7 +19,11 @@ describe('emptySelection', () => {
 
 describe('ScoreRange', () => {
   it('shapes a tick range scoped to a set of tracks', () => {
-    const range: ScoreRange = { startTick: 0, endTick: 1920, trackIds: ['track-1'] };
+    const range: ScoreRange = {
+      startTick: 0,
+      endTick: 1920,
+      trackIds: ['track-1'],
+    };
     expect(range.endTick).toBeGreaterThan(range.startTick);
   });
 });

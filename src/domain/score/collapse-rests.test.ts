@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { collapseRests, isSilentMeasure } from './collapse-rests.js';
-import type { KeySignature, Measure, TimeSignature } from '@sudobility/music_types';
+import type {
+  KeySignature,
+  Measure,
+  TimeSignature,
+} from '@sudobility/music_types';
 
 const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 const C_MAJOR: KeySignature = { fifths: 0, mode: 'major' };
 
 let nextId = 0;
 /** A measure holding one whole-bar rest, or one note when `withNote`. */
-function measure(index: number, withNote = false, overrides: Partial<Measure> = {}): Measure {
+function measure(
+  index: number,
+  withNote = false,
+  overrides: Partial<Measure> = {}
+): Measure {
   nextId += 1;
   const voiceId = `v${nextId}`;
   return {
@@ -48,8 +56,8 @@ function measure(index: number, withNote = false, overrides: Partial<Measure> = 
   } as Measure;
 }
 
-const counts = (ms: Measure[]) => ms.map((m) => m.multiMeasureRestCount ?? 1);
-const indices = (ms: Measure[]) => ms.map((m) => m.index);
+const counts = (ms: Measure[]) => ms.map(m => m.multiMeasureRestCount ?? 1);
+const indices = (ms: Measure[]) => ms.map(m => m.index);
 
 describe('isSilentMeasure', () => {
   it('is true for a measure of rests', () => {
@@ -63,7 +71,10 @@ describe('isSilentMeasure', () => {
   it('is false when a second voice holds a note', () => {
     // One note anywhere disqualifies the bar; a player still has to play it.
     const m = measure(0);
-    const withSecond = { ...m, voices: [...m.voices, measure(0, true).voices[0]] };
+    const withSecond = {
+      ...m,
+      voices: [...m.voices, measure(0, true).voices[0]],
+    };
     expect(isSilentMeasure(withSecond)).toBe(false);
   });
 
@@ -74,14 +85,23 @@ describe('isSilentMeasure', () => {
 
 describe('collapseRests', () => {
   it('collapses a run of silent measures into one carrying the count', () => {
-    const result = collapseRests([measure(0), measure(1), measure(2), measure(3, true)]);
+    const result = collapseRests([
+      measure(0),
+      measure(1),
+      measure(2),
+      measure(3, true),
+    ]);
     expect(result).toHaveLength(2);
     expect(counts(result)).toEqual([3, 1]);
   });
 
   it('leaves a single silent measure alone', () => {
     // "1" over a bar is noise; every engraver writes it out.
-    const result = collapseRests([measure(0, true), measure(1), measure(2, true)]);
+    const result = collapseRests([
+      measure(0, true),
+      measure(1),
+      measure(2, true),
+    ]);
     expect(result).toHaveLength(3);
     expect(result[1].multiMeasureRestCount).toBeUndefined();
   });
@@ -111,7 +131,9 @@ describe('collapseRests', () => {
   });
 
   it('collapses a piece that is entirely silent', () => {
-    expect(counts(collapseRests([measure(0), measure(1), measure(2)]))).toEqual([3]);
+    expect(counts(collapseRests([measure(0), measure(1), measure(2)]))).toEqual(
+      [3]
+    );
   });
 
   it('breaks a run at a time-signature change', () => {

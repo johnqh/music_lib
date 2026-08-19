@@ -8,18 +8,27 @@
  * that already depend on an injected import/export service can treat both
  * uniformly.
  */
-import { exportMusicXml, safeFilename } from '../../adapters/musicxml/export.js';
+import {
+  exportMusicXml,
+  safeFilename,
+} from '../../adapters/musicxml/export.js';
 import { importMusicXml } from '../../adapters/musicxml/import.js';
-import type { MusicXmlImportResult } from '../../adapters/musicxml/import.js';
+import type {
+  MusicXmlImportResult,
+  MusicXmlWarnings,
+} from '../../adapters/musicxml/import.js';
 import type { Score, XmlParser } from '@sudobility/music_types';
 
 export class MusicXmlService {
   /**
-   * The parser is a collaborator, not a per-call argument: this service is
-   * constructed once per app with its platform's parser, and nothing about it
-   * varies call to call.
+   * The parser and the warning text are both collaborators, not per-call
+   * arguments: this service is constructed once per app with its platform's
+   * parser and its host's words, and neither varies call to call.
    */
-  constructor(private readonly parser: XmlParser) {}
+  constructor(
+    private readonly parser: XmlParser,
+    private readonly warnings: MusicXmlWarnings
+  ) {}
 
   /** Exports `score` as a MusicXML (score-partwise 4.0) document string. */
   async export(score: Score): Promise<string> {
@@ -28,7 +37,7 @@ export class MusicXmlService {
 
   /** Imports a MusicXML document string as a `Score`, plus any import warnings (spec §17). */
   async import(xmlText: string): Promise<MusicXmlImportResult> {
-    return importMusicXml(xmlText, this.parser);
+    return importMusicXml(xmlText, this.parser, this.warnings);
   }
 
   /** Safe (no extension) filename for `score`'s `.musicxml` download, derived from its title. */

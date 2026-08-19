@@ -63,14 +63,21 @@ export class FakeMusicClient {
    */
   updateBodies: ProjectUpdateRequest[] = [];
 
-  async listProjects(_token: string, query?: ProjectListQuery): Promise<ProjectSummary[]> {
-    let list = [...this.records.values()].map(({ score: _s, uiPrefs: _u, ...summary }) => summary);
+  async listProjects(
+    _token: string,
+    query?: ProjectListQuery
+  ): Promise<ProjectSummary[]> {
+    let list = [...this.records.values()].map(
+      ({ score: _s, uiPrefs: _u, ...summary }) => summary
+    );
     if (query?.search) {
       const needle = query.search.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(needle));
+      list = list.filter(p => p.name.toLowerCase().includes(needle));
     }
     list.sort((a, b) =>
-      query?.sort === 'name' ? a.name.localeCompare(b.name) : b.updatedAt.localeCompare(a.updatedAt)
+      query?.sort === 'name'
+        ? a.name.localeCompare(b.name)
+        : b.updatedAt.localeCompare(a.updatedAt)
     );
     return list;
   }
@@ -88,7 +95,10 @@ export class FakeMusicClient {
    * off a write response is reading something that is not there in production
    * either, and the fake is the only place a unit test can catch it.
    */
-  async createProject(req: ProjectCreateRequest, _token: string): Promise<ProjectSaveResult> {
+  async createProject(
+    req: ProjectCreateRequest,
+    _token: string
+  ): Promise<ProjectSaveResult> {
     this.nextId += 1;
     const now = new Date(2026, 0, 1, 0, 0, this.nextId).toISOString();
     const record: ProjectRecord = {
@@ -157,11 +167,15 @@ export class FakeMusicClient {
   }
 
   async generateScore(): Promise<GenerateScoreResult> {
-    throw new Error('FakeMusicClient.generateScore not stubbed - use the provider override');
+    throw new Error(
+      'FakeMusicClient.generateScore not stubbed - use the provider override'
+    );
   }
 
   async regenerateRegion(): Promise<RegenerateRegionResult> {
-    throw new Error('FakeMusicClient.regenerateRegion not stubbed - use the provider override');
+    throw new Error(
+      'FakeMusicClient.regenerateRegion not stubbed - use the provider override'
+    );
   }
 
   async health(): Promise<boolean> {
@@ -204,7 +218,10 @@ export class FakeMusicClient {
     await this.cancelProjectGeneration(job.projectId, _token);
   }
 
-  async getProjectStatus(id: string, _token: string): Promise<ProjectStatusResult> {
+  async getProjectStatus(
+    id: string,
+    _token: string
+  ): Promise<ProjectStatusResult> {
     const record = this.records.get(id);
     if (!record) throw new Error(`Project not found: ${id}`);
     return {
@@ -215,7 +232,10 @@ export class FakeMusicClient {
     };
   }
 
-  async cancelProjectGeneration(projectId: string, _token: string): Promise<void> {
+  async cancelProjectGeneration(
+    projectId: string,
+    _token: string
+  ): Promise<void> {
     const record = this.records.get(projectId);
     if (!record) throw new Error(`Project not found: ${projectId}`);
     this.records.set(projectId, { ...record, status: 'ready' });
@@ -239,7 +259,10 @@ export class FakeGenerationProvider implements MusicGenerationProvider {
   readonly name = 'Fake Provider';
   calls: Array<{ kind: 'generate' | 'regenerate'; request: unknown }> = [];
 
-  async generateScore(request: GenerateScoreRequest, signal?: AbortSignal): Promise<GenerateScoreResult> {
+  async generateScore(
+    request: GenerateScoreRequest,
+    signal?: AbortSignal
+  ): Promise<GenerateScoreResult> {
     this.calls.push({ kind: 'generate', request });
     await Promise.resolve();
     signal?.throwIfAborted();
@@ -249,7 +272,7 @@ export class FakeGenerationProvider implements MusicGenerationProvider {
       tempo: request.tempo,
       timeSignature: request.timeSignature,
       keySignature: request.keySignature,
-      tracks: request.tracks.map((t) => ({
+      tracks: request.tracks.map(t => ({
         name: t.name,
         instrumentName: t.instrumentName,
         midiProgram: t.midiProgram,
@@ -269,40 +292,46 @@ export class FakeGenerationProvider implements MusicGenerationProvider {
     // Fresh ids throughout (deterministic counters), mirroring real AI
     // output — candidate fragments never reuse the source region's ids, so
     // acceptCandidate's selection-remap path is genuinely exercised.
-    const candidates = Array.from({ length: request.candidateCount }, (_, i) => ({
-      id: `fake-cand-${i + 1}`,
-      label: `Candidate ${i + 1}`,
-      fragment: {
-        ...request.selectedFragment,
-        tracks: request.selectedFragment.tracks.map((t, ti) => ({
-          ...t,
-          measures: t.measures.map((m, mi) => {
-            const measureId = `fk-c${i}-t${ti}-m${mi}`;
-            return {
-              ...m,
-              id: measureId,
-              voices: m.voices.map((v, vi) => {
-                const voiceId = `${measureId}-v${vi}`;
-                return {
-                  ...v,
-                  id: voiceId,
-                  events: v.events.map((e, ei) =>
-                    isNoteEvent(e)
-                      ? {
-                          ...e,
-                          id: `${voiceId}-e${ei}`,
-                          voiceId,
-                          velocity: Math.max(1, Math.min(127, e.velocity - 10 + i * 10)),
-                        }
-                      : { ...e, id: `${voiceId}-e${ei}`, voiceId }
-                  ),
-                };
-              }),
-            };
-          }),
-        })),
-      },
-    }));
+    const candidates = Array.from(
+      { length: request.candidateCount },
+      (_, i) => ({
+        id: `fake-cand-${i + 1}`,
+        label: `Candidate ${i + 1}`,
+        fragment: {
+          ...request.selectedFragment,
+          tracks: request.selectedFragment.tracks.map((t, ti) => ({
+            ...t,
+            measures: t.measures.map((m, mi) => {
+              const measureId = `fk-c${i}-t${ti}-m${mi}`;
+              return {
+                ...m,
+                id: measureId,
+                voices: m.voices.map((v, vi) => {
+                  const voiceId = `${measureId}-v${vi}`;
+                  return {
+                    ...v,
+                    id: voiceId,
+                    events: v.events.map((e, ei) =>
+                      isNoteEvent(e)
+                        ? {
+                            ...e,
+                            id: `${voiceId}-e${ei}`,
+                            voiceId,
+                            velocity: Math.max(
+                              1,
+                              Math.min(127, e.velocity - 10 + i * 10)
+                            ),
+                          }
+                        : { ...e, id: `${voiceId}-e${ei}`, voiceId }
+                    ),
+                  };
+                }),
+              };
+            }),
+          })),
+        },
+      })
+    );
     return { candidates, warnings: [] };
   }
 }
@@ -323,10 +352,14 @@ function withArpeggios(score: Score): Score {
   let n = 0;
   return {
     ...score,
-    tracks: score.tracks.map((track) => ({
+    tracks: score.tracks.map(track => ({
       ...track,
-      measures: track.measures.map((measure) => {
-        if (measure.durationTicks !== 4 * quarter || measure.voices.length !== 1) return measure;
+      measures: track.measures.map(measure => {
+        if (
+          measure.durationTicks !== 4 * quarter ||
+          measure.voices.length !== 1
+        )
+          return measure;
         const voice = measure.voices[0];
         return {
           ...measure,
@@ -335,7 +368,11 @@ function withArpeggios(score: Score): Score {
               ...voice,
               events: STEPS.map((p, i) => ({
                 id: `fk-note-${(n += 1)}`,
-                pitch: { step: p.step, accidental: 0 as const, octave: p.octave },
+                pitch: {
+                  step: p.step,
+                  accidental: 0 as const,
+                  octave: p.octave,
+                },
                 startTick: measure.startTick + i * quarter,
                 durationTicks: quarter,
                 velocity: 80,
@@ -367,7 +404,9 @@ export type TestStoreContext = StoreContext & {
   fakeProvider: FakeGenerationProvider;
 };
 
-export function testStoreContext(overrides: Partial<StoreContext> = {}): TestStoreContext {
+export function testStoreContext(
+  overrides: Partial<StoreContext> = {}
+): TestStoreContext {
   const fakeClient = new FakeMusicClient();
   const fakeProvider = new FakeGenerationProvider();
   return {

@@ -6,14 +6,21 @@ import { changeMetadataCommand } from './structure-commands.js';
 
 /** A trivial command for bookkeeping-only tests (limit eviction, redo-clearing), independent of score content. */
 function noopCommand(label: string): ScoreCommand {
-  return { id: label, label, timestamp: 0, kind: 'content', execute: (s) => s, undo: (s) => s };
+  return {
+    id: label,
+    label,
+    timestamp: 0,
+    kind: 'content',
+    execute: s => s,
+    undo: s => s,
+  };
 }
 
 describe('HistoryManager (real commands)', () => {
   it('execute applies the command; undo/redo round-trip through the actual score', () => {
     const history = new HistoryManager();
     const score = createEmptyScore({ title: 'Original' });
-    const cmd = changeMetadataCommand({ title: 'Renamed' });
+    const cmd = changeMetadataCommand({ title: 'Renamed' }, 'Change metadata');
 
     const afterExecute = history.execute(cmd, score);
     expect(afterExecute.metadata.title).toBe('Renamed');
@@ -25,7 +32,13 @@ describe('HistoryManager (real commands)', () => {
     // redo (a fresh execute call) legitimately produces a new timestamp;
     // everything else should match the original execute's result.
     const afterRedo = history.redo(afterUndo as typeof score);
-    expect(afterRedo).toEqual({ ...afterExecute, metadata: { ...afterExecute.metadata, updatedAt: afterRedo?.metadata.updatedAt } });
+    expect(afterRedo).toEqual({
+      ...afterExecute,
+      metadata: {
+        ...afterExecute.metadata,
+        updatedAt: afterRedo?.metadata.updatedAt,
+      },
+    });
   });
 });
 

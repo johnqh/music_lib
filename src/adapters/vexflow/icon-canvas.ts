@@ -5,8 +5,15 @@
  * both replay the shape list, so an icon added to `gm-icon.ts` appears in the
  * gutter and the DOM without either renderer being touched.
  */
-import { ICON_STROKE_WIDTH, ICON_VIEWBOX, parseIconPath } from '../../domain/instruments/icon-art.js';
-import type { IconShape, InstrumentIconArt } from '../../domain/instruments/icon-art.js';
+import {
+  ICON_STROKE_WIDTH,
+  ICON_VIEWBOX,
+  parseIconPath,
+} from '../../domain/instruments/icon-art.js';
+import type {
+  IconShape,
+  InstrumentIconArt,
+} from '../../domain/instruments/icon-art.js';
 
 function appendShape(ctx: CanvasRenderingContext2D, shape: IconShape): void {
   if (shape.kind === 'circle') {
@@ -26,7 +33,14 @@ function appendShape(ctx: CanvasRenderingContext2D, shape: IconShape): void {
         ctx.lineTo(segment.x, segment.y);
         break;
       case 'cubic':
-        ctx.bezierCurveTo(segment.x1, segment.y1, segment.x2, segment.y2, segment.x, segment.y);
+        ctx.bezierCurveTo(
+          segment.x1,
+          segment.y1,
+          segment.x2,
+          segment.y2,
+          segment.x,
+          segment.y
+        );
         break;
       case 'quad':
         ctx.quadraticCurveTo(segment.x1, segment.y1, segment.x, segment.y);
@@ -52,7 +66,7 @@ export function strokeInstrumentIcon(
   art: InstrumentIconArt,
   x: number,
   y: number,
-  size: number,
+  size: number
 ): void {
   const scale = size / ICON_VIEWBOX;
 

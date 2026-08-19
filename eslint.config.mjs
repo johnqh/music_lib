@@ -2,6 +2,8 @@ import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
 import globals from 'globals';
+import prettier from 'eslint-plugin-prettier';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
@@ -21,9 +23,14 @@ export default [
     },
     plugins: {
       '@typescript-eslint': typescript,
+      prettier: prettier,
     },
     rules: {
       ...typescript.configs.recommended.rules,
+      // Formatting is prettier's job; `prettierConfig` switches off the lint
+      // rules that would argue with it. Same wiring as `sudojo_lib`.
+      ...prettierConfig.rules,
+      'prettier/prettier': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',

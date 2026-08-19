@@ -62,7 +62,10 @@ describe('gmMaxPolyphony', () => {
   it('never returns less than one for a real program', () => {
     // A zero would make every instrument unwritable.
     for (const instrument of GM_INSTRUMENTS) {
-      expect(gmMaxPolyphony(instrument.program), instrument.name).toBeGreaterThanOrEqual(1);
+      expect(
+        gmMaxPolyphony(instrument.program),
+        instrument.name
+      ).toBeGreaterThanOrEqual(1);
     }
   });
 });
@@ -70,7 +73,9 @@ describe('gmMaxPolyphony', () => {
 describe('gmSupportsChord', () => {
   it('permits a single note on anything', () => {
     for (const instrument of GM_INSTRUMENTS) {
-      expect(gmSupportsChord(instrument.program, 1), instrument.name).toBe(true);
+      expect(gmSupportsChord(instrument.program, 1), instrument.name).toBe(
+        true
+      );
     }
   });
 

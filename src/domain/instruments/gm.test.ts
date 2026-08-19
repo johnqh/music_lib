@@ -23,7 +23,7 @@ describe('GM_INSTRUMENTS', () => {
   });
 
   it('has no duplicate names', () => {
-    expect(new Set(GM_INSTRUMENTS.map((i) => i.name)).size).toBe(128);
+    expect(new Set(GM_INSTRUMENTS.map(i => i.name)).size).toBe(128);
   });
 
   it('anchors on the well-known General MIDI assignments', () => {
@@ -65,7 +65,9 @@ describe('families', () => {
 
   it('returns each family group in program order', () => {
     const guitars = gmInstrumentsByFamily('guitar');
-    expect(guitars.map((g) => g.program)).toEqual([24, 25, 26, 27, 28, 29, 30, 31]);
+    expect(guitars.map(g => g.program)).toEqual([
+      24, 25, 26, 27, 28, 29, 30, 31,
+    ]);
   });
 });
 

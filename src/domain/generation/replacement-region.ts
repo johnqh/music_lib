@@ -13,7 +13,11 @@
  * UI can say so before anything is replaced, rather than leaving it to be
  * discovered afterwards.
  */
-import type { Score, ScoreRange, ScoreSelection } from '@sudobility/music_types';
+import type {
+  Score,
+  ScoreRange,
+  ScoreSelection,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { findEvent, findMeasure, findTrack } from '../score/queries.js';
 
@@ -59,7 +63,7 @@ function withCounts(
     range,
     measureAligned,
     noteCount: inRange.length,
-    unselectedNoteCount: inRange.filter((id) => !selectedIds.has(id)).length,
+    unselectedNoteCount: inRange.filter(id => !selectedIds.has(id)).length,
   };
 }
 
@@ -80,7 +84,11 @@ export function replacementRegion(
     if (!last) return null;
     return withCounts(
       score,
-      { startTick: 0, endTick: last.startTick + last.durationTicks, trackIds: [track.id] },
+      {
+        startTick: 0,
+        endTick: last.startTick + last.durationTicks,
+        trackIds: [track.id],
+      },
       true,
       new Set()
     );
@@ -88,23 +96,25 @@ export function replacementRegion(
 
   if (scope === 'measures') {
     const measures = selection.measureIds
-      .map((id) => findMeasure(score, id))
-      .filter((m) => m !== null);
+      .map(id => findMeasure(score, id))
+      .filter(m => m !== null);
     if (measures.length === 0) return null;
     // The selected ids already encode the track set: a gutter click selects the
     // active track's measure, cmd-shift-click every track's.
     const trackIds = [
       ...new Set(
         selection.measureIds
-          .map((id) => score.tracks.find((t) => t.measures.some((m) => m.id === id))?.id)
-          .filter((id) => id !== undefined)
+          .map(
+            id => score.tracks.find(t => t.measures.some(m => m.id === id))?.id
+          )
+          .filter(id => id !== undefined)
       ),
     ];
     return withCounts(
       score,
       {
-        startTick: Math.min(...measures.map((m) => m.startTick)),
-        endTick: Math.max(...measures.map((m) => m.startTick + m.durationTicks)),
+        startTick: Math.min(...measures.map(m => m.startTick)),
+        endTick: Math.max(...measures.map(m => m.startTick + m.durationTicks)),
         trackIds,
       },
       true,
@@ -113,18 +123,18 @@ export function replacementRegion(
   }
 
   const notes = selection.eventIds
-    .map((id) => findEvent(score, id))
-    .filter((e) => e !== null && isNoteEvent(e));
+    .map(id => findEvent(score, id))
+    .filter(e => e !== null && isNoteEvent(e));
   if (notes.length === 0) return null;
 
   return withCounts(
     score,
     {
-      startTick: Math.min(...notes.map((n) => n.startTick)),
-      endTick: Math.max(...notes.map((n) => n.startTick + n.durationTicks)),
-      trackIds: [...new Set(notes.map((n) => n.trackId))],
+      startTick: Math.min(...notes.map(n => n.startTick)),
+      endTick: Math.max(...notes.map(n => n.startTick + n.durationTicks)),
+      trackIds: [...new Set(notes.map(n => n.trackId))],
     },
     false,
-    new Set(notes.map((n) => n.id))
+    new Set(notes.map(n => n.id))
   );
 }

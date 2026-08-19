@@ -5,7 +5,7 @@ import { snapshotCommand, transformCommand } from './snapshot.js';
 describe('snapshotCommand', () => {
   it('applies the mutation on execute and produces a deep-equal score on undo', () => {
     const score = createEmptyScore({ title: 'Original' });
-    const cmd = snapshotCommand('Rename', (draft) => {
+    const cmd = snapshotCommand('Rename', draft => {
       draft.metadata.title = 'Renamed';
     });
 
@@ -32,8 +32,12 @@ describe('snapshotCommand', () => {
   });
 
   it('handles structural mutation (reassigning a subtree) with a correct deep-equal round trip', () => {
-    const score = createEmptyScore({ title: 'S', measures: 2, tracks: [{ name: 'Piano' }] });
-    const cmd = snapshotCommand('Drop last measure', (draft) => {
+    const score = createEmptyScore({
+      title: 'S',
+      measures: 2,
+      tracks: [{ name: 'Piano' }],
+    });
+    const cmd = snapshotCommand('Drop last measure', draft => {
       draft.tracks[0].measures = draft.tracks[0].measures.slice(0, 1);
     });
 
@@ -46,7 +50,7 @@ describe('snapshotCommand', () => {
 
   it('recomputes patches on each execute call, so undo after redo still round-trips', () => {
     const score = createEmptyScore({ title: 'Original' });
-    const cmd = snapshotCommand('Rename', (draft) => {
+    const cmd = snapshotCommand('Rename', draft => {
       draft.metadata.title = 'Renamed';
     });
 
@@ -64,8 +68,12 @@ describe('snapshotCommand', () => {
 
 describe('transformCommand', () => {
   it('adopts the pure transform result wholesale and round-trips through undo', () => {
-    const score = createEmptyScore({ title: 'Original', measures: 1, tracks: [{ name: 'Piano' }] });
-    const cmd = transformCommand('Retitle', (s) => ({
+    const score = createEmptyScore({
+      title: 'Original',
+      measures: 1,
+      tracks: [{ name: 'Piano' }],
+    });
+    const cmd = transformCommand('Retitle', s => ({
       ...s,
       metadata: { ...s.metadata, title: 'New title' },
     }));

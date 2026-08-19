@@ -8,11 +8,18 @@
 import { findTrack } from '../../domain/score/queries.js';
 import type { Score } from '@sudobility/music_types';
 import { selectionToRange } from '../../domain/selection/selection.js';
-import type { ScoreRange, ScoreSelection } from '../../domain/selection/types.js';
+import type {
+  ScoreRange,
+  ScoreSelection,
+} from '../../domain/selection/types.js';
 import { extractFragment } from '../../domain/score/fragment.js';
 import { replaceRegionCommand } from '../../domain/commands/region-commands.js';
 import type { ScoreCommand } from '../../domain/commands/types.js';
-import type { RegenerateRegionRequest, RegenerationCandidate, RegenerationConstraints } from '@sudobility/music_types';
+import type {
+  RegenerateRegionRequest,
+  RegenerationCandidate,
+  RegenerationConstraints,
+} from '@sudobility/music_types';
 
 /**
  * One, always. Generation is a background job now: nobody is present to pick
@@ -23,7 +30,12 @@ const CANDIDATE_COUNT = 1;
 const CONTEXT_MEASURE_LIMIT = 2;
 
 export type PrepareRegenerationOptions = {
-  constraints?: Partial<Omit<RegenerationConstraints, 'preserveMeasureCount' | 'preserveTimeSignatures' | 'preserveTempoEvents'>>;
+  constraints?: Partial<
+    Omit<
+      RegenerationConstraints,
+      'preserveMeasureCount' | 'preserveTimeSignatures' | 'preserveTempoEvents'
+    >
+  >;
   /** Same three dials whole-score generation has; the prompt builder emits them identically. */
   style?: string;
   mood?: string;
@@ -44,7 +56,9 @@ export type PrepareRegenerationOptions = {
  * (not a wrapper) so the result is usable anywhere a plain
  * `RegenerateRegionRequest` is expected.
  */
-export type PreparedRegenerationRequest = RegenerateRegionRequest & { expandedToFullMeasures: boolean };
+export type PreparedRegenerationRequest = RegenerateRegionRequest & {
+  expandedToFullMeasures: boolean;
+};
 
 /**
  * The tick extent implied by `sel` *before* any measure-boundary
@@ -52,7 +66,10 @@ export type PreparedRegenerationRequest = RegenerateRegionRequest & { expandedTo
  * (which always returns an already-aligned range) so this controller can
  * detect whether alignment actually changed anything.
  */
-function rawTickExtent(score: Score, sel: ScoreSelection): { start: number; end: number } | null {
+function rawTickExtent(
+  score: Score,
+  sel: ScoreSelection
+): { start: number; end: number } | null {
   let min = Infinity;
   let max = -Infinity;
 
@@ -77,59 +94,95 @@ function rawTickExtent(score: Score, sel: ScoreSelection): { start: number; end:
   return { start: min, end: max };
 }
 
-function findEventTicks(score: Score, eventId: string): { start: number; end: number } | null {
+function findEventTicks(
+  score: Score,
+  eventId: string
+): { start: number; end: number } | null {
   for (const track of score.tracks) {
     for (const measure of track.measures) {
       for (const voice of measure.voices) {
-        const event = voice.events.find((e) => e.id === eventId);
-        if (event) return { start: event.startTick, end: event.startTick + event.durationTicks };
+        const event = voice.events.find(e => e.id === eventId);
+        if (event)
+          return {
+            start: event.startTick,
+            end: event.startTick + event.durationTicks,
+          };
       }
     }
   }
   return null;
 }
 
-function findMeasureTicks(score: Score, measureId: string): { start: number; end: number } | null {
+function findMeasureTicks(
+  score: Score,
+  measureId: string
+): { start: number; end: number } | null {
   for (const track of score.tracks) {
-    const measure = track.measures.find((m) => m.id === measureId);
-    if (measure) return { start: measure.startTick, end: measure.startTick + measure.durationTicks };
+    const measure = track.measures.find(m => m.id === measureId);
+    if (measure)
+      return {
+        start: measure.startTick,
+        end: measure.startTick + measure.durationTicks,
+      };
   }
   return null;
 }
 
 /** Up to `maxMeasures` measures immediately preceding `range.startTick`, unioned across `range`'s tracks (all tracks if `range.trackIds` is empty). */
-function precedingContextRange(score: Score, range: ScoreRange, maxMeasures: number): ScoreRange {
-  const trackIds = range.trackIds.length > 0 ? range.trackIds : score.tracks.map((t) => t.id);
+function precedingContextRange(
+  score: Score,
+  range: ScoreRange,
+  maxMeasures: number
+): ScoreRange {
+  const trackIds =
+    range.trackIds.length > 0 ? range.trackIds : score.tracks.map(t => t.id);
   let earliestStart = range.startTick;
 
   for (const trackId of trackIds) {
     const track = findTrack(score, trackId);
     if (!track) continue;
-    const priorMeasures = track.measures.filter((m) => m.startTick < range.startTick).slice(-maxMeasures);
+    const priorMeasures = track.measures
+      .filter(m => m.startTick < range.startTick)
+      .slice(-maxMeasures);
     if (priorMeasures.length > 0) {
       earliestStart = Math.min(earliestStart, priorMeasures[0].startTick);
     }
   }
 
-  return { startTick: earliestStart, endTick: range.startTick, trackIds: range.trackIds };
+  return {
+    startTick: earliestStart,
+    endTick: range.startTick,
+    trackIds: range.trackIds,
+  };
 }
 
 /** Up to `maxMeasures` measures immediately following `range.endTick`, unioned across `range`'s tracks (all tracks if `range.trackIds` is empty). */
-function followingContextRange(score: Score, range: ScoreRange, maxMeasures: number): ScoreRange {
-  const trackIds = range.trackIds.length > 0 ? range.trackIds : score.tracks.map((t) => t.id);
+function followingContextRange(
+  score: Score,
+  range: ScoreRange,
+  maxMeasures: number
+): ScoreRange {
+  const trackIds =
+    range.trackIds.length > 0 ? range.trackIds : score.tracks.map(t => t.id);
   let latestEnd = range.endTick;
 
   for (const trackId of trackIds) {
     const track = findTrack(score, trackId);
     if (!track) continue;
-    const nextMeasures = track.measures.filter((m) => m.startTick >= range.endTick).slice(0, maxMeasures);
+    const nextMeasures = track.measures
+      .filter(m => m.startTick >= range.endTick)
+      .slice(0, maxMeasures);
     if (nextMeasures.length > 0) {
       const last = nextMeasures[nextMeasures.length - 1];
       latestEnd = Math.max(latestEnd, last.startTick + last.durationTicks);
     }
   }
 
-  return { startTick: range.endTick, endTick: latestEnd, trackIds: range.trackIds };
+  return {
+    startTick: range.endTick,
+    endTick: latestEnd,
+    trackIds: range.trackIds,
+  };
 }
 
 /**
@@ -145,15 +198,19 @@ export function prepareRegenerationRequest(
   score: Score,
   selection: ScoreSelection,
   instruction: string,
-  options: PrepareRegenerationOptions = {},
+  options: PrepareRegenerationOptions = {}
 ): PreparedRegenerationRequest {
   const alignedRange = selectionToRange(score, selection);
   if (!alignedRange) {
-    throw new Error('prepareRegenerationRequest: selection has no resolvable tick range.');
+    throw new Error(
+      'prepareRegenerationRequest: selection has no resolvable tick range.'
+    );
   }
 
   const raw = rawTickExtent(score, selection);
-  const expandedToFullMeasures = raw !== null && (raw.start !== alignedRange.startTick || raw.end !== alignedRange.endTick);
+  const expandedToFullMeasures =
+    raw !== null &&
+    (raw.start !== alignedRange.startTick || raw.end !== alignedRange.endTick);
 
   // `selectionToRange` has already aligned, so the region below is aligned by
   // construction — hence the explicit `true` rather than trusting the default.
@@ -181,16 +238,24 @@ export function prepareRegenerationRequestForRange(
   score: Score,
   range: ScoreRange,
   instruction: string,
-  options: PrepareRegenerationOptions = {},
+  options: PrepareRegenerationOptions = {}
 ): PreparedRegenerationRequest {
   const selectedFragment = extractFragment(score, range);
-  const precedingContext = extractFragment(score, precedingContextRange(score, range, CONTEXT_MEASURE_LIMIT));
-  const followingContext = extractFragment(score, followingContextRange(score, range, CONTEXT_MEASURE_LIMIT));
+  const precedingContext = extractFragment(
+    score,
+    precedingContextRange(score, range, CONTEXT_MEASURE_LIMIT)
+  );
+  const followingContext = extractFragment(
+    score,
+    followingContextRange(score, range, CONTEXT_MEASURE_LIMIT)
+  );
 
   const constraints: RegenerationConstraints = {
     // Omitted, not false, when the region does not sit on barlines: there is
     // no measure count to preserve, and asserting one confuses the prompt.
-    ...((options.measureAligned ?? true) ? { preserveMeasureCount: true as const } : {}),
+    ...((options.measureAligned ?? true)
+      ? { preserveMeasureCount: true as const }
+      : {}),
     preserveTimeSignatures: true,
     preserveTempoEvents: true,
     ...options.constraints,
@@ -220,11 +285,18 @@ export function prepareRegenerationRequestForRange(
  * (a candidate produced against a since-edited score could reference a
  * deleted track).
  */
-export function applyCandidate(score: Score, candidate: RegenerationCandidate): ScoreCommand {
+export function applyCandidate(
+  score: Score,
+  candidate: RegenerationCandidate
+): ScoreCommand {
   const { range } = candidate.fragment;
-  const missingTrackId = range.trackIds.find((id) => findTrack(score, id) === null);
+  const missingTrackId = range.trackIds.find(
+    id => findTrack(score, id) === null
+  );
   if (missingTrackId) {
-    throw new Error(`applyCandidate: candidate references track "${missingTrackId}", which is not present in the score.`);
+    throw new Error(
+      `applyCandidate: candidate references track "${missingTrackId}", which is not present in the score.`
+    );
   }
   return replaceRegionCommand(range, candidate.fragment);
 }

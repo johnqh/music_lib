@@ -13,19 +13,20 @@
  * server's copy stands so a poller can tell this client's own writes from
  * somebody else's.
  */
-import type { StateCreator } from "zustand";
-import { createEmptyScore } from "../../domain/score/factory.js";
+import { libraryMessage } from '../../services/messages.js';
+import type { StateCreator } from 'zustand';
+import { createEmptyScore } from '../../domain/score/factory.js';
 import type {
   ProjectSaveResult,
   ProjectUpdateRequest,
   Score,
-} from "@sudobility/music_types";
-import { createAutosaver } from "../../services/persistence/autosave.js";
-import type { Autosaver } from "../../services/persistence/autosave.js";
-import { requireToken, type StoreContext } from "../context.js";
-import type { AppState } from "../useAppStore.js";
+} from '@sudobility/music_types';
+import { createAutosaver } from '../../services/persistence/autosave.js';
+import type { Autosaver } from '../../services/persistence/autosave.js';
+import { requireToken, type StoreContext } from '../context.js';
+import type { AppState } from '../useAppStore.js';
 
-export type SaveState = "saved" | "saving" | "unsaved";
+export type SaveState = 'saved' | 'saving' | 'unsaved';
 
 export type NewProjectInput = { name: string; score?: Score };
 
@@ -68,8 +69,8 @@ export type ProjectSlice = {
 };
 
 export function createProjectSlice(
-  context: StoreContext,
-): StateCreator<AppState, [["zustand/immer", never]], [], ProjectSlice> {
+  context: StoreContext
+): StateCreator<AppState, [['zustand/immer', never]], [], ProjectSlice> {
   return (set, get) => {
     let currentProject: ProjectSaveResult | null = null;
     let autosaver: Autosaver | null = null;
@@ -89,8 +90,8 @@ export function createProjectSlice(
         const project = currentProject;
         const score = get().score;
         if (!project || !score) return;
-        set((state) => {
-          state.saveState = "saving";
+        set(state => {
+          state.saveState = 'saving';
         });
         try {
           const token = await requireToken(context);
@@ -113,25 +114,24 @@ export function createProjectSlice(
           const saved = await context.client.updateProject(
             project.id,
             body,
-            token,
+            token
           );
           currentProject = saved;
           lastSavedScore = score;
-          set((state) => {
-            state.saveState = "saved";
+          set(state => {
+            state.saveState = 'saved';
             state.dirty = false;
             // Recorded so a status poll can recognise this write as ours.
             state.serverUpdatedAt = saved.updatedAt;
           });
         } catch (err) {
           // Keep the dirty flag so the next change/flush retries; surface via toast.
-          set((state) => {
-            state.saveState = "unsaved";
+          set(state => {
+            state.saveState = 'unsaved';
           });
           get().pushToast({
-            severity: "error",
-            message:
-              "Saving to the server failed. Your changes are kept locally — retry with Save.",
+            severity: 'error',
+            message: libraryMessage('saveFailed'),
           });
           throw err;
         }
@@ -166,17 +166,17 @@ export function createProjectSlice(
      */
     async function adopt(
       project: ProjectSaveResult,
-      score: Score,
+      score: Score
     ): Promise<void> {
       await flushOutgoing();
       currentProject = project;
       lastSavedScore = score;
       attachAutosaver();
-      set((state) => {
+      set(state => {
         state.projectId = project.id;
         state.projectName = project.name;
         state.dirty = false;
-        state.saveState = "saved";
+        state.saveState = 'saved';
         state.serverUpdatedAt = project.updatedAt;
         // Reset, not merge: a track id means nothing outside the project it
         // came from, so carrying the outgoing project's hidden set into the
@@ -189,17 +189,17 @@ export function createProjectSlice(
 
     return {
       projectId: null,
-      projectName: "",
+      projectName: '',
       dirty: false,
-      saveState: "saved",
+      saveState: 'saved',
       serverUpdatedAt: null,
 
-      newProject: async (input) => {
+      newProject: async input => {
         const score = input.score ?? createEmptyScore({ title: input.name });
         const token = await requireToken(context);
         const created = await context.client.createProject(
           { name: input.name, score },
-          token,
+          token
         );
         // The score we just sent, not one shipped back to us: the server
         // stored exactly this, and re-downloading it would double the cost of
@@ -207,7 +207,7 @@ export function createProjectSlice(
         await adopt(created, score);
       },
 
-      openProject: async (id) => {
+      openProject: async id => {
         const token = await requireToken(context);
         const record = await context.client.getProject(id, token);
         await adopt(record, record.score);
@@ -219,23 +219,23 @@ export function createProjectSlice(
       },
 
       markDirty: () => {
-        set((state) => {
+        set(state => {
           state.dirty = true;
-          state.saveState = "unsaved";
+          state.saveState = 'unsaved';
         });
         autosaver?.notifyChange();
       },
 
-      noteServerVersion: (updatedAt) => {
-        set((state) => {
+      noteServerVersion: updatedAt => {
+        set(state => {
           state.serverUpdatedAt = updatedAt;
         });
       },
 
-      renameProject: (name) => {
+      renameProject: name => {
         if (!currentProject) return;
         currentProject = { ...currentProject, name };
-        set((state) => {
+        set(state => {
           state.projectName = name;
         });
         get().markDirty();

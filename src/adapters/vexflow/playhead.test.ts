@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { computeLayout } from './layout.js';
 import { caretPositionForTick, tickForPoint } from './playhead.js';
 import type { RenderTheme } from './types.js';
-import { stressScore, testRenderTheme, twinkleScore } from '../../test/fixtures.js';
+import {
+  stressScore,
+  testRenderTheme,
+  twinkleScore,
+} from '../../test/fixtures.js';
 
 const theme: RenderTheme = testRenderTheme();
 
 function plan(score = twinkleScore()) {
-  return computeLayout(score, { zoom: 1, layoutMode: 'page', width: 900, theme });
+  return computeLayout(score, {
+    zoom: 1,
+    layoutMode: 'page',
+    width: 900,
+    theme,
+  });
 }
 
 describe('caretPositionForTick', () => {
@@ -44,8 +53,8 @@ describe('caretPositionForTick', () => {
     const p = plan(score);
     for (const measure of score.tracks[0].measures) {
       const caret = caretPositionForTick(p, score, measure.startTick)!;
-      const system = p.systems.find((s) =>
-        s.measureIndices.includes(score.tracks[0].measures.indexOf(measure)),
+      const system = p.systems.find(s =>
+        s.measureIndices.includes(score.tracks[0].measures.indexOf(measure))
       )!;
       expect(caret.yTop).toBe(system.yTop);
     }
@@ -59,7 +68,12 @@ describe('tickForPoint', () => {
     const m1 = score.tracks[0].measures[1];
     const targetTick = m1.startTick + Math.round(m1.durationTicks / 4);
     const caret = caretPositionForTick(p, score, targetTick)!;
-    const tick = tickForPoint(p, score, caret.x, (caret.yTop + caret.yBottom) / 2);
+    const tick = tickForPoint(
+      p,
+      score,
+      caret.x,
+      (caret.yTop + caret.yBottom) / 2
+    );
     expect(tick).toBe(targetTick);
   });
 

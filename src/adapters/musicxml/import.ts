@@ -46,7 +46,10 @@ const DEFAULT_TEMPO_BPM = 120;
 const VALID_STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
 /** MusicXML `<articulations>` child element name -> domain `Articulation`. */
-const ARTICULATION_FROM_ELEMENT: Record<string, NonNullable<NoteEvent['articulation']>> = {
+const ARTICULATION_FROM_ELEMENT: Record<
+  string,
+  NonNullable<NoteEvent['articulation']>
+> = {
   staccato: 'staccato',
   accent: 'accent',
   tenuto: 'tenuto',
@@ -63,7 +66,7 @@ function directChild(el: XmlElement, tagName: string): XmlElement | null {
 }
 
 function directChildren(el: XmlElement, tagName: string): XmlElement[] {
-  return Array.from(el.children).filter((c) => c.tagName === tagName);
+  return Array.from(el.children).filter(c => c.tagName === tagName);
 }
 
 function textOf(el: XmlElement | null, tagName: string): string | null {
@@ -80,10 +83,51 @@ function numberOf(el: XmlElement | null, tagName: string): number | null {
 
 // ---- Warnings -----------------------------------------------------------------
 
+/**
+ * Every warning this importer can raise, in the caller's words.
+ *
+ * Functions where the warning names something it found — a clef, a tag, a
+ * tempo — so the host can put the value where its own grammar wants it rather
+ * than having English word order baked in here.
+ */
+export type MusicXmlWarnings = {
+  unsupportedClef: (sign: string, line: number) => string;
+  unsupportedKeyMode: (mode: string) => string;
+  unsupportedTime: (measureNumber: number) => string;
+  complexTimeSignature: string;
+  clefChangeDropped: (clef: string, measureNumber: number) => string;
+  unsupportedPitchStep: (step: string) => string;
+  alterRounded: (alter: string, clamped: number) => string;
+  graceNotes: string;
+  lyrics: string;
+  tuplets: string;
+  ornaments: string;
+  unsupportedNotation: (tag: string) => string;
+  unsupportedNoteElement: (tag: string) => string;
+  unsupportedArticulation: (tag: string) => string;
+  multipleArticulations: string;
+  unpitched: string;
+  noPitchOrRest: string;
+  noDuration: string;
+  nonPositiveDuration: string;
+  noteTrimmed: string;
+  unsupportedMeasureElement: (tag: string) => string;
+  noTempo: (defaultBpm: number) => string;
+  tempoClamped: (
+    bpm: number,
+    min: number,
+    max: number,
+    clamped: number
+  ) => string;
+};
+
 /** Collects warnings, deduplicated by exact message text (so a repeated unsupported element only appears once). */
 class WarningCollector {
   private readonly seen = new Set<string>();
   readonly messages: string[] = [];
+
+  /** The caller's warning text; already threaded to every site that warns. */
+  constructor(readonly text: MusicXmlWarnings) {}
 
   add(message: string): void {
     if (this.seen.has(message)) return;
@@ -94,7 +138,12 @@ class WarningCollector {
 
 // ---- Part-list ------------------------------------------------------------------
 
-type ScorePartMeta = { name: string; instrumentName: string; midiProgram: number; midiChannel: number };
+type ScorePartMeta = {
+  name: string;
+  instrumentName: string;
+  midiProgram: number;
+  midiChannel: number;
+};
 
 function parsePartList(root: XmlElement): Map<string, ScorePartMeta> {
   const result = new Map<string, ScorePartMeta>();
@@ -106,10 +155,13 @@ function parsePartList(root: XmlElement): Map<string, ScorePartMeta> {
     if (!id) continue;
     const name = textOf(scorePart, 'part-name') ?? '';
     const instrumentEl = directChild(scorePart, 'score-instrument');
-    const instrumentName = (instrumentEl ? textOf(instrumentEl, 'instrument-name') : null) ?? '';
+    const instrumentName =
+      (instrumentEl ? textOf(instrumentEl, 'instrument-name') : null) ?? '';
     const midiInstrument = directChild(scorePart, 'midi-instrument');
-    const midiChannel = (midiInstrument ? numberOf(midiInstrument, 'midi-channel') : null) ?? 1;
-    const midiProgram = (midiInstrument ? numberOf(midiInstrument, 'midi-program') : null) ?? 1;
+    const midiChannel =
+      (midiInstrument ? numberOf(midiInstrument, 'midi-channel') : null) ?? 1;
+    const midiProgram =
+      (midiInstrument ? numberOf(midiInstrument, 'midi-program') : null) ?? 1;
     result.set(id, { name, instrumentName, midiProgram, midiChannel });
   }
   return result;
@@ -136,10 +188,10 @@ function parseClef(clefEl: XmlElement, warnings: WarningCollector): Clef {
   if (sign === 'percussion' || sign === 'none') return 'percussion';
 
   const line = numberOf(clefEl, 'line') ?? defaultLineForSign(sign);
-  const match = CLEF_FROM_SIGN.find((c) => c.sign === sign && c.line === line);
+  const match = CLEF_FROM_SIGN.find(c => c.sign === sign && c.line === line);
   if (match) return match.clef;
 
-  warnings.add(`Unsupported clef (sign "${sign}", line ${line}) approximated as treble.`);
+  warnings.add(warnings.text.unsupportedClef(sign, line));
   return 'treble';
 }
 
@@ -159,7 +211,12 @@ type MeasureState = {
   clef: Clef | null;
 };
 
-function applyAttributes(attrs: XmlElement, state: MeasureState, measureNumber: number, warnings: WarningCollector): void {
+function applyAttributes(
+  attrs: XmlElement,
+  state: MeasureState,
+  measureNumber: number,
+  warnings: WarningCollector
+): void {
   const divisions = numberOf(attrs, 'divisions');
   if (divisions !== null && divisions > 0) {
     state.ratio = SCORE_PPQ / divisions;
@@ -173,7 +230,7 @@ function applyAttributes(attrs: XmlElement, state: MeasureState, measureNumber: 
     if (modeText === 'major' || modeText === 'minor') {
       mode = modeText;
     } else if (modeText !== null) {
-      warnings.add(`Unsupported key mode "${modeText}" was defaulted to major.`);
+      warnings.add(warnings.text.unsupportedKeyMode(modeText));
     }
     state.keySignature = { fifths: Math.round(fifths), mode };
   }
@@ -184,15 +241,20 @@ function applyAttributes(attrs: XmlElement, state: MeasureState, measureNumber: 
     const beatTypeEls = directChildren(timeEl, 'beat-type');
     if (beatsEls.length === 0 || beatTypeEls.length === 0) {
       warnings.add(
-        `A senza-misura or otherwise unsupported <time> element at measure ${measureNumber} did not change the time signature; the previous value was kept (4/4 if none had been set yet).`,
+        `A senza-misura or otherwise unsupported <time> element at measure ${measureNumber} did not change the time signature; the previous value was kept (4/4 if none had been set yet).`
       );
     } else {
       if (beatsEls.length > 1) {
-        warnings.add('A complex (multi-pair) time signature was simplified to its first beats/beat-type pair.');
+        warnings.add(warnings.text.complexTimeSignature);
       }
       const numerator = Number(beatsEls[0].textContent);
       const denominator = Number(beatTypeEls[0].textContent);
-      if (Number.isFinite(numerator) && Number.isFinite(denominator) && numerator > 0 && denominator > 0) {
+      if (
+        Number.isFinite(numerator) &&
+        Number.isFinite(denominator) &&
+        numerator > 0 &&
+        denominator > 0
+      ) {
         state.timeSignature = { numerator, denominator };
       }
     }
@@ -208,7 +270,7 @@ function applyAttributes(attrs: XmlElement, state: MeasureState, measureNumber: 
       state.clef = clef;
     } else if (clef !== state.clef) {
       warnings.add(
-        `A clef change to ${clef} at measure ${measureNumber} was dropped (the domain model supports only one clef per track); the track kept its first clef, ${state.clef}.`,
+        `A clef change to ${clef} at measure ${measureNumber} was dropped (the domain model supports only one clef per track); the track kept its first clef, ${state.clef}.`
       );
     }
   }
@@ -227,19 +289,23 @@ type RawEvent = {
 };
 
 function parseStep(text: string | null, warnings: WarningCollector): PitchStep {
-  if (text && (VALID_STEPS as string[]).includes(text)) return text as PitchStep;
-  warnings.add(`Unsupported pitch step "${text}" was defaulted to C.`);
+  if (text && (VALID_STEPS as string[]).includes(text))
+    return text as PitchStep;
+  warnings.add(warnings.text.unsupportedPitchStep(text ?? ''));
   return 'C';
 }
 
-function parseAlter(alterText: string | null, warnings: WarningCollector): Accidental {
+function parseAlter(
+  alterText: string | null,
+  warnings: WarningCollector
+): Accidental {
   if (alterText === null) return 0;
   const raw = Number(alterText);
   if (!Number.isFinite(raw)) return 0;
   const rounded = Math.round(raw);
   const clamped = Math.max(-2, Math.min(2, rounded)) as Accidental;
   if (clamped !== raw) {
-    warnings.add(`A microtonal or out-of-range <alter> value (${alterText}) was rounded/clamped to ${clamped}.`);
+    warnings.add(warnings.text.alterRounded(alterText, clamped));
   }
   return clamped;
 }
@@ -275,35 +341,47 @@ const SILENTLY_IGNORED_NOTE_CHILDREN = new Set([
   'listen',
 ]);
 
-function warnUnsupportedNoteChildren(noteEl: XmlElement, warnings: WarningCollector): void {
+function warnUnsupportedNoteChildren(
+  noteEl: XmlElement,
+  warnings: WarningCollector
+): void {
   for (const child of Array.from(noteEl.children)) {
     if (SILENTLY_IGNORED_NOTE_CHILDREN.has(child.tagName)) continue;
     if (child.tagName === 'grace') {
-      warnings.add('Grace notes are not supported and were skipped.');
+      warnings.add(warnings.text.graceNotes);
     } else if (child.tagName === 'lyric') {
-      warnings.add('Lyrics are not supported and were ignored.');
+      warnings.add(warnings.text.lyrics);
     } else if (child.tagName === 'time-modification') {
-      warnings.add(
-        'Tuplets (<time-modification>) are imported using their written duration in ticks, which may not reproduce the exact tuplet grouping.',
-      );
+      warnings.add(warnings.text.tuplets);
     } else if (child.tagName === 'notations') {
       for (const notationChild of Array.from(child.children)) {
-        if (notationChild.tagName === 'articulations' || notationChild.tagName === 'tied') continue;
+        if (
+          notationChild.tagName === 'articulations' ||
+          notationChild.tagName === 'tied'
+        )
+          continue;
         if (notationChild.tagName === 'ornaments') {
-          warnings.add('Ornaments are not supported and were ignored.');
+          warnings.add(warnings.text.ornaments);
         } else {
-          warnings.add(`Unsupported notation <${notationChild.tagName}> was ignored.`);
+          warnings.add(
+            warnings.text.unsupportedNotation(notationChild.tagName)
+          );
         }
       }
     } else {
-      warnings.add(`Unsupported note element <${child.tagName}> was ignored.`);
+      warnings.add(warnings.text.unsupportedNoteElement(child.tagName));
     }
   }
 }
 
-function parseArticulation(noteEl: XmlElement, warnings: WarningCollector): NoteEvent['articulation'] | undefined {
+function parseArticulation(
+  noteEl: XmlElement,
+  warnings: WarningCollector
+): NoteEvent['articulation'] | undefined {
   const notations = directChild(noteEl, 'notations');
-  const articulationsEl = notations ? directChild(notations, 'articulations') : null;
+  const articulationsEl = notations
+    ? directChild(notations, 'articulations')
+    : null;
   if (!articulationsEl) return undefined;
 
   let found: NoteEvent['articulation'] | undefined;
@@ -317,11 +395,11 @@ function parseArticulation(noteEl: XmlElement, warnings: WarningCollector): Note
         extraCount += 1;
       }
     } else {
-      warnings.add(`Unsupported articulation <${child.tagName}> was ignored.`);
+      warnings.add(warnings.text.unsupportedArticulation(child.tagName));
     }
   }
   if (extraCount > 0) {
-    warnings.add('A note had more than one articulation; only the first was kept (the domain model supports one per note).');
+    warnings.add(warnings.text.multipleArticulations);
   }
   return found;
 }
@@ -345,7 +423,13 @@ type ParsedNote = {
  * `cursor` is the shared measure-relative tick cursor *before* this note;
  * `measureEndTick` bounds a `<rest measure="yes">` shorthand.
  */
-function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, ratio: number, warnings: WarningCollector): ParsedNote {
+function parseNote(
+  noteEl: XmlElement,
+  cursor: number,
+  measureEndTick: number,
+  ratio: number,
+  warnings: WarningCollector
+): ParsedNote {
   warnUnsupportedNoteChildren(noteEl, warnings);
 
   if (directChild(noteEl, 'grace')) {
@@ -359,9 +443,7 @@ function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, r
 
   if (!hasUsablePitchOrRest) {
     warnings.add(
-      unpitchedEl
-        ? 'Unpitched (percussion) notes are not supported and were skipped.'
-        : 'A note with neither <pitch> nor <rest> was skipped.',
+      unpitchedEl ? warnings.text.unpitched : warnings.text.noPitchOrRest
     );
   }
 
@@ -369,7 +451,9 @@ function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, r
   let durationTicks: number;
   if (durationEl) {
     const xmlDuration = Number(durationEl.textContent);
-    durationTicks = Number.isFinite(xmlDuration) ? Math.round(xmlDuration * ratio) : 1;
+    durationTicks = Number.isFinite(xmlDuration)
+      ? Math.round(xmlDuration * ratio)
+      : 1;
   } else if (restEl && restEl.getAttribute('measure') === 'yes') {
     durationTicks = Math.max(1, measureEndTick - cursor);
   } else {
@@ -378,12 +462,12 @@ function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, r
     if (typeText && isMusicXmlNoteType(typeText)) {
       durationTicks = ticksForNotatedType(typeText, dots, SCORE_PPQ);
     } else {
-      warnings.add('A note with no <duration> and no usable <type> was skipped.');
+      warnings.add(warnings.text.noDuration);
       return { raw: null, cursorAdvance: 0 };
     }
   }
   if (durationTicks <= 0) {
-    warnings.add('A note with non-positive duration was clamped to 1 tick.');
+    warnings.add(warnings.text.nonPositiveDuration);
     durationTicks = 1;
   }
 
@@ -397,10 +481,18 @@ function parseNote(noteEl: XmlElement, cursor: number, measureEndTick: number, r
   const voiceNumber = textOf(noteEl, 'voice') ?? '1';
   const articulation = restEl ? undefined : parseArticulation(noteEl, warnings);
   const tieEls = directChildren(noteEl, 'tie');
-  const tieStart = tieEls.some((t) => t.getAttribute('type') === 'start');
-  const tieStop = tieEls.some((t) => t.getAttribute('type') === 'stop');
+  const tieStart = tieEls.some(t => t.getAttribute('type') === 'start');
+  const tieStop = tieEls.some(t => t.getAttribute('type') === 'stop');
 
-  const raw: RawEvent = { startTick: cursor, durationTicks, pitch, voiceNumber, articulation, tieStart, tieStop };
+  const raw: RawEvent = {
+    startTick: cursor,
+    durationTicks,
+    pitch,
+    voiceNumber,
+    articulation,
+    tieStart,
+    tieStop,
+  };
   return { raw, cursorAdvance: durationTicks };
 }
 
@@ -423,7 +515,7 @@ function fillAndClip(
   measureStartTick: number,
   trackId: string,
   voiceId: string,
-  warnings: WarningCollector,
+  warnings: WarningCollector
 ): MusicalEvent[] {
   const sorted = [...raw].sort((a, b) => a.startTick - b.startTick);
   const events: MusicalEvent[] = [];
@@ -432,11 +524,17 @@ function fillAndClip(
   for (const item of sorted) {
     const start = Math.max(0, item.startTick);
     if (start > cursor) {
-      events.push({ id: createId(), startTick: measureStartTick + cursor, durationTicks: start - cursor, voiceId, trackId });
+      events.push({
+        id: createId(),
+        startTick: measureStartTick + cursor,
+        durationTicks: start - cursor,
+        voiceId,
+        trackId,
+      });
     }
     let duration = item.durationTicks;
     if (start + duration > durationTicks) {
-      warnings.add('A note/rest extending past the end of its measure was trimmed to fit.');
+      warnings.add(warnings.text.noteTrimmed);
       duration = Math.max(1, durationTicks - start);
     }
     if (item.pitch) {
@@ -454,14 +552,26 @@ function fillAndClip(
       };
       events.push(note);
     } else {
-      const rest: RestEvent = { id: createId(), startTick: measureStartTick + start, durationTicks: duration, voiceId, trackId };
+      const rest: RestEvent = {
+        id: createId(),
+        startTick: measureStartTick + start,
+        durationTicks: duration,
+        voiceId,
+        trackId,
+      };
       events.push(rest);
     }
     cursor = Math.max(cursor, start + duration);
   }
 
   if (cursor < durationTicks) {
-    events.push({ id: createId(), startTick: measureStartTick + cursor, durationTicks: durationTicks - cursor, voiceId, trackId });
+    events.push({
+      id: createId(),
+      startTick: measureStartTick + cursor,
+      durationTicks: durationTicks - cursor,
+      voiceId,
+      trackId,
+    });
   }
 
   return events;
@@ -477,7 +587,7 @@ function parseMeasure(
   startTick: number,
   state: MeasureState,
   trackId: string,
-  warnings: WarningCollector,
+  warnings: WarningCollector
 ): ParsedMeasure {
   const buckets = new Map<string, RawEvent[]>();
   const tempoEvents: TempoEvent[] = [];
@@ -485,7 +595,16 @@ function parseMeasure(
   /** The position `<chord/>`-flagged notes attach to: the cursor value at the start of the current (non-chord) note. */
   let lastNoteStart = 0;
 
-  const knownTags = new Set(['attributes', 'note', 'backup', 'forward', 'direction', 'print', 'barline', 'sound']);
+  const knownTags = new Set([
+    'attributes',
+    'note',
+    'backup',
+    'forward',
+    'direction',
+    'print',
+    'barline',
+    'sound',
+  ]);
 
   for (const child of Array.from(measureEl.children)) {
     switch (child.tagName) {
@@ -500,8 +619,14 @@ function parseMeasure(
           const bpmRaw = Number(tempoAttr);
           if (Number.isFinite(bpmRaw)) {
             const offsetEl = directChild(child, 'offset');
-            const offsetTicks = offsetEl ? Math.round(Number(offsetEl.textContent) * state.ratio) : 0;
-            tempoEvents.push({ id: createId(), tick: startTick + Math.max(0, offsetTicks), bpm: bpmRaw });
+            const offsetTicks = offsetEl
+              ? Math.round(Number(offsetEl.textContent) * state.ratio)
+              : 0;
+            tempoEvents.push({
+              id: createId(),
+              tick: startTick + Math.max(0, offsetTicks),
+              bpm: bpmRaw,
+            });
           }
         }
         break;
@@ -514,8 +639,17 @@ function parseMeasure(
         // cursor currently sits (and becomes the new root for any chord
         // notes that follow it).
         const eventStart = isChord ? lastNoteStart : cursor;
-        const measureEndTick = measureDurationTicks(state.timeSignature, SCORE_PPQ);
-        const { raw, cursorAdvance } = parseNote(child, eventStart, measureEndTick, state.ratio, warnings);
+        const measureEndTick = measureDurationTicks(
+          state.timeSignature,
+          SCORE_PPQ
+        );
+        const { raw, cursorAdvance } = parseNote(
+          child,
+          eventStart,
+          measureEndTick,
+          state.ratio,
+          warnings
+        );
         if (raw) {
           const bucket = buckets.get(raw.voiceNumber) ?? [];
           buckets.set(raw.voiceNumber, bucket);
@@ -547,7 +681,7 @@ function parseMeasure(
 
       default:
         if (!knownTags.has(child.tagName)) {
-          warnings.add(`Unsupported measure element <${child.tagName}> was ignored.`);
+          warnings.add(warnings.text.unsupportedMeasureElement(child.tagName));
         }
         break;
     }
@@ -559,7 +693,9 @@ function parseMeasure(
   // in effect when this measure started.
   const durationTicks = measureDurationTicks(state.timeSignature, SCORE_PPQ);
 
-  const voiceNumbers = [...buckets.keys()].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+  const voiceNumbers = [...buckets.keys()].sort(
+    (a, b) => Number(a) - Number(b) || a.localeCompare(b)
+  );
   const effectiveVoiceNumbers = voiceNumbers.length > 0 ? voiceNumbers : ['1'];
 
   const voices = effectiveVoiceNumbers.map((voiceNumber, i) => {
@@ -568,7 +704,14 @@ function parseMeasure(
     return {
       id: voiceId,
       name: `Voice ${i + 1}`,
-      events: fillAndClip(raw, durationTicks, startTick, trackId, voiceId, warnings),
+      events: fillAndClip(
+        raw,
+        durationTicks,
+        startTick,
+        trackId,
+        voiceId,
+        warnings
+      ),
     };
   });
 
@@ -587,7 +730,12 @@ function parseMeasure(
 
 // ---- Part / track assembly ------------------------------------------------------
 
-function parsePart(partEl: XmlElement, meta: ScorePartMeta | undefined, partIndex: number, warnings: WarningCollector): { track: Track; tempoEvents: TempoEvent[] } {
+function parsePart(
+  partEl: XmlElement,
+  meta: ScorePartMeta | undefined,
+  partIndex: number,
+  warnings: WarningCollector
+): { track: Track; tempoEvents: TempoEvent[] } {
   const trackId = createId();
   const state: MeasureState = {
     ratio: 1,
@@ -601,7 +749,14 @@ function parsePart(partEl: XmlElement, meta: ScorePartMeta | undefined, partInde
   let startTick = 0;
 
   directChildren(partEl, 'measure').forEach((measureEl, index) => {
-    const { measure, tempoEvents: measureTempos } = parseMeasure(measureEl, index, startTick, state, trackId, warnings);
+    const { measure, tempoEvents: measureTempos } = parseMeasure(
+      measureEl,
+      index,
+      startTick,
+      state,
+      trackId,
+      warnings
+    );
     measures.push(measure);
     tempoEvents.push(...measureTempos);
     startTick += measure.durationTicks;
@@ -609,10 +764,20 @@ function parsePart(partEl: XmlElement, meta: ScorePartMeta | undefined, partInde
 
   const track: Track = {
     id: trackId,
-    name: meta?.name && meta.name.length > 0 ? meta.name : `Part ${partIndex + 1}`,
-    instrumentName: meta?.instrumentName && meta.instrumentName.length > 0 ? meta.instrumentName : 'Instrument',
-    midiProgram: Math.min(127, Math.max(0, Math.round((meta?.midiProgram ?? 1) - 1))),
-    midiChannel: Math.min(15, Math.max(0, Math.round((meta?.midiChannel ?? 1) - 1))),
+    name:
+      meta?.name && meta.name.length > 0 ? meta.name : `Part ${partIndex + 1}`,
+    instrumentName:
+      meta?.instrumentName && meta.instrumentName.length > 0
+        ? meta.instrumentName
+        : 'Instrument',
+    midiProgram: Math.min(
+      127,
+      Math.max(0, Math.round((meta?.midiProgram ?? 1) - 1))
+    ),
+    midiChannel: Math.min(
+      15,
+      Math.max(0, Math.round((meta?.midiChannel ?? 1) - 1))
+    ),
     clef: state.clef ?? 'treble',
     volume: 1,
     pan: 0,
@@ -626,23 +791,29 @@ function parsePart(partEl: XmlElement, meta: ScorePartMeta | undefined, partInde
 
 // ---- Tempo map ------------------------------------------------------------------
 
-function buildTempoMap(rawTempos: TempoEvent[], warnings: WarningCollector): TempoEvent[] {
+function buildTempoMap(
+  rawTempos: TempoEvent[],
+  warnings: WarningCollector
+): TempoEvent[] {
   const byTick = new Map<number, number>();
   for (const t of rawTempos) {
     if (!byTick.has(t.tick)) byTick.set(t.tick, t.bpm);
   }
 
   const sorted = [...byTick.entries()].sort((a, b) => a[0] - b[0]);
-  const withOrigin = sorted.length > 0 && sorted[0][0] === 0 ? sorted : [[0, DEFAULT_TEMPO_BPM] as [number, number], ...sorted];
+  const withOrigin =
+    sorted.length > 0 && sorted[0][0] === 0
+      ? sorted
+      : [[0, DEFAULT_TEMPO_BPM] as [number, number], ...sorted];
 
   if (sorted.length === 0) {
-    warnings.add(`No tempo direction was found; defaulted to ${DEFAULT_TEMPO_BPM} bpm.`);
+    warnings.add(warnings.text.noTempo(DEFAULT_TEMPO_BPM));
   }
 
   return withOrigin.map(([tick, bpm]) => {
     const clamped = Math.min(MAX_BPM, Math.max(MIN_BPM, bpm));
     if (clamped !== bpm) {
-      warnings.add(`A tempo of ${bpm} bpm was outside the supported ${MIN_BPM}-${MAX_BPM} bpm range and was clamped to ${clamped}.`);
+      warnings.add(warnings.text.tempoClamped(bpm, MIN_BPM, MAX_BPM, clamped));
     }
     return { id: createId(), tick, bpm: clamped };
   });
@@ -664,27 +835,36 @@ export type MusicXmlImportResult = { score: Score; warnings: string[] };
  * that isn't parseable XML, or whose root isn't `<score-partwise>`
  * (score-timewise documents aren't supported).
  */
-export function importMusicXml(xmlText: string, parser: XmlParser): MusicXmlImportResult {
+export function importMusicXml(
+  xmlText: string,
+  parser: XmlParser,
+  warningText: MusicXmlWarnings
+): MusicXmlImportResult {
   // Well-formedness is the parser's business -- it throws XmlParseError -- so
   // all that is left here is rejecting a document that parses but is not a
   // score-partwise.
   const root = parser.parse(xmlText);
   if (root.tagName !== 'score-partwise') {
     throw new Error(
-      `importMusicXml: expected a <score-partwise> root element, found <${root.tagName}>. score-timewise documents are not supported.`,
+      `importMusicXml: expected a <score-partwise> root element, found <${root.tagName}>. score-timewise documents are not supported.`
     );
   }
 
-  const warnings = new WarningCollector();
+  const warnings = new WarningCollector(warningText);
   const partMeta = parsePartList(root);
 
   const tracks: Track[] = [];
   const allTempoEvents: TempoEvent[] = [];
   Array.from(root.children)
-    .filter((el) => el.tagName === 'part')
+    .filter(el => el.tagName === 'part')
     .forEach((partEl, index) => {
       const id = partEl.getAttribute('id');
-      const { track, tempoEvents } = parsePart(partEl, id ? partMeta.get(id) : undefined, index, warnings);
+      const { track, tempoEvents } = parsePart(
+        partEl,
+        id ? partMeta.get(id) : undefined,
+        index,
+        warnings
+      );
       tracks.push(track);
       allTempoEvents.push(...tempoEvents);
     });
@@ -694,7 +874,9 @@ export function importMusicXml(xmlText: string, parser: XmlParser): MusicXmlImpo
   const workTitle = textOf(directChild(root, 'work'), 'work-title');
   const identification = directChild(root, 'identification');
   const composer = identification
-    ? Array.from(directChildren(identification, 'creator')).find((c) => c.getAttribute('type') === 'composer')?.textContent?.trim()
+    ? Array.from(directChildren(identification, 'creator'))
+        .find(c => c.getAttribute('type') === 'composer')
+        ?.textContent?.trim()
     : undefined;
 
   const now = new Date().toISOString();
@@ -703,7 +885,8 @@ export function importMusicXml(xmlText: string, parser: XmlParser): MusicXmlImpo
     version: 1,
     ppq: SCORE_PPQ,
     metadata: {
-      title: workTitle && workTitle.length > 0 ? workTitle : 'Imported MusicXML',
+      title:
+        workTitle && workTitle.length > 0 ? workTitle : 'Imported MusicXML',
       ...(composer ? { composer } : {}),
       createdAt: now,
       updatedAt: now,

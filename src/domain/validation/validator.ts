@@ -4,7 +4,13 @@
  * (empty when the score is fully consistent). Pure and read-only: never
  * mutates its input.
  */
-import type { Measure, Pitch, Score, Track, Voice } from '@sudobility/music_types';
+import type {
+  Measure,
+  Pitch,
+  Score,
+  Track,
+  Voice,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../pitch/pitch.js';
 import { voiceChannel } from '../score/ties.js';
@@ -37,14 +43,16 @@ const MAX_BPM = 400;
 const MAX_SIMULTANEOUS_NOTES = 10;
 
 function samePitch(a: Pitch, b: Pitch): boolean {
-  return a.step === b.step && a.accidental === b.accidental && a.octave === b.octave;
+  return (
+    a.step === b.step && a.accidental === b.accidental && a.octave === b.octave
+  );
 }
 
 function issue(
   severity: ValidationIssue['severity'],
   code: string,
   message: string,
-  extra?: Partial<Pick<ValidationIssue, 'objectId' | 'trackId' | 'measureId'>>,
+  extra?: Partial<Pick<ValidationIssue, 'objectId' | 'trackId' | 'measureId'>>
 ): ValidationIssue {
   return { severity, code, message, ...extra };
 }
@@ -65,8 +73,8 @@ function checkTempoMap(score: Score): ValidationIssue[] {
           `Tempo event ${event.id} has a negative tick (${event.tick}).`,
           {
             objectId: event.id,
-          },
-        ),
+          }
+        )
       );
     }
     if (event.tick < lastTick) {
@@ -75,8 +83,8 @@ function checkTempoMap(score: Score): ValidationIssue[] {
           'error',
           ISSUE_CODES.TEMPO_MAP_UNSORTED,
           `Tempo map is not sorted by tick at event ${event.id} (tick ${event.tick} follows tick ${lastTick}).`,
-          { objectId: event.id },
-        ),
+          { objectId: event.id }
+        )
       );
     }
     lastTick = event.tick;
@@ -87,8 +95,8 @@ function checkTempoMap(score: Score): ValidationIssue[] {
           'error',
           ISSUE_CODES.INVALID_TEMPO_BPM,
           `Tempo event ${event.id} has bpm ${event.bpm}, expected ${MIN_BPM}-${MAX_BPM}.`,
-          { objectId: event.id },
-        ),
+          { objectId: event.id }
+        )
       );
     }
   }
@@ -126,8 +134,8 @@ function checkUniqueIds(score: Score): ValidationIssue[] {
           `Id "${id}" is used ${count} times; ids must be unique.`,
           {
             objectId: id,
-          },
-        ),
+          }
+        )
       );
     }
   }
@@ -140,24 +148,30 @@ function checkUniqueIds(score: Score): ValidationIssue[] {
 function checkTrack(track: Track): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  if (track.midiProgram < MIN_MIDI_PROGRAM || track.midiProgram > MAX_MIDI_PROGRAM) {
+  if (
+    track.midiProgram < MIN_MIDI_PROGRAM ||
+    track.midiProgram > MAX_MIDI_PROGRAM
+  ) {
     issues.push(
       issue(
         'error',
         ISSUE_CODES.INVALID_MIDI_PROGRAM,
         `Track "${track.name}" has midiProgram ${track.midiProgram}, expected ${MIN_MIDI_PROGRAM}-${MAX_MIDI_PROGRAM}.`,
-        { objectId: track.id, trackId: track.id },
-      ),
+        { objectId: track.id, trackId: track.id }
+      )
     );
   }
-  if (track.midiChannel < MIN_MIDI_CHANNEL || track.midiChannel > MAX_MIDI_CHANNEL) {
+  if (
+    track.midiChannel < MIN_MIDI_CHANNEL ||
+    track.midiChannel > MAX_MIDI_CHANNEL
+  ) {
     issues.push(
       issue(
         'error',
         ISSUE_CODES.INVALID_MIDI_CHANNEL,
         `Track "${track.name}" has midiChannel ${track.midiChannel}, expected ${MIN_MIDI_CHANNEL}-${MAX_MIDI_CHANNEL}.`,
-        { objectId: track.id, trackId: track.id },
-      ),
+        { objectId: track.id, trackId: track.id }
+      )
     );
   }
 
@@ -183,8 +197,8 @@ function checkMeasureOrdering(track: Track): ValidationIssue[] {
           'error',
           ISSUE_CODES.MEASURE_ORDERING,
           `Measure at position ${position} of track "${track.name}" has index ${measure.index}, expected ${position}.`,
-          { objectId: measure.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: measure.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
     if (measure.startTick !== expectedStart) {
@@ -193,8 +207,8 @@ function checkMeasureOrdering(track: Track): ValidationIssue[] {
           'error',
           ISSUE_CODES.MEASURE_ORDERING,
           `Measure ${measure.index} of track "${track.name}" starts at tick ${measure.startTick}, expected ${expectedStart} (immediately after the previous measure).`,
-          { objectId: measure.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: measure.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
     expectedStart = measure.startTick + measure.durationTicks;
@@ -235,7 +249,7 @@ function checkTooManySimultaneousNotes(track: Track): ValidationIssue[] {
         'warning',
         ISSUE_CODES.TOO_MANY_SIMULTANEOUS_NOTES,
         `Track "${track.name}" has up to ${max} notes sounding simultaneously (readability threshold ${MAX_SIMULTANEOUS_NOTES}).`,
-        { trackId: track.id },
+        { trackId: track.id }
       ),
     ];
   }
@@ -245,18 +259,24 @@ function checkTooManySimultaneousNotes(track: Track): ValidationIssue[] {
 // ---- Measure-level ------------------------------------------------------------
 
 /** Time signature (numerator >= 1, denominator in {1,2,4,8,16,32}) and key signature (fifths -7..7). */
-function checkMeasureSignatures(track: Track, measure: Measure): ValidationIssue[] {
+function checkMeasureSignatures(
+  track: Track,
+  measure: Measure
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const { timeSignature, keySignature } = measure;
 
-  if (timeSignature.numerator < 1 || !VALID_TIME_SIG_DENOMINATORS.has(timeSignature.denominator)) {
+  if (
+    timeSignature.numerator < 1 ||
+    !VALID_TIME_SIG_DENOMINATORS.has(timeSignature.denominator)
+  ) {
     issues.push(
       issue(
         'error',
         ISSUE_CODES.INVALID_TIME_SIGNATURE,
         `Measure ${measure.index} has invalid time signature ${timeSignature.numerator}/${timeSignature.denominator} (numerator must be >= 1; denominator must be one of 1, 2, 4, 8, 16, 32).`,
-        { objectId: measure.id, trackId: track.id, measureId: measure.id },
-      ),
+        { objectId: measure.id, trackId: track.id, measureId: measure.id }
+      )
     );
   }
   if (keySignature.fifths < MIN_FIFTHS || keySignature.fifths > MAX_FIFTHS) {
@@ -265,8 +285,8 @@ function checkMeasureSignatures(track: Track, measure: Measure): ValidationIssue
         'error',
         ISSUE_CODES.INVALID_KEY_SIGNATURE,
         `Measure ${measure.index} has key signature fifths=${keySignature.fifths}, expected ${MIN_FIFTHS}..${MAX_FIFTHS}.`,
-        { objectId: measure.id, trackId: track.id, measureId: measure.id },
-      ),
+        { objectId: measure.id, trackId: track.id, measureId: measure.id }
+      )
     );
   }
 
@@ -277,7 +297,7 @@ function checkMeasureSignatures(track: Track, measure: Measure): ValidationIssue
 function checkOverlappingSamePitch(
   track: Track,
   measure: Measure,
-  voice: Voice,
+  voice: Voice
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const notes = voice.events.filter(isNoteEvent);
@@ -287,15 +307,16 @@ function checkOverlappingSamePitch(
       const a = notes[i];
       const b = notes[j];
       const overlaps =
-        a.startTick < b.startTick + b.durationTicks && b.startTick < a.startTick + a.durationTicks;
+        a.startTick < b.startTick + b.durationTicks &&
+        b.startTick < a.startTick + a.durationTicks;
       if (overlaps && samePitch(a.pitch, b.pitch)) {
         issues.push(
           issue(
             'error',
             ISSUE_CODES.OVERLAPPING_SAME_PITCH,
             `Notes ${a.id} and ${b.id} in voice "${voice.name}" (measure ${measure.index}) overlap in time at the same pitch.`,
-            { objectId: b.id, trackId: track.id, measureId: measure.id },
-          ),
+            { objectId: b.id, trackId: track.id, measureId: measure.id }
+          )
         );
       }
     }
@@ -315,9 +336,11 @@ function checkOverlappingSamePitch(
  * counts once, at its own span, matching how the notated timeline actually
  * reads.
  */
-function coveredTicks(events: Array<{ startTick: number; durationTicks: number }>): number {
+function coveredTicks(
+  events: Array<{ startTick: number; durationTicks: number }>
+): number {
   const spans = events
-    .map((e) => ({ start: e.startTick, end: e.startTick + e.durationTicks }))
+    .map(e => ({ start: e.startTick, end: e.startTick + e.durationTicks }))
     .sort((a, b) => a.start - b.start);
 
   let total = 0;
@@ -342,7 +365,11 @@ function coveredTicks(events: Array<{ startTick: number; durationTicks: number }
  * voice's covered-ticks total vs. the measure's duration (error if it
  * covers more, warning if less).
  */
-function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIssue[] {
+function checkVoice(
+  track: Track,
+  measure: Measure,
+  voice: Voice
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   for (const event of voice.events) {
@@ -352,8 +379,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
           'error',
           ISSUE_CODES.NON_POSITIVE_DURATION,
           `Event ${event.id} has non-positive durationTicks (${event.durationTicks}).`,
-          { objectId: event.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: event.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
     if (event.startTick < 0) {
@@ -366,21 +393,22 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
             objectId: event.id,
             trackId: track.id,
             measureId: measure.id,
-          },
-        ),
+          }
+        )
       );
     }
     if (
       event.startTick < measure.startTick ||
-      event.startTick + event.durationTicks > measure.startTick + measure.durationTicks
+      event.startTick + event.durationTicks >
+        measure.startTick + measure.durationTicks
     ) {
       issues.push(
         issue(
           'error',
           ISSUE_CODES.EVENT_OUTSIDE_MEASURE,
           `Event ${event.id} [${event.startTick}, ${event.startTick + event.durationTicks}) falls outside measure ${measure.index}'s span [${measure.startTick}, ${measure.startTick + measure.durationTicks}).`,
-          { objectId: event.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: event.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
     if (event.trackId !== track.id) {
@@ -389,8 +417,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
           'error',
           ISSUE_CODES.INVALID_TRACK_REFERENCE,
           `Event ${event.id} references trackId "${event.trackId}" but lives on track "${track.id}".`,
-          { objectId: event.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: event.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
     if (event.voiceId !== voice.id) {
@@ -399,8 +427,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
           'error',
           ISSUE_CODES.INVALID_VOICE_REFERENCE,
           `Event ${event.id} references voiceId "${event.voiceId}" but lives in voice "${voice.id}".`,
-          { objectId: event.id, trackId: track.id, measureId: measure.id },
-        ),
+          { objectId: event.id, trackId: track.id, measureId: measure.id }
+        )
       );
     }
 
@@ -411,8 +439,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
             'error',
             ISSUE_CODES.INVALID_VELOCITY,
             `Note ${event.id} has velocity ${event.velocity}, expected ${MIN_VELOCITY}-${MAX_VELOCITY}.`,
-            { objectId: event.id, trackId: track.id, measureId: measure.id },
-          ),
+            { objectId: event.id, trackId: track.id, measureId: measure.id }
+          )
         );
       }
       const midi = pitchToMidi(event.pitch);
@@ -422,8 +450,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
             'error',
             ISSUE_CODES.INVALID_PITCH_RANGE,
             `Note ${event.id} has pitch MIDI ${midi}, expected ${MIN_MIDI}-${MAX_MIDI}.`,
-            { objectId: event.id, trackId: track.id, measureId: measure.id },
-          ),
+            { objectId: event.id, trackId: track.id, measureId: measure.id }
+          )
         );
       }
     }
@@ -436,8 +464,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
         'error',
         ISSUE_CODES.MEASURE_OVERFULL,
         `Voice "${voice.name}" in measure ${measure.index} covers ${covered} ticks, exceeding the measure's ${measure.durationTicks}.`,
-        { objectId: voice.id, trackId: track.id, measureId: measure.id },
-      ),
+        { objectId: voice.id, trackId: track.id, measureId: measure.id }
+      )
     );
   } else if (covered < measure.durationTicks) {
     issues.push(
@@ -445,8 +473,8 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
         'warning',
         ISSUE_CODES.MEASURE_UNDERFULL,
         `Voice "${voice.name}" in measure ${measure.index} covers ${covered} ticks, short of the measure's ${measure.durationTicks}.`,
-        { objectId: voice.id, trackId: track.id, measureId: measure.id },
-      ),
+        { objectId: voice.id, trackId: track.id, measureId: measure.id }
+      )
     );
   }
 
@@ -459,7 +487,10 @@ function checkVoice(track: Track, measure: Measure, voice: Voice): ValidationIss
 
 /** The most voices any single measure of `track` has (so every voice-ordinal channel is covered). */
 function trackVoiceCount(track: Track): number {
-  return track.measures.reduce((max, measure) => Math.max(max, measure.voices.length), 0);
+  return track.measures.reduce(
+    (max, measure) => Math.max(max, measure.voices.length),
+    0
+  );
 }
 
 /**
@@ -474,11 +505,16 @@ function findIndexedPartner(
   tick: number,
   excludeId: string,
   pitch: Pitch,
-  requireFlag: (candidate: ChannelCandidate) => boolean,
+  requireFlag: (candidate: ChannelCandidate) => boolean
 ): ChannelCandidate | undefined {
   const candidates = index.get(tick);
   if (!candidates) return undefined;
-  return candidates.find((c) => c.event.id !== excludeId && requireFlag(c) && samePitch(c.event.pitch, pitch));
+  return candidates.find(
+    c =>
+      c.event.id !== excludeId &&
+      requireFlag(c) &&
+      samePitch(c.event.pitch, pitch)
+  );
 }
 
 /**
@@ -536,8 +572,12 @@ function checkTieTargets(score: Score): ValidationIssue[] {
 
         if (event.tieStart) {
           const targetTick = event.startTick + event.durationTicks;
-          const partner = findIndexedPartner(byStartTick, targetTick, event.id, event.pitch, (c) =>
-            Boolean(c.event.tieStop),
+          const partner = findIndexedPartner(
+            byStartTick,
+            targetTick,
+            event.id,
+            event.pitch,
+            c => Boolean(c.event.tieStop)
           );
           if (!partner) {
             issues.push(
@@ -545,14 +585,18 @@ function checkTieTargets(score: Score): ValidationIssue[] {
                 'warning',
                 ISSUE_CODES.MISSING_TIE_TARGET,
                 `Note ${event.id} has tieStart but no matching tieStop note at the next position with the same pitch.`,
-                { objectId: event.id, trackId: track.id, measureId },
-              ),
+                { objectId: event.id, trackId: track.id, measureId }
+              )
             );
           }
         }
         if (event.tieStop) {
-          const partner = findIndexedPartner(byEndTick, event.startTick, event.id, event.pitch, (c) =>
-            Boolean(c.event.tieStart),
+          const partner = findIndexedPartner(
+            byEndTick,
+            event.startTick,
+            event.id,
+            event.pitch,
+            c => Boolean(c.event.tieStart)
           );
           if (!partner) {
             issues.push(
@@ -560,8 +604,8 @@ function checkTieTargets(score: Score): ValidationIssue[] {
                 'warning',
                 ISSUE_CODES.MISSING_TIE_TARGET,
                 `Note ${event.id} has tieStop but no matching tieStart note ending at its start tick with the same pitch.`,
-                { objectId: event.id, trackId: track.id, measureId },
-              ),
+                { objectId: event.id, trackId: track.id, measureId }
+              )
             );
           }
         }

@@ -6,7 +6,17 @@
  */
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { joinTiedNotes } from '../../domain/score/ties.js';
-import type { MidiCodec, MidiFile, MidiTimeSignatureEvent, MidiTrackData, MusicalEvent, NoteEvent, Score, TimeSignature, Track } from '@sudobility/music_types';
+import type {
+  MidiCodec,
+  MidiFile,
+  MidiTimeSignatureEvent,
+  MidiTrackData,
+  MusicalEvent,
+  NoteEvent,
+  Score,
+  TimeSignature,
+  Track,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 
 /** General MIDI channel 10 (0-indexed 9), the standard percussion channel. */
@@ -26,7 +36,10 @@ function panToNormalized(pan: number): number {
 
 /** The most voices any single measure of `track` has (so every "voice channel" ordinal position is covered). */
 function maxVoiceCount(track: Track): number {
-  return track.measures.reduce((max, measure) => Math.max(max, measure.voices.length), 0);
+  return track.measures.reduce(
+    (max, measure) => Math.max(max, measure.voices.length),
+    0
+  );
 }
 
 /**
@@ -64,14 +77,22 @@ function collectTrackNotes(track: Track): NoteEvent[] {
  */
 function collectTimeSignatureChanges(score: Score): MidiTimeSignatureEvent[] {
   const track = score.tracks[0];
-  if (!track || track.measures.length === 0) return [{ ticks: 0, timeSignature: [4, 4] }];
+  if (!track || track.measures.length === 0)
+    return [{ ticks: 0, timeSignature: [4, 4] }];
 
   const changes: MidiTimeSignatureEvent[] = [];
   let last: TimeSignature | null = null;
   for (const measure of track.measures) {
     const ts = measure.timeSignature;
-    if (!last || last.numerator !== ts.numerator || last.denominator !== ts.denominator) {
-      changes.push({ ticks: measure.startTick, timeSignature: [ts.numerator, ts.denominator] });
+    if (
+      !last ||
+      last.numerator !== ts.numerator ||
+      last.denominator !== ts.denominator
+    ) {
+      changes.push({
+        ticks: measure.startTick,
+        timeSignature: [ts.numerator, ts.denominator],
+      });
       last = ts;
     }
   }
@@ -92,30 +113,33 @@ export function exportMidi(score: Score, codec: MidiCodec): Uint8Array {
     header: {
       name: score.metadata.title,
       ppq: score.ppq,
-      tempos: score.tempoMap.map((t) => ({ ticks: t.tick, bpm: t.bpm })),
+      tempos: score.tempoMap.map(t => ({ ticks: t.tick, bpm: t.bpm })),
       timeSignatures: collectTimeSignatureChanges(score),
     },
-    tracks: score.tracks.map(
-      (track): MidiTrackData => ({
-        name: track.name,
-        channel: track.clef === 'percussion' ? PERCUSSION_CHANNEL : track.midiChannel,
-        instrument: { number: track.midiProgram },
-        notes: collectTrackNotes(track).map((note) => ({
-          midi: pitchToMidi(note.pitch),
-          ticks: note.startTick,
-          durationTicks: Math.max(1, note.durationTicks),
-          velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
-        })),
-        controlChanges: {
-          [CC_VOLUME]: [{ number: CC_VOLUME, ticks: 0, value: clamp01(track.volume) }],
-          [CC_PAN]: [{ number: CC_PAN, ticks: 0, value: panToNormalized(track.pan) }],
-        },
-        // Durations are outputs of decoding, not inputs to encoding; the codec
-        // ignores them here.
-        durationTicks: 0,
-        durationSeconds: 0,
-      }),
-    ),
+    tracks: score.tracks.map((track): MidiTrackData => ({
+      name: track.name,
+      channel:
+        track.clef === 'percussion' ? PERCUSSION_CHANNEL : track.midiChannel,
+      instrument: { number: track.midiProgram },
+      notes: collectTrackNotes(track).map(note => ({
+        midi: pitchToMidi(note.pitch),
+        ticks: note.startTick,
+        durationTicks: Math.max(1, note.durationTicks),
+        velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
+      })),
+      controlChanges: {
+        [CC_VOLUME]: [
+          { number: CC_VOLUME, ticks: 0, value: clamp01(track.volume) },
+        ],
+        [CC_PAN]: [
+          { number: CC_PAN, ticks: 0, value: panToNormalized(track.pan) },
+        ],
+      },
+      // Durations are outputs of decoding, not inputs to encoding; the codec
+      // ignores them here.
+      durationTicks: 0,
+      durationSeconds: 0,
+    })),
     duration: 0,
   };
 

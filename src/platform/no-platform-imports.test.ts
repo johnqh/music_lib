@@ -6,7 +6,8 @@ function sourceFiles(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) sourceFiles(path, found);
-    else if (path.endsWith('.ts') && !path.endsWith('.test.ts')) found.push(path);
+    else if (path.endsWith('.ts') && !path.endsWith('.test.ts'))
+      found.push(path);
   }
   return found;
 }
@@ -18,7 +19,9 @@ function sourceFiles(dir: string, found: string[] = []): string[] {
  * keeps `https://` from eating the rest of its line.
  */
 function stripComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
 /**
@@ -50,17 +53,23 @@ const WEB_ONLY_GLOBALS = [
  */
 describe('music_lib is platform-free', () => {
   it('imports no audio or MIDI library anywhere', () => {
-    const offenders = sourceFiles('src').filter((path) =>
-      /from '(tone|@tonejs\/midi)'/.test(readFileSync(path, 'utf8')),
+    const offenders = sourceFiles('src').filter(path =>
+      /from '(tone|@tonejs\/midi)'/.test(readFileSync(path, 'utf8'))
     );
     expect(offenders).toEqual([]);
   });
 
   it('declares no platform runtime dependency', () => {
-    const { dependencies } = JSON.parse(readFileSync('package.json', 'utf8')) as {
+    const { dependencies } = JSON.parse(
+      readFileSync('package.json', 'utf8')
+    ) as {
       dependencies: Record<string, string>;
     };
-    expect(Object.keys(dependencies).sort()).toEqual(['immer', 'vexflow', 'zod']);
+    expect(Object.keys(dependencies).sort()).toEqual([
+      'immer',
+      'vexflow',
+      'zod',
+    ]);
   });
 
   it('touches no web-only global outside the canvas renderer, which is handed its context', () => {
@@ -68,10 +77,13 @@ describe('music_lib is platform-free', () => {
     // 2D context the caller supplies, and was verified to run with no DOM at
     // all. It names DOM *types*, which is not the same as reaching for a
     // global.
-    const pattern = new RegExp(`(^|[^.\\w])(globalThis\\.)?(${WEB_ONLY_GLOBALS.join('|')})\\s*[.([]`, 'm');
+    const pattern = new RegExp(
+      `(^|[^.\\w])(globalThis\\.)?(${WEB_ONLY_GLOBALS.join('|')})\\s*[.([]`,
+      'm'
+    );
     const offenders = sourceFiles('src')
-      .filter((path) => !path.includes('adapters/vexflow'))
-      .filter((path) => pattern.test(stripComments(readFileSync(path, 'utf8'))));
+      .filter(path => !path.includes('adapters/vexflow'))
+      .filter(path => pattern.test(stripComments(readFileSync(path, 'utf8'))));
     expect(offenders).toEqual([]);
   });
 
@@ -87,9 +99,9 @@ describe('music_lib is platform-free', () => {
    * `platform/workers.ts` for worker construction, `setErrorLogging` for
    * dev-only console output.
    */
-  it('emits no `import.meta`, which React Native\'s bundler cannot parse', () => {
-    const offenders = sourceFiles('src').filter((path) =>
-      /import\s*\.\s*meta/.test(stripComments(readFileSync(path, 'utf8'))),
+  it("emits no `import.meta`, which React Native's bundler cannot parse", () => {
+    const offenders = sourceFiles('src').filter(path =>
+      /import\s*\.\s*meta/.test(stripComments(readFileSync(path, 'utf8')))
     );
     expect(offenders).toEqual([]);
   });
@@ -112,8 +124,8 @@ describe('music_lib is platform-free', () => {
    * test and every non-web platform already took — is now the only path.
    */
   it('names no `Worker`: threading is a platform capability, and this package has none', () => {
-    const offenders = sourceFiles('src').filter((path) =>
-      /\b(Worker|postMessage)\b/.test(stripComments(readFileSync(path, 'utf8'))),
+    const offenders = sourceFiles('src').filter(path =>
+      /\b(Worker|postMessage)\b/.test(stripComments(readFileSync(path, 'utf8')))
     );
     expect(offenders).toEqual([]);
   });

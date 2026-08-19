@@ -17,7 +17,7 @@ export type MusicPlatform = { playback: PlaybackEngine };
 export class PlatformNotInitializedError extends Error {
   constructor() {
     super(
-      'The music platform has not been initialized. Call initializeMusicPlatform() from your app composition root before using playback.',
+      'The music platform has not been initialized. Call initializeMusicPlatform() from your app composition root before using playback.'
     );
     this.name = 'PlatformNotInitializedError';
   }

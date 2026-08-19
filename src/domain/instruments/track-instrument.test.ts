@@ -39,8 +39,12 @@ describe('track-aware instrument lookups', () => {
   it('never transposes a drum track', () => {
     // Kits 24 and 25 are guitar programs, written an octave above where they
     // sound — so a TR-808 part was drawn an octave off its own drums.
-    expect(trackWrittenTransposition(track({ clef: 'percussion', midiProgram: 25 }))).toBe(0);
-    expect(trackWrittenTransposition(track({ clef: 'treble', midiProgram: 25 }))).toBe(12);
+    expect(
+      trackWrittenTransposition(track({ clef: 'percussion', midiProgram: 25 }))
+    ).toBe(0);
+    expect(
+      trackWrittenTransposition(track({ clef: 'treble', midiProgram: 25 }))
+    ).toBe(12);
   });
 
   it('leaves a pitched track answering exactly as before', () => {
@@ -52,12 +56,15 @@ describe('track-aware instrument lookups', () => {
 });
 
 describe('scoreWithResolvedKits', () => {
-  const scoreOf = (tracks: Track[]) => ({ id: 's', tracks }) as unknown as Score;
+  const scoreOf = (tracks: Track[]) =>
+    ({ id: 's', tracks }) as unknown as Score;
 
   it('corrects a percussion track sitting at an address no kit is at', () => {
     // A MIDI file may set any program on channel 10, and nothing before this
     // treated that number as a kit at all.
-    const before = scoreOf([track({ clef: 'percussion', midiProgram: 45, instrumentName: 'Drums' })]);
+    const before = scoreOf([
+      track({ clef: 'percussion', midiProgram: 45, instrumentName: 'Drums' }),
+    ]);
     const after = scoreWithResolvedKits(before);
     expect(after.tracks[0].midiProgram).toBe(40);
     expect(after.tracks[0].instrumentName).toBe('Brush Kit');
@@ -77,8 +84,12 @@ describe('scoreWithResolvedKits', () => {
   it('leaves a valid kit track completely alone, name included', () => {
     // `instrumentName` describes a sound that is not changing, and the user may
     // have set it. Only a track being corrected has it rewritten.
-    const before = scoreOf([track({ clef: 'percussion', midiProgram: 25, instrumentName: 'Beatbox' })]);
-    expect(scoreWithResolvedKits(before).tracks[0].instrumentName).toBe('Beatbox');
+    const before = scoreOf([
+      track({ clef: 'percussion', midiProgram: 25, instrumentName: 'Beatbox' }),
+    ]);
+    expect(scoreWithResolvedKits(before).tracks[0].instrumentName).toBe(
+      'Beatbox'
+    );
   });
 
   it('does not touch a pitched track at a non-kit program', () => {

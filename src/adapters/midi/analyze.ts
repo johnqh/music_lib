@@ -3,7 +3,11 @@
  * per-track name/channel/program/note-count/duration, tempo events, and
  * time signatures, without importing anything into the score model yet.
  */
-import type { MidiCodec, MidiFile, MidiTrackData } from '@sudobility/music_types';
+import type {
+  MidiCodec,
+  MidiFile,
+  MidiTrackData,
+} from '@sudobility/music_types';
 import { detectGrid, type DetectedGrid } from './grid-detection.js';
 
 export type MidiTrackSummary = {
@@ -22,7 +26,11 @@ export type MidiTrackSummary = {
 
 export type MidiTempoEventSummary = { tick: number; bpm: number };
 
-export type MidiTimeSignatureSummary = { tick: number; numerator: number; denominator: number };
+export type MidiTimeSignatureSummary = {
+  tick: number;
+  numerator: number;
+  denominator: number;
+};
 
 export type MidiSummary = {
   ppq: number;
@@ -42,7 +50,9 @@ export type MidiSummary = {
 function summarizeTrack(track: MidiTrackData, index: number): MidiTrackSummary {
   const noteCount = track.notes.length;
   const averageMidi =
-    noteCount > 0 ? track.notes.reduce((sum, note) => sum + note.midi, 0) / noteCount : null;
+    noteCount > 0
+      ? track.notes.reduce((sum, note) => sum + note.midi, 0) / noteCount
+      : null;
 
   return {
     index,
@@ -76,10 +86,12 @@ export function analyzeMidiFile(midi: MidiFile): MidiSummary {
   // drum hit's length is an artefact of how it was recorded, not something
   // anyone plays or reads, and those arbitrary note-offs fit no grid at all,
   // so counting them would send every file with drums to the fallback.
-  const positions = midi.tracks.flatMap((track) =>
-    track.notes.flatMap((note) =>
-      track.channel === 9 ? [note.ticks] : [note.ticks, note.ticks + note.durationTicks],
-    ),
+  const positions = midi.tracks.flatMap(track =>
+    track.notes.flatMap(note =>
+      track.channel === 9
+        ? [note.ticks]
+        : [note.ticks, note.ticks + note.durationTicks]
+    )
   );
 
   return {
@@ -87,8 +99,8 @@ export function analyzeMidiFile(midi: MidiFile): MidiSummary {
     detectedGrid: detectGrid(positions, midi.header.ppq),
     durationSeconds: midi.duration,
     tracks: midi.tracks.map(summarizeTrack),
-    tempoEvents: midi.header.tempos.map((t) => ({ tick: t.ticks, bpm: t.bpm })),
-    timeSignatures: midi.header.timeSignatures.map((t) => ({
+    tempoEvents: midi.header.tempos.map(t => ({ tick: t.ticks, bpm: t.bpm })),
+    timeSignatures: midi.header.timeSignatures.map(t => ({
       tick: t.ticks,
       numerator: t.timeSignature[0],
       denominator: t.timeSignature[1],

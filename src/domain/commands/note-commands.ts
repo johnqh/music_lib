@@ -12,7 +12,16 @@
  */
 import { createId } from '../score/ids.js';
 import { splitNoteAcrossMeasures } from '../score/ties.js';
-import type { Accidental, Articulation, DurationName, NoteEvent, Pitch, Score, Track, UUID } from '@sudobility/music_types';
+import type {
+  Accidental,
+  Articulation,
+  DurationName,
+  NoteEvent,
+  Pitch,
+  Score,
+  Track,
+  UUID,
+} from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { ticksFor } from '../time/ticks.js';
 import { transposePitch } from '../pitch/transpose.js';
@@ -35,15 +44,21 @@ import {
  * equality at every level (voice/measure/track) that has no matching
  * event, so a call that matches nothing is a true no-op (see `withTracks`).
  */
-function mapNotes(score: Score, eventIds: readonly UUID[], updater: (note: NoteEvent) => NoteEvent): Score {
+function mapNotes(
+  score: Score,
+  eventIds: readonly UUID[],
+  updater: (note: NoteEvent) => NoteEvent
+): Score {
   const idSet = new Set(eventIds);
-  const tracks = score.tracks.map((track) => {
-    const measures = track.measures.map((measure) => {
-      const voices = measure.voices.map((voice) => {
-        if (!voice.events.some((e) => idSet.has(e.id))) return voice;
+  const tracks = score.tracks.map(track => {
+    const measures = track.measures.map(measure => {
+      const voices = measure.voices.map(voice => {
+        if (!voice.events.some(e => idSet.has(e.id))) return voice;
         return {
           ...voice,
-          events: voice.events.map((event) => (isNoteEvent(event) && idSet.has(event.id) ? updater(event) : event)),
+          events: voice.events.map(event =>
+            isNoteEvent(event) && idSet.has(event.id) ? updater(event) : event
+          ),
         };
       });
       const measureChanged = voices.some((v, i) => v !== measure.voices[i]);
@@ -69,9 +84,9 @@ export type AddNoteParams = {
 };
 
 function addNote(score: Score, params: AddNoteParams): Score {
-  const tracks = score.tracks.map((track) => {
+  const tracks = score.tracks.map(track => {
     if (track.id !== params.trackId) return track;
-    const measureExists = track.measures.some((m) => m.id === params.measureId);
+    const measureExists = track.measures.some(m => m.id === params.measureId);
     if (!measureExists) return track;
 
     const note: NoteEvent = {
@@ -108,8 +123,11 @@ function addNote(score: Score, params: AddNoteParams): Score {
  * then use `moveNotesCommand`/`resizeNotesCommand` if it needs to extend
  * further, or split it into per-measure `addNoteCommand` calls themselves.
  */
-export function addNoteCommand(params: AddNoteParams): ScoreCommand {
-  return transformCommand('Add note', (score) => addNote(score, params));
+export function addNoteCommand(
+  params: AddNoteParams,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => addNote(score, params));
 }
 
 // ---- deleteEventsCommand -------------------------------------------------------
@@ -120,7 +138,7 @@ function deleteEvents(score: Score, eventIds: readonly UUID[]): Score {
   // note *before* actually removing the notes (clearDanglingTies needs
   // the deleted notes still in place to find their chain partners).
   const detied = clearDanglingTies(score, idSet);
-  const tracks = detied.tracks.map((track) => removeNotesFromTrack(track, idSet));
+  const tracks = detied.tracks.map(track => removeNotesFromTrack(track, idSet));
   return withTracks(detied, tracks);
 }
 
@@ -129,40 +147,63 @@ function deleteEvents(score: Score, eventIds: readonly UUID[]): Score {
  * measure stays full. If a deleted note was tied to a partner that isn't
  * also being deleted, that partner's now-dangling tie flag is cleared.
  */
-export function deleteEventsCommand(eventIds: UUID[]): ScoreCommand {
-  return transformCommand('Delete notes', (score) => deleteEvents(score, eventIds));
+export function deleteEventsCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => deleteEvents(score, eventIds));
 }
 
 // ---- moveNotesCommand -----------------------------------------------------------
 
 export type MoveNotesParams = { deltaTicks: number; deltaSemitones: number };
 
-function moveNotesOnTrack(track: Track, eventIds: ReadonlySet<UUID>, params: MoveNotesParams): Track {
+function moveNotesOnTrack(
+  track: Track,
+  eventIds: ReadonlySet<UUID>,
+  params: MoveNotesParams
+): Track {
   type Moving = { note: NoteEvent; voiceIndex: number };
   const toMove: Moving[] = [];
-  track.measures.forEach((measure) => {
+  track.measures.forEach(measure => {
     measure.voices.forEach((voice, voiceIndex) => {
-      voice.events.forEach((event) => {
-        if (isNoteEvent(event) && eventIds.has(event.id)) toMove.push({ note: event, voiceIndex });
+      voice.events.forEach(event => {
+        if (isNoteEvent(event) && eventIds.has(event.id))
+          toMove.push({ note: event, voiceIndex });
       });
     });
   });
   if (toMove.length === 0) return track;
 
-  let working = removeNotesFromTrack(track, new Set(toMove.map((m) => m.note.id)));
-  const boundaries = working.measures.map((m) => m.startTick);
+  let working = removeNotesFromTrack(
+    track,
+    new Set(toMove.map(m => m.note.id))
+  );
+  const boundaries = working.measures.map(m => m.startTick);
   const lastMeasure = working.measures[working.measures.length - 1];
-  const trackEnd = lastMeasure ? lastMeasure.startTick + lastMeasure.durationTicks : 0;
+  const trackEnd = lastMeasure
+    ? lastMeasure.startTick + lastMeasure.durationTicks
+    : 0;
 
   for (const { note, voiceIndex } of toMove) {
     const maxStart = Math.max(0, trackEnd - note.durationTicks);
-    const clampedStart = Math.max(0, Math.min(note.startTick + params.deltaTicks, maxStart));
+    const clampedStart = Math.max(
+      0,
+      Math.min(note.startTick + params.deltaTicks, maxStart)
+    );
     const destMeasure =
-      working.measures.find((m) => clampedStart >= m.startTick && clampedStart < m.startTick + m.durationTicks) ??
-      lastMeasure;
+      working.measures.find(
+        m =>
+          clampedStart >= m.startTick &&
+          clampedStart < m.startTick + m.durationTicks
+      ) ?? lastMeasure;
     const newPitch =
       params.deltaSemitones !== 0
-        ? transposePitch(note.pitch, params.deltaSemitones, destMeasure?.keySignature)
+        ? transposePitch(
+            note.pitch,
+            params.deltaSemitones,
+            destMeasure?.keySignature
+          )
         : note.pitch;
 
     const movedNote: NoteEvent = {
@@ -181,12 +222,18 @@ function moveNotesOnTrack(track: Track, eventIds: ReadonlySet<UUID>, params: Mov
   return working;
 }
 
-function moveNotes(score: Score, eventIds: readonly UUID[], params: MoveNotesParams): Score {
+function moveNotes(
+  score: Score,
+  eventIds: readonly UUID[],
+  params: MoveNotesParams
+): Score {
   const idSet = new Set(eventIds);
   // As in deleteEvents: clear dangling tie flags on any surviving partner
   // of a moved note before moveNotesOnTrack relocates it away.
   const detied = clearDanglingTies(score, idSet);
-  const tracks = detied.tracks.map((track) => moveNotesOnTrack(track, idSet, params));
+  const tracks = detied.tracks.map(track =>
+    moveNotesOnTrack(track, idSet, params)
+  );
   return withTracks(detied, tracks);
 }
 
@@ -200,30 +247,43 @@ function moveNotes(score: Score, eventIds: readonly UUID[], params: MoveNotesPar
  * moved note was tied to a partner that isn't also being moved, that
  * partner's now-dangling tie flag is cleared too.
  */
-export function moveNotesCommand(eventIds: UUID[], params: MoveNotesParams): ScoreCommand {
-  return transformCommand('Move notes', (score) => moveNotes(score, eventIds, params));
+export function moveNotesCommand(
+  eventIds: UUID[],
+  params: MoveNotesParams,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => moveNotes(score, eventIds, params));
 }
 
 // ---- resizeNotesCommand / changeDurationCommand ----------------------------------
 
-function resizeNotes(score: Score, eventIds: readonly UUID[], durationTicks: number): Score {
+function resizeNotes(
+  score: Score,
+  eventIds: readonly UUID[],
+  durationTicks: number
+): Score {
   const idSet = new Set(eventIds);
-  const tracks = score.tracks.map((track) => {
-    const measures = track.measures.map((measure) => {
+  const tracks = score.tracks.map(track => {
+    const measures = track.measures.map(measure => {
       let nextMeasure = measure;
       let changed = false;
       for (const voice of measure.voices) {
-        if (!voice.events.some((e) => idSet.has(e.id))) continue;
+        if (!voice.events.some(e => idSet.has(e.id))) continue;
         changed = true;
         const measureEnd = measure.startTick + measure.durationTicks;
-        const updatedNotes = voice.events.filter(isNoteEvent).map((e) => {
+        const updatedNotes = voice.events.filter(isNoteEvent).map(e => {
           if (!idSet.has(e.id)) return e;
-          const clamped = Math.max(1, Math.min(durationTicks, measureEnd - e.startTick));
+          const clamped = Math.max(
+            1,
+            Math.min(durationTicks, measureEnd - e.startTick)
+          );
           return { ...e, durationTicks: clamped };
         });
         const withResized = {
           ...nextMeasure,
-          voices: nextMeasure.voices.map((v) => (v.id === voice.id ? { ...v, events: updatedNotes } : v)),
+          voices: nextMeasure.voices.map(v =>
+            v.id === voice.id ? { ...v, events: updatedNotes } : v
+          ),
         };
         nextMeasure = reflowVoice(withResized, voice.id, track.id);
       }
@@ -240,62 +300,105 @@ function resizeNotes(score: Score, eventIds: readonly UUID[], durationTicks: num
  * e.g. from a piano-roll drag-resize), clamped to fit within each note's
  * current measure (no cross-measure re-splitting), then reflows.
  */
-export function resizeNotesCommand(eventIds: UUID[], durationTicks: number): ScoreCommand {
-  return transformCommand('Resize notes', (score) => resizeNotes(score, eventIds, durationTicks));
+export function resizeNotesCommand(
+  eventIds: UUID[],
+  durationTicks: number,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    resizeNotes(score, eventIds, durationTicks)
+  );
 }
 
 /** Sets the given notes' duration to a named value (e.g. from the inspector), converted to ticks via the score's ppq. */
-export function changeDurationCommand(eventIds: UUID[], duration: DurationName): ScoreCommand {
-  return transformCommand('Change duration', (score) => resizeNotes(score, eventIds, ticksFor(duration, score.ppq)));
+export function changeDurationCommand(
+  eventIds: UUID[],
+  duration: DurationName,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    resizeNotes(score, eventIds, ticksFor(duration, score.ppq))
+  );
 }
 
 // ---- simple per-note field commands ------------------------------------------
 
 /** Sets the given notes' pitch to an absolute `Pitch`. */
-export function changePitchCommand(eventIds: UUID[], pitch: Pitch): ScoreCommand {
-  return transformCommand('Change pitch', (score) => mapNotes(score, eventIds, (note) => ({ ...note, pitch })));
+export function changePitchCommand(
+  eventIds: UUID[],
+  pitch: Pitch,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => ({ ...note, pitch }))
+  );
 }
 
 /** Sets the given notes' velocity (0-127). */
-export function changeVelocityCommand(eventIds: UUID[], velocity: number): ScoreCommand {
-  return transformCommand('Change velocity', (score) => mapNotes(score, eventIds, (note) => ({ ...note, velocity })));
+export function changeVelocityCommand(
+  eventIds: UUID[],
+  velocity: number,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => ({ ...note, velocity }))
+  );
 }
 
 /** Sets (or clears, when `articulation` is `undefined`) the given notes' articulation. */
-export function changeArticulationCommand(eventIds: UUID[], articulation: Articulation | undefined): ScoreCommand {
-  return transformCommand('Change articulation', (score) =>
-    mapNotes(score, eventIds, (note) => {
+export function changeArticulationCommand(
+  eventIds: UUID[],
+  articulation: Articulation | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => {
       if (articulation) return { ...note, articulation };
       const updated: NoteEvent = { ...note };
       delete updated.articulation;
       return updated;
-    }),
+    })
   );
 }
 
 /** Sets the given notes' pitch accidental, keeping their step/octave. */
-export function changeAccidentalCommand(eventIds: UUID[], accidental: Accidental): ScoreCommand {
-  return transformCommand('Change accidental', (score) =>
-    mapNotes(score, eventIds, (note) => ({ ...note, pitch: { ...note.pitch, accidental } })),
+export function changeAccidentalCommand(
+  eventIds: UUID[],
+  accidental: Accidental,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => ({
+      ...note,
+      pitch: { ...note.pitch, accidental },
+    }))
   );
 }
 
 /** Toggles `tieStart` or `tieStop` on the given notes. */
-export function toggleTieCommand(eventIds: UUID[], which: 'tieStart' | 'tieStop'): ScoreCommand {
-  return transformCommand('Toggle tie', (score) =>
-    mapNotes(score, eventIds, (note) => ({ ...note, [which]: !note[which] })),
+export function toggleTieCommand(
+  eventIds: UUID[],
+  which: 'tieStart' | 'tieStop',
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => ({ ...note, [which]: !note[which] }))
   );
 }
 
 // ---- changeVoiceCommand -----------------------------------------------------------
 
-function changeVoice(score: Score, eventIds: readonly UUID[], targetVoiceIndex: number): Score {
+function changeVoice(
+  score: Score,
+  eventIds: readonly UUID[],
+  targetVoiceIndex: number
+): Score {
   const idSet = new Set(eventIds);
-  const tracks = score.tracks.map((track) => {
-    const measures = track.measures.map((measure) => {
+  const tracks = score.tracks.map(track => {
+    const measures = track.measures.map(measure => {
       const matches: NoteEvent[] = [];
-      measure.voices.forEach((voice) => {
-        voice.events.forEach((e) => {
+      measure.voices.forEach(voice => {
+        voice.events.forEach(e => {
           if (isNoteEvent(e) && idSet.has(e.id)) matches.push(e);
         });
       });
@@ -303,11 +406,15 @@ function changeVoice(score: Score, eventIds: readonly UUID[], targetVoiceIndex: 
 
       let nextMeasure = measure;
       for (const voice of measure.voices) {
-        if (!voice.events.some((e) => idSet.has(e.id))) continue;
-        const remaining = voice.events.filter(isNoteEvent).filter((e) => !idSet.has(e.id));
+        if (!voice.events.some(e => idSet.has(e.id))) continue;
+        const remaining = voice.events
+          .filter(isNoteEvent)
+          .filter(e => !idSet.has(e.id));
         const withRemoved = {
           ...nextMeasure,
-          voices: nextMeasure.voices.map((v) => (v.id === voice.id ? { ...v, events: remaining } : v)),
+          voices: nextMeasure.voices.map(v =>
+            v.id === voice.id ? { ...v, events: remaining } : v
+          ),
         };
         nextMeasure = reflowVoice(withRemoved, voice.id, track.id);
       }
@@ -315,11 +422,16 @@ function changeVoice(score: Score, eventIds: readonly UUID[], targetVoiceIndex: 
       nextMeasure = ensureVoiceAtIndex(nextMeasure, targetVoiceIndex, track.id);
       const targetVoice = nextMeasure.voices[targetVoiceIndex];
       const existingNotes = targetVoice.events.filter(isNoteEvent);
-      const movedNotes = matches.map((n) => ({ ...n, voiceId: targetVoice.id }));
+      const movedNotes = matches.map(n => ({
+        ...n,
+        voiceId: targetVoice.id,
+      }));
       nextMeasure = {
         ...nextMeasure,
         voices: nextMeasure.voices.map((v, i) =>
-          i === targetVoiceIndex ? { ...v, events: [...existingNotes, ...movedNotes] } : v,
+          i === targetVoiceIndex
+            ? { ...v, events: [...existingNotes, ...movedNotes] }
+            : v
         ),
       };
       return reflowVoice(nextMeasure, targetVoice.id, track.id);
@@ -331,6 +443,12 @@ function changeVoice(score: Score, eventIds: readonly UUID[], targetVoiceIndex: 
 }
 
 /** Moves the given notes to the voice at ordinal position `targetVoiceIndex` within their current measure (created if absent). */
-export function changeVoiceCommand(eventIds: UUID[], targetVoiceIndex: number): ScoreCommand {
-  return transformCommand('Change voice', (score) => changeVoice(score, eventIds, targetVoiceIndex));
+export function changeVoiceCommand(
+  eventIds: UUID[],
+  targetVoiceIndex: number,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    changeVoice(score, eventIds, targetVoiceIndex)
+  );
 }

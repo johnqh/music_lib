@@ -14,10 +14,16 @@ describe('reportError', () => {
   it('pushes the user-facing message as an error toast', () => {
     const store = freshStore();
 
-    reportError(new AppError({ code: 'midi-import', userMessage: 'That file is not MIDI.' }), {
-      context: 'Import failed',
-      store,
-    });
+    reportError(
+      new AppError({
+        code: 'midi-import',
+        userMessage: 'That file is not MIDI.',
+      }),
+      {
+        context: 'Import failed',
+        store,
+      }
+    );
 
     const toasts = store.getState().toasts;
     expect(toasts).toHaveLength(1);
@@ -40,7 +46,11 @@ describe('reportError', () => {
 
     reportError(err, { context: 'Save failed', store: freshStore() });
 
-    expect(debug).toHaveBeenCalledWith('[ScoreSmith error]', 'Save failed', err);
+    expect(debug).toHaveBeenCalledWith(
+      '[ScoreSmith error]',
+      'Save failed',
+      err
+    );
   });
 
   it('still shows the user a toast when logging is on — the console is additional, not instead', () => {

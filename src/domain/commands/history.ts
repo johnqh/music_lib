@@ -61,11 +61,15 @@ export class HistoryManager {
   }
 
   get undoLabel(): string | null {
-    return this.undoStack.length > 0 ? this.undoStack[this.undoStack.length - 1].label : null;
+    return this.undoStack.length > 0
+      ? this.undoStack[this.undoStack.length - 1].label
+      : null;
   }
 
   get redoLabel(): string | null {
-    return this.redoStack.length > 0 ? this.redoStack[this.redoStack.length - 1].label : null;
+    return this.redoStack.length > 0
+      ? this.redoStack[this.redoStack.length - 1].label
+      : null;
   }
 
   /** Clears both the undo and redo stacks. */

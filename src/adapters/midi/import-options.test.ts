@@ -19,15 +19,28 @@ function track(overrides: Partial<MidiTrackSummary>): MidiTrackSummary {
 
 function summary(
   tracks: MidiTrackSummary[],
-  detectedGrid: MidiSummary['detectedGrid'] = { grid: 'sixteenth', triplet: false },
+  detectedGrid: MidiSummary['detectedGrid'] = {
+    grid: 'sixteenth',
+    triplet: false,
+  }
 ): MidiSummary {
-  return { ppq: 480, durationSeconds: 4, tracks, tempoEvents: [{ tick: 0, bpm: 120 }], timeSignatures: [], detectedGrid };
+  return {
+    ppq: 480,
+    durationSeconds: 4,
+    tracks,
+    tempoEvents: [{ tick: 0, bpm: 120 }],
+    timeSignatures: [],
+    detectedGrid,
+  };
 }
 
 describe('defaultMidiImportOptions', () => {
   it('includes every non-empty track and excludes note-free tracks', () => {
     const options = defaultMidiImportOptions(
-      summary([track({ index: 0, noteCount: 4 }), track({ index: 1, noteCount: 0, averageMidi: null })]),
+      summary([
+        track({ index: 0, noteCount: 4 }),
+        track({ index: 1, noteCount: 0, averageMidi: null }),
+      ])
     );
     expect(options.trackSelections).toEqual([
       { sourceIndex: 0, include: true, clef: 'treble', name: 'Track' },
@@ -36,13 +49,18 @@ describe('defaultMidiImportOptions', () => {
   });
 
   it('defaults percussion tracks to the percussion clef', () => {
-    const options = defaultMidiImportOptions(summary([track({ isPercussion: true, channel: 9 })]));
+    const options = defaultMidiImportOptions(
+      summary([track({ isPercussion: true, channel: 9 })])
+    );
     expect(options.trackSelections[0].clef).toBe('percussion');
   });
 
   it('defaults clef by note centroid: >= middle C is treble, below is bass', () => {
     const options = defaultMidiImportOptions(
-      summary([track({ index: 0, averageMidi: 60 }), track({ index: 1, averageMidi: 59 })]),
+      summary([
+        track({ index: 0, averageMidi: 60 }),
+        track({ index: 1, averageMidi: 59 }),
+      ])
     );
     expect(options.trackSelections[0].clef).toBe('treble');
     expect(options.trackSelections[1].clef).toBe('bass');
@@ -66,7 +84,10 @@ describe('quantization defaults follow the file', () => {
     // Not a fixed sixteenth: a triplet file quantized to sixteenths comes back
     // audibly wrong. See grid-detection.ts.
     const options = defaultMidiImportOptions(
-      summary([track({ index: 0, noteCount: 4 })], { grid: 'eighth', triplet: true }),
+      summary([track({ index: 0, noteCount: 4 })], {
+        grid: 'eighth',
+        triplet: true,
+      })
     );
     expect(options.quantizeGrid).toBe('eighth');
     expect(options.tripletDetection).toBe(true);
@@ -74,7 +95,10 @@ describe('quantization defaults follow the file', () => {
 
   it('opens the wizard with quantization off when no grid was detected', () => {
     const options = defaultMidiImportOptions(
-      summary([track({ index: 0, noteCount: 4 })], { grid: null, triplet: false }),
+      summary([track({ index: 0, noteCount: 4 })], {
+        grid: null,
+        triplet: false,
+      })
     );
     expect(options.quantizeGrid).toBeNull();
     expect(options.tripletDetection).toBe(false);

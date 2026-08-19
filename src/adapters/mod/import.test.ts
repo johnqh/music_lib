@@ -32,8 +32,9 @@ function mod(opts: {
   channels?: number;
 }): TrackerModule {
   const channels = opts.channels ?? 4;
-  const rows = (opts.rows ?? []).map((r) => r.map(cell));
-  while (rows.length < 64) rows.push(Array.from({ length: channels }, () => cell({})));
+  const rows = (opts.rows ?? []).map(r => r.map(cell));
+  while (rows.length < 64)
+    rows.push(Array.from({ length: channels }, () => cell({})));
   return {
     format: 'mod',
     title: 'test',
@@ -48,21 +49,23 @@ function mod(opts: {
 }
 
 const notesOf = (score: Score) =>
-  score.tracks.flatMap((t) =>
-    t.measures.flatMap((m) =>
-      m.voices.flatMap((v) =>
-        v.events.filter(isNoteEvent).map((e) => ({
+  score.tracks.flatMap(t =>
+    t.measures.flatMap(m =>
+      m.voices.flatMap(v =>
+        v.events.filter(isNoteEvent).map(e => ({
           midi: pitchToMidi(e.pitch),
           startTick: e.startTick,
           trackId: t.id,
-        })),
-      ),
-    ),
+        }))
+      )
+    )
   );
 
 describe('trackerToScore', () => {
   it('puts a note at the right pitch and tick', () => {
-    const notes = notesOf(trackerToScore(mod({ rows: [[{ instrument: 1, note: 48 }]] })));
+    const notes = notesOf(
+      trackerToScore(mod({ rows: [[{ instrument: 1, note: 48 }]] }))
+    );
     expect(notes).toHaveLength(1);
     expect(notes[0].midi).toBe(48);
     expect(notes[0].startTick).toBe(0);
@@ -70,9 +73,13 @@ describe('trackerToScore', () => {
 
   it('spaces rows a sixteenth apart', () => {
     const score = trackerToScore(
-      mod({ rows: [[{ instrument: 1, note: 48 }], [{ instrument: 1, note: 48 }]] }),
+      mod({
+        rows: [[{ instrument: 1, note: 48 }], [{ instrument: 1, note: 48 }]],
+      })
     );
-    const ticks = notesOf(score).map((n) => n.startTick).sort((a, b) => a - b);
+    const ticks = notesOf(score)
+      .map(n => n.startTick)
+      .sort((a, b) => a - b);
     expect(ticks[1] - ticks[0]).toBe(score.ppq / 4);
   });
 
@@ -80,21 +87,36 @@ describe('trackerToScore', () => {
     // The central mapping decision.
     const score = trackerToScore(
       mod({
-        rows: [[{ instrument: 1, note: 48 }, { instrument: 2, note: 60 }, { instrument: 1, note: 36 }]],
-      }),
+        rows: [
+          [
+            { instrument: 1, note: 48 },
+            { instrument: 2, note: 60 },
+            { instrument: 1, note: 36 },
+          ],
+        ],
+      })
     );
     expect(score.tracks).toHaveLength(2);
-    expect(notesOf(score).filter((n) => n.trackId === score.tracks[0].id)).toHaveLength(2);
+    expect(
+      notesOf(score).filter(n => n.trackId === score.tracks[0].id)
+    ).toHaveLength(2);
   });
 
   it('puts simultaneous notes from two channels into different voices', () => {
     // A sample-grouped track is not always a single line.
     const score = trackerToScore(
-      mod({ rows: [[{ instrument: 1, note: 48 }, { instrument: 1, note: 60 }]] }),
+      mod({
+        rows: [
+          [
+            { instrument: 1, note: 48 },
+            { instrument: 1, note: 60 },
+          ],
+        ],
+      })
     );
     expect(score.tracks).toHaveLength(1);
-    const sounding = score.tracks[0].measures[0].voices.filter((v) =>
-      v.events.some(isNoteEvent),
+    const sounding = score.tracks[0].measures[0].voices.filter(v =>
+      v.events.some(isNoteEvent)
     );
     expect(sounding.length).toBeGreaterThanOrEqual(2);
   });
@@ -108,7 +130,7 @@ describe('trackerToScore', () => {
 
   it('carries speed changes into the tempo map', () => {
     const score = trackerToScore(
-      mod({ rows: [[{ instrument: 1, note: 48 }], [{ speed: 0x03 }]] }),
+      mod({ rows: [[{ instrument: 1, note: 48 }], [{ speed: 0x03 }]] })
     );
     expect(score.tempoMap.length).toBeGreaterThan(1);
     expect(score.tempoMap[1].bpm).toBe(250);
@@ -116,9 +138,13 @@ describe('trackerToScore', () => {
   });
 
   it('names a track from its instrument, falling back when blank', () => {
-    const named = trackerToScore(mod({ sampleNames: ['bassline'], rows: [[{ instrument: 1, note: 48 }]] }));
+    const named = trackerToScore(
+      mod({ sampleNames: ['bassline'], rows: [[{ instrument: 1, note: 48 }]] })
+    );
     expect(named.tracks[0].name).toBe('bassline');
-    const blank = trackerToScore(mod({ rows: [[{ instrument: 7, note: 48 }]] }));
+    const blank = trackerToScore(
+      mod({ rows: [[{ instrument: 7, note: 48 }]] })
+    );
     expect(blank.tracks[0].name).toBe('Instrument 7');
   });
 
@@ -130,10 +156,12 @@ describe('trackerToScore', () => {
     // Tracker notes have no length; a channel is monophonic, so the next note
     // on that channel is what stops the previous one.
     const score = trackerToScore(
-      mod({ rows: [[{ instrument: 1, note: 48 }], [{ instrument: 1, note: 60 }]] }),
+      mod({
+        rows: [[{ instrument: 1, note: 48 }], [{ instrument: 1, note: 60 }]],
+      })
     );
     const first = score.tracks[0].measures[0].voices
-      .flatMap((v) => v.events)
+      .flatMap(v => v.events)
       .filter(isNoteEvent)
       .sort((a, b) => a.startTick - b.startTick)[0];
     expect(first.durationTicks).toBe(score.ppq / 4);
@@ -161,8 +189,8 @@ describe('trackerToScore: every voice covers its measure', () => {
     // a bar carrying 1200 ticks of 1920 rendered short. A real module produced
     // 554 such warnings.
     const issues = validateScore(trackerToScore(moduleWithGaps()));
-    expect(issues.filter((i) => i.code === 'measure-underfull')).toEqual([]);
-    expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
+    expect(issues.filter(i => i.code === 'measure-underfull')).toEqual([]);
+    expect(issues.filter(i => i.severity === 'error')).toEqual([]);
   });
 
   it('still places the notes it was given', () => {
@@ -173,7 +201,7 @@ describe('trackerToScore: every voice covers its measure', () => {
 describe('trackerToScore: note-off', () => {
   it('ends a note at an explicit note-off rather than at the next note', () => {
     const score = trackerToScore(
-      oneChannel([[{ instrument: 1, note: 60 }], [{}], [{ note: 'off' }], [{}]]),
+      oneChannel([[{ instrument: 1, note: 60 }], [{}], [{ note: 'off' }], [{}]])
     );
     const [first] = allNotes(score);
     expect(first.durationTicks).toBe(2 * (score.ppq / 4));
@@ -181,7 +209,12 @@ describe('trackerToScore: note-off', () => {
 
   it('runs a note to the next note when nothing releases it, as MOD does', () => {
     const score = trackerToScore(
-      oneChannel([[{ instrument: 1, note: 60 }], [{}], [{}], [{ instrument: 1, note: 62 }]]),
+      oneChannel([
+        [{ instrument: 1, note: 60 }],
+        [{}],
+        [{}],
+        [{ instrument: 1, note: 62 }],
+      ])
     );
     const [first] = allNotes(score);
     expect(first.durationTicks).toBe(3 * (score.ppq / 4));
@@ -191,10 +224,18 @@ describe('trackerToScore: note-off', () => {
 describe('trackerToScore: pattern break', () => {
   it('ends a pattern early on Dxx rather than running all 64 rows', () => {
     const broken = trackerToScore(
-      oneChannel([[{ instrument: 1, note: 60 }], [{ patternBreak: true }], [{ instrument: 1, note: 62 }]]),
+      oneChannel([
+        [{ instrument: 1, note: 60 }],
+        [{ patternBreak: true }],
+        [{ instrument: 1, note: 62 }],
+      ])
     );
     const whole = trackerToScore(
-      oneChannel([[{ instrument: 1, note: 60 }], [{}], [{ instrument: 1, note: 62 }]]),
+      oneChannel([
+        [{ instrument: 1, note: 60 }],
+        [{}],
+        [{ instrument: 1, note: 62 }],
+      ])
     );
     expect(notesOf(broken).length).toBeLessThan(notesOf(whole).length);
   });

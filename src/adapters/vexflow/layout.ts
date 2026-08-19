@@ -161,8 +161,10 @@ function selectTracks(score: Score, options: RenderOptions): Track[] {
   if (!options.trackIds || options.trackIds.length === 0) {
     return score.tracks;
   }
-  const byId = new Map(score.tracks.map((t) => [t.id, t] as const));
-  return options.trackIds.map((id) => byId.get(id)).filter((t): t is Track => t !== undefined);
+  const byId = new Map(score.tracks.map(t => [t.id, t] as const));
+  return options.trackIds
+    .map(id => byId.get(id))
+    .filter((t): t is Track => t !== undefined);
 }
 
 /**
@@ -178,7 +180,7 @@ function selectTracks(score: Score, options: RenderOptions): Track[] {
 function groupIntoSystems(
   measureCount: number,
   measureWidth: (index: number, isFirstInSystem: boolean) => number,
-  maxWidth: number,
+  maxWidth: number
 ): number[][] {
   const systems: number[][] = [];
   let current: number[] = [];
@@ -207,10 +209,16 @@ function groupIntoSystems(
  * missing trailing measures (defensive, not expected in practice — spec §4
  * keeps tracks aligned to the same measure grid).
  */
-export function computeLayout(score: Score, options: RenderOptions): LayoutPlan {
+export function computeLayout(
+  score: Score,
+  options: RenderOptions
+): LayoutPlan {
   const zoom = resolveZoom(options.zoom);
   const tracks = selectTracks(score, options);
-  const measureCount = tracks.reduce((max, t) => Math.max(max, t.measures.length), 0);
+  const measureCount = tracks.reduce(
+    (max, t) => Math.max(max, t.measures.length),
+    0
+  );
 
   const headerWidth = SYSTEM_HEADER_WIDTH;
   const staveHeight = STAVE_HEIGHT;
@@ -231,38 +239,51 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
 
   // Density-aware per-measure widths (see NOTE_SLOT_WIDTH's doc): one shared
   // width per measure index across every track, from the densest voice.
-  const contentWidths: number[] = Array.from({ length: measureCount }, (_, measureIndex) => {
-    // Count the distinct onsets the measure will actually draw, across every
-    // track — that is one tick context each, and VexFlow's minimum width is
-    // proportional to how many there are.
-    //
-    // Not `voice.events.length`: recorded events and drawn tickables are not
-    // the same thing. A drum bar of 37 hits three ticks apart draws as 16 once
-    // they are chorded, and giving it width for 37 left it half empty and
-    // pushed every other bar onto its own line.
-    const onsets = new Set<number>();
-    for (const track of tracks) {
-      const measure = track.measures[measureIndex];
-      if (!measure) continue;
-      for (const voice of measure.voices) {
-        for (const tick of snappedOnsetTicks(voice.events, measure.startTick, measure.durationTicks, score.ppq)) {
-          onsets.add(tick);
+  const contentWidths: number[] = Array.from(
+    { length: measureCount },
+    (_, measureIndex) => {
+      // Count the distinct onsets the measure will actually draw, across every
+      // track — that is one tick context each, and VexFlow's minimum width is
+      // proportional to how many there are.
+      //
+      // Not `voice.events.length`: recorded events and drawn tickables are not
+      // the same thing. A drum bar of 37 hits three ticks apart draws as 16 once
+      // they are chorded, and giving it width for 37 left it half empty and
+      // pushed every other bar onto its own line.
+      const onsets = new Set<number>();
+      for (const track of tracks) {
+        const measure = track.measures[measureIndex];
+        if (!measure) continue;
+        for (const voice of measure.voices) {
+          for (const tick of snappedOnsetTicks(
+            voice.events,
+            measure.startTick,
+            measure.durationTicks,
+            score.ppq
+          )) {
+            onsets.add(tick);
+          }
         }
       }
-    }
-    const maxEvents = onsets.size;
-    // A collapsed measure's width comes from what it draws — one bar and a
-    // number — not from the events it replaced, of which there are none.
-    const collapsed = tracks.some(
-      (track) => track.measures[measureIndex]?.multiMeasureRestCount !== undefined,
-    );
-    if (collapsed) return MULTI_REST_MEASURE_WIDTH;
+      const maxEvents = onsets.size;
+      // A collapsed measure's width comes from what it draws — one bar and a
+      // number — not from the events it replaced, of which there are none.
+      const collapsed = tracks.some(
+        track =>
+          track.measures[measureIndex]?.multiMeasureRestCount !== undefined
+      );
+      if (collapsed) return MULTI_REST_MEASURE_WIDTH;
 
-    return Math.max(BASE_MEASURE_WIDTH, maxEvents * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING);
-  });
+      return Math.max(
+        BASE_MEASURE_WIDTH,
+        maxEvents * NOTE_SLOT_WIDTH + DENSE_MEASURE_PADDING
+      );
+    }
+  );
 
   const widthOf = (measureIndex: number, isFirstInSystem: boolean): number =>
-    (contentWidths[measureIndex] ?? BASE_MEASURE_WIDTH) + (isFirstInSystem ? headerWidth : 0);
+    (contentWidths[measureIndex] ?? BASE_MEASURE_WIDTH) +
+    (isFirstInSystem ? headerWidth : 0);
 
   // `options.width` is a screen-pixel budget; convert to the equivalent
   // logical-unit budget by dividing out zoom (a more zoomed-in view fits
@@ -283,13 +304,24 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
   const contentBudget =
     options.layoutMode === 'continuous'
       ? Number.POSITIVE_INFINITY
-      : Math.max(MIN_CONTENT_WIDTH, options.width / zoom - leftMargin - rightMargin);
-  const systemsOfIndices = groupIntoSystems(measureCount, widthOf, contentBudget);
+      : Math.max(
+          MIN_CONTENT_WIDTH,
+          options.width / zoom - leftMargin - rightMargin
+        );
+  const systemsOfIndices = groupIntoSystems(
+    measureCount,
+    widthOf,
+    contentBudget
+  );
 
-  const rowHeight = (count: number): number => (count > 0 ? count * staveHeight + Math.max(0, count - 1) * trackGap : 0);
+  const rowHeight = (count: number): number =>
+    count > 0 ? count * staveHeight + Math.max(0, count - 1) * trackGap : 0;
   const trackRowHeight = rowHeight(tracks.length);
 
-  const trackLayouts: TrackLayout[] = tracks.map((track) => ({ track, measures: [] }));
+  const trackLayouts: TrackLayout[] = tracks.map(track => ({
+    track,
+    measures: [],
+  }));
   const systems: SystemLayout[] = [];
 
   let maxSystemRight = 0;
@@ -312,7 +344,7 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
      */
     const naturalWidth = measureIndices.reduce(
       (sum, index, position) => sum + widthOf(index, position === 0),
-      0,
+      0
     );
     const isLastSystem = systemIndex === systemsOfIndices.length - 1;
     // Where this system's right edge should land.
@@ -323,7 +355,8 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
     // dense enough to exceed the budget on its own. Only *stretching* is
     // optional, and stays as it was: page mode, and not the final system.
     const target =
-      naturalWidth > contentBudget || (options.layoutMode === 'page' && !isLastSystem)
+      naturalWidth > contentBudget ||
+      (options.layoutMode === 'page' && !isLastSystem)
         ? contentBudget
         : naturalWidth;
     // Shared out in proportion to what each measure already occupies, so a
@@ -339,7 +372,9 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
       // rounding lost — otherwise the system lands a pixel or two short and
       // the final barline never quite meets the margin.
       const isLastInSystem = positionInSystem === measureIndices.length - 1;
-      const width = isLastInSystem ? leftMargin + target - cursorX : naturalMeasureWidth * scale;
+      const width = isLastInSystem
+        ? leftMargin + target - cursorX
+        : naturalMeasureWidth * scale;
 
       tracks.forEach((track, trackIndex) => {
         if (measureIndex >= track.measures.length) return;
@@ -365,11 +400,17 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
     });
   });
 
-  const totalHeight = systems.length > 0 ? systems[systems.length - 1].yBottom + topMargin : topMargin * 2;
+  const totalHeight =
+    systems.length > 0
+      ? systems[systems.length - 1].yBottom + topMargin
+      : topMargin * 2;
   // Both terms are logical units here: `maxSystemRight` is logical by
   // construction, and `options.width` (a screen-pixel budget) is divided by
   // zoom to match, same as `logicalAvailableWidth` above.
-  const totalWidth = Math.max(maxSystemRight + rightMargin, options.layoutMode === 'page' ? options.width / zoom : 0);
+  const totalWidth = Math.max(
+    maxSystemRight + rightMargin,
+    options.layoutMode === 'page' ? options.width / zoom : 0
+  );
 
   return { tracks, trackLayouts, systems, totalWidth, totalHeight };
 }
@@ -382,10 +423,16 @@ export function computeLayout(score: Score, options: RenderOptions): LayoutPlan 
  * measure fell inside the drawn window of a windowed canvas render pass
  * (system boxes never shift with what a given frame chooses to draw).
  */
-export function boxForMeasureIndex(plan: LayoutPlan, trackIndex: number, measureIndex: number): StaveBox | null {
+export function boxForMeasureIndex(
+  plan: LayoutPlan,
+  trackIndex: number,
+  measureIndex: number
+): StaveBox | null {
   const trackLayout = plan.trackLayouts[trackIndex];
   if (!trackLayout) return null;
-  return trackLayout.measures.find((m) => m.measureIndex === measureIndex)?.box ?? null;
+  return (
+    trackLayout.measures.find(m => m.measureIndex === measureIndex)?.box ?? null
+  );
 }
 
 /** Binary search over the y-sorted `plan.systems` for the system containing logical `y`; `null` in inter-system gaps or outside the score. O(log n). */
@@ -415,13 +462,21 @@ export function systemAtY(plan: LayoutPlan, y: number): SystemLayout | null {
  * `trackLayouts[0].measures[i].measureIndex === i` — direct indexing by
  * `system.measureIndices` values is safe (and bounds-guarded here anyway).
  */
-export function measureAtXInSystem(plan: LayoutPlan, system: SystemLayout, x: number): MeasureLayout | null {
+export function measureAtXInSystem(
+  plan: LayoutPlan,
+  system: SystemLayout,
+  x: number
+): MeasureLayout | null {
   const measures = plan.trackLayouts[0]?.measures;
   if (!measures || system.measureIndices.length === 0) return null;
   const first = measures[system.measureIndices[0]];
-  const last = measures[system.measureIndices[system.measureIndices.length - 1]];
+  const last =
+    measures[system.measureIndices[system.measureIndices.length - 1]];
   if (!first || !last) return null;
-  const clamped = Math.min(Math.max(x, first.box.x), last.box.x + last.box.width - 1e-9);
+  const clamped = Math.min(
+    Math.max(x, first.box.x),
+    last.box.x + last.box.width - 1e-9
+  );
 
   let lo = 0;
   let hi = system.measureIndices.length - 1;

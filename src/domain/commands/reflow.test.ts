@@ -21,9 +21,17 @@ function noteAt(
   voiceId: string,
   trackId: string,
   id = `n-${startTick}`,
-  pitch: Pitch = PITCH,
+  pitch: Pitch = PITCH
 ): NoteEvent {
-  return { id, pitch, startTick, durationTicks, velocity: 80, voiceId, trackId };
+  return {
+    id,
+    pitch,
+    startTick,
+    durationTicks,
+    velocity: 80,
+    voiceId,
+    trackId,
+  };
 }
 
 /** A single 1920-tick (4/4 @ 480ppq) measure whose voice 0 has just `events`. */
@@ -53,11 +61,16 @@ describe('reflowVoice', () => {
   });
 
   it('fills a leading gap and a gap between two notes', () => {
-    const measure = measureWith([noteAt(480, 240, 'v1', 't1', 'a'), noteAt(960, 240, 'v1', 't1', 'b')]);
+    const measure = measureWith([
+      noteAt(480, 240, 'v1', 't1', 'a'),
+      noteAt(960, 240, 'v1', 't1', 'b'),
+    ]);
     const result = reflowVoice(measure, 'v1', 't1');
     const events = result.voices[0].events;
 
-    expect(events.map((e) => [e.startTick, e.durationTicks, isNoteEvent(e)])).toEqual([
+    expect(
+      events.map(e => [e.startTick, e.durationTicks, isNoteEvent(e)])
+    ).toEqual([
       [0, 480, false],
       [480, 240, true],
       [720, 240, false],
@@ -91,9 +104,17 @@ describe('reflowVoice', () => {
     const measure: Measure = {
       ...measureWith([noteAt(0, 480, 'v1', 't1')]),
     };
-    measure.voices[0].events.push({ id: 'stale-rest', startTick: 480, durationTicks: 1440, voiceId: 'v1', trackId: 't1' });
+    measure.voices[0].events.push({
+      id: 'stale-rest',
+      startTick: 480,
+      durationTicks: 1440,
+      voiceId: 'v1',
+      trackId: 't1',
+    });
     const result = reflowVoice(measure, 'v1', 't1');
-    expect(result.voices[0].events.find((e) => e.id === 'stale-rest')).toBeUndefined();
+    expect(
+      result.voices[0].events.find(e => e.id === 'stale-rest')
+    ).toBeUndefined();
     expect(result.voices[0].events).toHaveLength(2);
   });
 
@@ -105,7 +126,9 @@ describe('reflowVoice', () => {
   it('rests the whole measure when the voice has no notes left', () => {
     const measure = measureWith([]);
     const result = reflowVoice(measure, 'v1', 't1');
-    expect(result.voices[0].events).toEqual([expect.objectContaining({ startTick: 0, durationTicks: 1920 })]);
+    expect(result.voices[0].events).toEqual([
+      expect.objectContaining({ startTick: 0, durationTicks: 1920 }),
+    ]);
   });
 });
 
@@ -119,10 +142,14 @@ describe('reflowVoice overlap resolution', () => {
     const result = reflowVoice(measure, 'v1', 't1');
     const notes = result.voices[0].events.filter(isNoteEvent);
 
-    expect(notes.map((n) => n.id).sort()).toEqual(['c1', 'c2', 'c3']);
-    notes.forEach((n) => expect(n).toMatchObject({ startTick: 0, durationTicks: 480 }));
+    expect(notes.map(n => n.id).sort()).toEqual(['c1', 'c2', 'c3']);
+    notes.forEach(n =>
+      expect(n).toMatchObject({ startTick: 0, durationTicks: 480 })
+    );
     // No rest inserted between chord siblings; only the trailing gap.
-    expect(result.voices[0].events.filter((e) => !isNoteEvent(e))).toHaveLength(1);
+    expect(result.voices[0].events.filter(e => !isNoteEvent(e))).toHaveLength(
+      1
+    );
   });
 
   it('drops an existing note fully covered by a later-array (higher-priority) note', () => {
@@ -133,7 +160,7 @@ describe('reflowVoice overlap resolution', () => {
     const result = reflowVoice(measure, 'v1', 't1');
     const notes = result.voices[0].events.filter(isNoteEvent);
 
-    expect(notes.map((n) => n.id)).toEqual(['covering']);
+    expect(notes.map(n => n.id)).toEqual(['covering']);
     expect(notes[0]).toMatchObject({ startTick: 0, durationTicks: 1920 });
   });
 
@@ -144,11 +171,21 @@ describe('reflowVoice overlap resolution', () => {
       noteAt(0, 720, 'v1', 't1', 'new'),
     ]);
     const result = reflowVoice(measure, 'v1', 't1');
-    const notes = result.voices[0].events.filter(isNoteEvent).sort((a, b) => a.startTick - b.startTick);
+    const notes = result.voices[0].events
+      .filter(isNoteEvent)
+      .sort((a, b) => a.startTick - b.startTick);
 
     expect(notes).toHaveLength(2);
-    expect(notes[0]).toMatchObject({ id: 'new', startTick: 0, durationTicks: 720 });
-    expect(notes[1]).toMatchObject({ id: 'existing', startTick: 720, durationTicks: 240 }); // trimmed to its surviving tail
+    expect(notes[0]).toMatchObject({
+      id: 'new',
+      startTick: 0,
+      durationTicks: 720,
+    });
+    expect(notes[1]).toMatchObject({
+      id: 'existing',
+      startTick: 720,
+      durationTicks: 240,
+    }); // trimmed to its surviving tail
   });
 
   it('trims an existing note whose tail is overlapped by a later (higher-priority) note', () => {
@@ -158,11 +195,21 @@ describe('reflowVoice overlap resolution', () => {
       noteAt(240, 480, 'v1', 't1', 'new'),
     ]);
     const result = reflowVoice(measure, 'v1', 't1');
-    const notes = result.voices[0].events.filter(isNoteEvent).sort((a, b) => a.startTick - b.startTick);
+    const notes = result.voices[0].events
+      .filter(isNoteEvent)
+      .sort((a, b) => a.startTick - b.startTick);
 
     expect(notes).toHaveLength(2);
-    expect(notes[0]).toMatchObject({ id: 'existing', startTick: 0, durationTicks: 240 }); // trimmed to its surviving head
-    expect(notes[1]).toMatchObject({ id: 'new', startTick: 240, durationTicks: 480 });
+    expect(notes[0]).toMatchObject({
+      id: 'existing',
+      startTick: 0,
+      durationTicks: 240,
+    }); // trimmed to its surviving head
+    expect(notes[1]).toMatchObject({
+      id: 'new',
+      startTick: 240,
+      durationTicks: 480,
+    });
   });
 
   it('dedupes a same-pitch, identical-span duplicate down to the last (higher-priority) entry, not kept as a chord', () => {
@@ -177,7 +224,7 @@ describe('reflowVoice overlap resolution', () => {
     ]);
     const result = reflowVoice(measure, 'v1', 't1');
     const notes = result.voices[0].events.filter(isNoteEvent);
-    expect(notes.map((n) => n.id)).toEqual(['new']);
+    expect(notes.map(n => n.id)).toEqual(['new']);
   });
 
   it('dedupes by MIDI pitch, so an enharmonic respelling of the same physical pitch also dedupes', () => {
@@ -189,7 +236,7 @@ describe('reflowVoice overlap resolution', () => {
     ]);
     const result = reflowVoice(measure, 'v1', 't1');
     const notes = result.voices[0].events.filter(isNoteEvent);
-    expect(notes.map((n) => n.id)).toEqual(['new']);
+    expect(notes.map(n => n.id)).toEqual(['new']);
   });
 
   it('within a same-span cluster, dedupes only matching pitches, keeping distinct ones as a chord', () => {
@@ -200,7 +247,7 @@ describe('reflowVoice overlap resolution', () => {
     ]);
     const result = reflowVoice(measure, 'v1', 't1');
     const notes = result.voices[0].events.filter(isNoteEvent);
-    expect(notes.map((n) => n.id).sort()).toEqual(['existing-e', 'new-c']);
+    expect(notes.map(n => n.id).sort()).toEqual(['existing-e', 'new-c']);
   });
 });
 
@@ -215,7 +262,12 @@ describe('ensureVoiceAtIndex', () => {
     const result = ensureVoiceAtIndex(measure, 1, 't1');
     expect(result.voices).toHaveLength(2);
     expect(result.voices[1].events).toEqual([
-      expect.objectContaining({ startTick: 0, durationTicks: 1920, voiceId: result.voices[1].id, trackId: 't1' }),
+      expect.objectContaining({
+        startTick: 0,
+        durationTicks: 1920,
+        voiceId: result.voices[1].id,
+        trackId: 't1',
+      }),
     ]);
   });
 
@@ -237,7 +289,12 @@ describe('removeNotesFromTrack', () => {
     const voiceId = track.measures[0].voices[0].id;
     return {
       ...track,
-      measures: [{ ...track.measures[0], voices: [{ id: voiceId, name: 'Voice 1', events }] }],
+      measures: [
+        {
+          ...track.measures[0],
+          voices: [{ id: voiceId, name: 'Voice 1', events }],
+        },
+      ],
     };
   }
 
@@ -263,17 +320,31 @@ describe('removeNotesFromTrack', () => {
 
 describe('insertNoteIntoTrack', () => {
   it('inserts into the measure containing the note start tick, in the requested voice', () => {
-    const score = createEmptyScore({ title: 'S', measures: 2, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'S',
+      measures: 2,
+      tracks: [{ name: 'Piano' }],
+    });
     const track = score.tracks[0];
     const measureTicks = track.measures[0].durationTicks;
-    const note = noteAt(measureTicks + 100, 200, 'placeholder', track.id, 'new-note');
+    const note = noteAt(
+      measureTicks + 100,
+      200,
+      'placeholder',
+      track.id,
+      'new-note'
+    );
 
     const result = insertNoteIntoTrack(track, note, 0);
     const targetMeasure = result.measures[1];
     const events = targetMeasure.voices[0].events;
-    const inserted = events.find((e) => e.id === 'new-note');
+    const inserted = events.find(e => e.id === 'new-note');
     expect(inserted).toBeDefined();
-    expect(inserted).toMatchObject({ startTick: measureTicks + 100, durationTicks: 200, trackId: track.id });
+    expect(inserted).toMatchObject({
+      startTick: measureTicks + 100,
+      durationTicks: 200,
+      trackId: track.id,
+    });
     // voiceId is renumbered to the destination voice's actual id, not the placeholder.
     expect((inserted as NoteEvent).voiceId).toBe(targetMeasure.voices[0].id);
     expect(result.measures[0]).toBe(track.measures[0]); // untouched measure preserved by reference
@@ -286,7 +357,9 @@ describe('insertNoteIntoTrack', () => {
 
     const result = insertNoteIntoTrack(track, note, 1);
     expect(result.measures[0].voices).toHaveLength(2);
-    expect(result.measures[0].voices[1].events.some((e) => e.id === 'new-note')).toBe(true);
+    expect(
+      result.measures[0].voices[1].events.some(e => e.id === 'new-note')
+    ).toBe(true);
   });
 
   it('returns the track unchanged when no measure contains the note start tick', () => {
@@ -301,7 +374,11 @@ describe('insertNoteIntoTrack', () => {
 
 describe('touchMetadata', () => {
   it('refreshes updatedAt while preserving other fields', () => {
-    const metadata = { title: 'T', createdAt: '2020-01-01T00:00:00.000Z', updatedAt: '2020-01-01T00:00:00.000Z' };
+    const metadata = {
+      title: 'T',
+      createdAt: '2020-01-01T00:00:00.000Z',
+      updatedAt: '2020-01-01T00:00:00.000Z',
+    };
     const result = touchMetadata(metadata);
     expect(result.title).toBe('T');
     expect(result.createdAt).toBe(metadata.createdAt);
@@ -312,7 +389,11 @@ describe('touchMetadata', () => {
 describe('clearDanglingTies', () => {
   /** A 2-measure score where measure 0's note 'a' (tieStart) is tied to measure 1's note 'b' (tieStop). */
   function tiedScore() {
-    const score = createEmptyScore({ title: 'S', measures: 2, tracks: [{ name: 'Piano' }] });
+    const score = createEmptyScore({
+      title: 'S',
+      measures: 2,
+      tracks: [{ name: 'Piano' }],
+    });
     const track = score.tracks[0];
     const v0 = track.measures[0].voices[0].id;
     const v1 = track.measures[1].voices[0].id;
@@ -342,8 +423,14 @@ describe('clearDanglingTies', () => {
         {
           ...track,
           measures: [
-            { ...track.measures[0], voices: [{ ...track.measures[0].voices[0], events: [noteA] }] },
-            { ...track.measures[1], voices: [{ ...track.measures[1].voices[0], events: [noteB] }] },
+            {
+              ...track.measures[0],
+              voices: [{ ...track.measures[0].voices[0], events: [noteA] }],
+            },
+            {
+              ...track.measures[1],
+              voices: [{ ...track.measures[1].voices[0], events: [noteB] }],
+            },
           ],
         },
       ],
@@ -353,14 +440,18 @@ describe('clearDanglingTies', () => {
   it('clears the surviving partner tieStop when its tieStart partner is in eventIds', () => {
     const score = tiedScore();
     const result = clearDanglingTies(score, new Set(['a']));
-    const partner = result.tracks[0].measures[1].voices[0].events.find((e) => e.id === 'b') as NoteEvent;
+    const partner = result.tracks[0].measures[1].voices[0].events.find(
+      e => e.id === 'b'
+    ) as NoteEvent;
     expect(partner.tieStop).toBeUndefined();
   });
 
   it('clears the surviving partner tieStart when its tieStop partner is in eventIds', () => {
     const score = tiedScore();
     const result = clearDanglingTies(score, new Set(['b']));
-    const partner = result.tracks[0].measures[0].voices[0].events.find((e) => e.id === 'a') as NoteEvent;
+    const partner = result.tracks[0].measures[0].voices[0].events.find(
+      e => e.id === 'a'
+    ) as NoteEvent;
     expect(partner.tieStart).toBeUndefined();
   });
 
