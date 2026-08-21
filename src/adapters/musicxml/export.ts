@@ -143,6 +143,20 @@ function buildArticulationXml(
   return name === 'strong-accent' ? '<strong-accent type="up"/>' : `<${name}/>`;
 }
 
+/**
+ * Domain ornament -> the `<ornaments>` child element that spells it.
+ *
+ * MusicXML uses the words the way a player does, unlike VexFlow's codes: a
+ * `<mordent>` is the stroked one and `<inverted-mordent>` is not. So this map
+ * reads straight across where the renderer's has to cross over.
+ */
+const ORNAMENT_ELEMENT: Record<NonNullable<NoteEvent['ornament']>, string> = {
+  trill: 'trill-mark',
+  mordent: 'mordent',
+  'inverted-mordent': 'inverted-mordent',
+  turn: 'turn',
+};
+
 function buildPitchXml(note: NoteEvent): string {
   const { step, accidental, octave } = note.pitch;
   const alter = accidental !== 0 ? `<alter>${accidental}</alter>` : '';
@@ -202,9 +216,36 @@ function buildPitchedNoteXml(
       : opts.tuplet?.position === 'stop'
         ? '<tuplet type="stop" number="1"/>'
         : '';
+  /*
+    The fermata. A `<notations>` child like the slur, and deliberately NOT a
+    child of `<articulations>` — MusicXML separates them for the same reason
+    the model does: an articulation says how a written length is played, a
+    fermata suspends it.
+
+    Only on the segment the note *ends* on. A note long enough to be written as
+    tied segments carries one pause, held at the end of the whole note, and
+    repeating the glyph at every join would print a row of them.
+  */
+  const fermataXml =
+    note.fermata && opts.tieStart === false ? '<fermata type="upright"/>' : '';
+  /*
+    The ornament sign, in its own `<ornaments>` wrapper — a sibling of
+    `<articulations>`, not a child. Only on the segment the note *begins* on:
+    an ornament is played into the note, so a tied note carries one sign at
+    its start rather than one per written segment.
+  */
+  const ornamentsXml =
+    note.ornament && opts.tieStop === false
+      ? `<ornaments><${ORNAMENT_ELEMENT[note.ornament]}/></ornaments>`
+      : '';
   const notations =
-    tiedNotations || articulationsXml || slurXml || tupletNotation
-      ? `<notations>${tiedNotations}${articulationsXml}${slurXml}${tupletNotation}</notations>`
+    tiedNotations ||
+    articulationsXml ||
+    slurXml ||
+    tupletNotation ||
+    fermataXml ||
+    ornamentsXml
+      ? `<notations>${tiedNotations}${articulationsXml}${ornamentsXml}${slurXml}${tupletNotation}${fermataXml}</notations>`
       : '';
   /*
     The sung syllable. A `<lyric>` is a child of `<note>`, not of

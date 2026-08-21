@@ -19,6 +19,7 @@ import {
   resizeNotesCommand,
   clearGraceNotesCommand,
   toGraceNoteCommand,
+  toggleFermataCommand,
   toggleSlurCommand,
   toggleTieCommand,
 } from './note-commands.js';
@@ -733,5 +734,97 @@ describe('clearGraceNotesCommand', () => {
     ) as NoteEvent;
 
     expect(principal.graceNotes).toBeUndefined();
+  });
+});
+
+describe('toggleFermataCommand', () => {
+  function firstNotes(score: Score, n: number): NoteEvent[] {
+    return allNotes(score).filter(isNoteEvent).slice(0, n);
+  }
+
+  it('marks every selected note', () => {
+    const score = twinkleScore();
+    const notes = firstNotes(score, 3);
+    const after = allNotes(
+      toggleFermataCommand(
+        notes.map(n => n.id),
+        'Fermata'
+      ).execute(score)
+    ).filter(isNoteEvent);
+
+    for (const note of notes) {
+      expect(after.find(n => n.id === note.id)?.fermata).toBe(true);
+    }
+  });
+
+  it('removes them when every selected note already has one', () => {
+    const score = twinkleScore();
+    const ids = firstNotes(score, 2).map(n => n.id);
+    const marked = toggleFermataCommand(ids, 'Fermata').execute(score);
+    const after = allNotes(
+      toggleFermataCommand(ids, 'Fermata').execute(marked)
+    ).filter(isNoteEvent);
+
+    for (const id of ids) {
+      expect(after.find(n => n.id === id)?.fermata).toBeUndefined();
+    }
+  });
+
+  it('completes a partly-marked selection rather than inverting it', () => {
+    // Toggling each note independently would leave a mixed selection still
+    // mixed — half on, half off — which reads as a broken control.
+    const score = twinkleScore();
+    const notes = firstNotes(score, 3);
+    const ids = notes.map(n => n.id);
+    const partly = toggleFermataCommand([ids[0]], 'Fermata').execute(score);
+
+    const after = allNotes(
+      toggleFermataCommand(ids, 'Fermata').execute(partly)
+    ).filter(isNoteEvent);
+
+    for (const id of ids) {
+      expect(after.find(n => n.id === id)?.fermata).toBe(true);
+    }
+  });
+
+  it('leaves unselected notes alone', () => {
+    const score = twinkleScore();
+    const notes = firstNotes(score, 4);
+    const after = allNotes(
+      toggleFermataCommand([notes[0].id], 'Fermata').execute(score)
+    ).filter(isNoteEvent);
+
+    expect(after.find(n => n.id === notes[1].id)?.fermata).toBeUndefined();
+  });
+
+  it('is independent of articulation', () => {
+    // The reason it is not a member of the Articulation enum: a fermata over
+    // an accented final chord is ordinary notation.
+    const score = twinkleScore();
+    const id = firstNotes(score, 1)[0].id;
+    const accented = changeArticulationCommand(
+      [id],
+      'accent',
+      'Accent'
+    ).execute(score);
+    const after = allNotes(
+      toggleFermataCommand([id], 'Fermata').execute(accented)
+    ).filter(isNoteEvent);
+
+    const note = after.find(n => n.id === id);
+    expect(note?.fermata).toBe(true);
+    expect(note?.articulation).toBe('accent');
+  });
+
+  it('produces a valid score', () => {
+    const score = twinkleScore();
+    const ids = firstNotes(score, 2).map(n => n.id);
+    const after = toggleFermataCommand(ids, 'Fermata').execute(score);
+    expect(validateScore(after).length).toBe(0);
+  });
+
+  it('does nothing when the selection holds no notes', () => {
+    const score = twinkleScore();
+    expect(toggleFermataCommand([], 'Fermata').execute(score)).toBe(score);
   });
 });

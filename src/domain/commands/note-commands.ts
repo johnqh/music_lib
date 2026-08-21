@@ -17,6 +17,7 @@ import type {
   Articulation,
   DurationName,
   NoteEvent,
+  Ornament,
   Pitch,
   Score,
   Track,
@@ -361,6 +362,71 @@ export function changeArticulationCommand(
       return updated;
     })
   );
+}
+
+/**
+ * Sets (or clears, when `ornament` is `undefined`) the given notes' ornament.
+ *
+ * Shaped like `changeArticulationCommand` rather than like the fermata toggle,
+ * because an ornament is a choice among several rather than an on/off: a menu
+ * sets the one it names, and "None" clears. A note carries at most one sign —
+ * a trill that is also a turn is not a marking anybody writes.
+ */
+export function changeOrnamentCommand(
+  eventIds: UUID[],
+  ornament: Ornament | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => {
+      if (ornament) return { ...note, ornament };
+      const updated: NoteEvent = { ...note };
+      delete updated.ornament;
+      return updated;
+    })
+  );
+}
+
+/**
+ * Puts a fermata on the given notes, or takes it off the ones that have one.
+ *
+ * Toggles on the *whole selection together* rather than per note: the state is
+ * read from whether every selected note already carries one, so a mixed
+ * selection gains fermatas rather than flipping each note independently. A
+ * control that did the latter would leave a selection half-marked and look
+ * broken.
+ *
+ * Unlike `toggleSlurCommand` this needs no endpoints and refuses nothing — a
+ * fermata is a property of a single note, so one note is a perfectly good
+ * selection and each marked note stands alone. Chords are marked note by note
+ * because that is what the selection contains; the renderer draws one fermata
+ * per notehead position, which is what a chord with a pause looks like.
+ */
+export function toggleFermataCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      );
+    if (notes.length === 0) return score;
+
+    // Only remove when every selected note already has one, so a selection
+    // that is partly marked becomes fully marked rather than inverting.
+    const allMarked = notes.every(note => note.fermata);
+
+    return mapNotes(score, eventIds, note => {
+      if (allMarked) {
+        const updated: NoteEvent = { ...note };
+        delete updated.fermata;
+        return updated;
+      }
+      return { ...note, fermata: true };
+    });
+  });
 }
 
 /**

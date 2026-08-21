@@ -90,8 +90,19 @@ type UseAppStoreHook = {
  * hook (`useAppStore(selector)`, `useAppStore.getState()`).
  */
 export const useAppStore: UseAppStoreHook = Object.assign(
+  // `any` is unavoidable here: the callable half of the hook is generic over
+  // the selector's return type, and `Object.assign` cannot preserve that
+  // generic through the intersection it builds. The declared `UseAppStoreHook`
+  // is what callers actually see.
+  // The directive sits *inside* the expression, not above it: the cast is at
+  // the end of a multi-line arrow, so a directive placed above the whole thing
+  // lands on the opening row rather than the row carrying the `any`. Getting
+  // that wrong is what left this file reporting the `any` and an unused
+  // directive at the same time — the suppression missed, and then reported
+  // itself as pointless.
   (<T>(selector?: (state: AppState) => T) =>
-    selector ? getAppStore()(selector) : getAppStore()()) as any, // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    selector ? getAppStore()(selector) : getAppStore()()) as any,
   {
     getState: () => getAppStore().getState(),
     getInitialState: () => getAppStore().getInitialState(),

@@ -335,3 +335,138 @@ describe('buildVoiceContent', () => {
     expect(metas[0].keyTies).toEqual([]);
   });
 });
+
+describe('fermatas', () => {
+  /** The glyph codes on a note's Articulation modifiers. */
+  function articulationCodes(staveNote: {
+    getModifiers: () => { getCategory: () => string }[];
+  }): string[] {
+    return staveNote
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Articulation')
+      .map(m => (m as unknown as { type: string }).type);
+  }
+
+  it('attaches a fermata glyph to a note that carries one', () => {
+    const events: NoteEvent[] = [
+      note({
+        id: 'held',
+        startTick: 0,
+        durationTicks: ticksFor('quarter', PPQ),
+        pitch: pitch('C', 0, 4),
+        fermata: true,
+      }),
+    ];
+    const { notes } = buildVoiceContent(recorded(events), PPQ);
+    expect(articulationCodes(notes[0]).some(c => c.startsWith('a@'))).toBe(
+      true
+    );
+  });
+
+  it('attaches nothing to a note without one', () => {
+    const events: NoteEvent[] = [
+      note({
+        id: 'plain',
+        startTick: 0,
+        durationTicks: ticksFor('quarter', PPQ),
+        pitch: pitch('C', 0, 4),
+      }),
+    ];
+    const { notes } = buildVoiceContent(recorded(events), PPQ);
+    expect(articulationCodes(notes[0])).toHaveLength(0);
+  });
+
+  it('draws it above the stave whatever the pitch', () => {
+    // Standard engraving for single-voice music: the fermata sits above the
+    // stave, and the inverted glyph belongs to a lower voice rather than to a
+    // stem-down note. Pinned across the range because the tempting
+    // alternative — choosing from `getStemDirection()` — reports Stem.UP for
+    // every pitch at this point and would invert the whole score.
+    for (const p of [pitch('C', 0, 4), pitch('A', 0, 5), pitch('G', 0, 3)]) {
+      const built = buildVoiceContent(
+        recorded([
+          note({
+            id: `n-${p.step}${p.octave}`,
+            startTick: 0,
+            durationTicks: ticksFor('quarter', PPQ),
+            pitch: p,
+            fermata: true,
+          }),
+        ]),
+        PPQ
+      ).notes[0];
+      expect(articulationCodes(built)).toContain('a@a');
+    }
+  });
+
+  it('coexists with an articulation on the same note', () => {
+    const events: NoteEvent[] = [
+      note({
+        id: 'both',
+        startTick: 0,
+        durationTicks: ticksFor('quarter', PPQ),
+        pitch: pitch('C', 0, 4),
+        articulation: 'accent',
+        fermata: true,
+      }),
+    ];
+    const { notes } = buildVoiceContent(recorded(events), PPQ);
+    const codes = articulationCodes(notes[0]);
+    expect(codes).toContain('a>');
+    expect(codes.some(c => c.startsWith('a@'))).toBe(true);
+  });
+});
+
+describe('ornaments', () => {
+  /** The SMuFL glyph codes on a note's Ornament modifiers. */
+  function ornamentGlyphs(staveNote: {
+    getModifiers: () => { getCategory: () => string }[];
+  }): string[] {
+    return staveNote
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Ornament')
+      .map(
+        m =>
+          (m as unknown as { ornament?: { code?: string } }).ornament?.code ??
+          ''
+      );
+  }
+
+  function built(ornament: NoteEvent['ornament']) {
+    return buildVoiceContent(
+      recorded([
+        note({
+          id: 'orn',
+          startTick: 0,
+          durationTicks: ticksFor('quarter', PPQ),
+          pitch: pitch('C', 0, 4),
+          ornament,
+        }),
+      ]),
+      PPQ
+    ).notes[0];
+  }
+
+  it('draws a trill', () => {
+    expect(ornamentGlyphs(built('trill'))).toEqual(['ornamentTrill']);
+  });
+
+  it('draws a turn', () => {
+    expect(ornamentGlyphs(built('turn'))).toEqual(['ornamentTurn']);
+  });
+
+  it('draws the stroked glyph for a mordent and the plain one for an inverted mordent', () => {
+    // The trap this pins: VexFlow's 'mordent' code draws ornamentShortTrill —
+    // the *unstroked* upper mordent — and its 'mordent_inverted' draws the
+    // stroked ornamentMordent. Mapping the two by name gets them backwards,
+    // which looks plausible on screen and is wrong in every edition.
+    expect(ornamentGlyphs(built('mordent'))).toEqual(['ornamentMordent']);
+    expect(ornamentGlyphs(built('inverted-mordent'))).toEqual([
+      'ornamentShortTrill',
+    ]);
+  });
+
+  it('attaches nothing to a note without one', () => {
+    expect(ornamentGlyphs(built(undefined))).toHaveLength(0);
+  });
+});

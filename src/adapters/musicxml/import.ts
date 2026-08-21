@@ -105,7 +105,6 @@ export type MusicXmlWarnings = {
   graceNotes: string;
   lyrics: string;
   tuplets: string;
-  ornaments: string;
   unsupportedNotation: (tag: string) => string;
   unsupportedNoteElement: (tag: string) => string;
   unsupportedArticulation: (tag: string) => string;
@@ -288,6 +287,8 @@ type RawEvent = {
   pitch: Pitch | null; // null => rest
   voiceNumber: string;
   articulation?: NoteEvent['articulation'];
+  fermata?: boolean;
+  ornament?: NoteEvent['ornament'];
   dynamic?: Dynamic;
   slurStart?: boolean;
   slurStop?: boolean;
@@ -397,6 +398,9 @@ function warnUnsupportedNoteChildren(
           notationChild.tagName === 'articulations' ||
           notationChild.tagName === 'tied' ||
           notationChild.tagName === 'slur' ||
+          // Read in `parseFermata`, so no longer dropped and no longer warned
+          // about.
+          notationChild.tagName === 'fermata' ||
           // The bracket. Its scaling rides on `<time-modification>` and the
           // tick length, so there is nothing more to read here — but it is
           // understood, not ignored, and must not be reported as unsupported.
@@ -404,7 +408,9 @@ function warnUnsupportedNoteChildren(
         )
           continue;
         if (notationChild.tagName === 'ornaments') {
-          warnings.add(warnings.text.ornaments);
+          // Read in `parseOrnament`. A sign this model does not carry still
+          // warns, so nothing is dropped silently — see there.
+          continue;
         } else {
           warnings.add(
             warnings.text.unsupportedNotation(notationChild.tagName)
@@ -416,6 +422,45 @@ function warnUnsupportedNoteChildren(
     }
   }
 }
+
+/**
+ * The ornament sign on `noteEl`, if it carries one this model can hold.
+ *
+ * MusicXML's `<ornaments>` is a much wider vocabulary than four signs — it
+ * also carries `<wavy-line>`, `<schleifer>`, `<tremolo>` and more, and may
+ * hold several at once. Anything unrecognised still warns rather than
+ * vanishing, and the first recognised sign wins: the model stores one.
+ */
+function parseOrnament(
+  noteEl: XmlElement,
+  warnings: WarningCollector
+): NoteEvent['ornament'] | undefined {
+  const notations = directChild(noteEl, 'notations');
+  const ornamentsEl = notations ? directChild(notations, 'ornaments') : null;
+  if (!ornamentsEl) return undefined;
+
+  let found: NoteEvent['ornament'] | undefined;
+  for (const child of Array.from(ornamentsEl.children)) {
+    const mapped = ORNAMENT_FROM_ELEMENT[child.tagName];
+    if (mapped) {
+      if (found === undefined) found = mapped;
+      continue;
+    }
+    // `<accidental-mark>` qualifies a sign rather than being one, so it is
+    // not a dropped ornament and must not be reported as one.
+    if (child.tagName === 'accidental-mark') continue;
+    warnings.add(warnings.text.unsupportedNotation(child.tagName));
+  }
+  return found;
+}
+
+/** MusicXML `<ornaments>` child -> domain ornament. The words line up here. */
+const ORNAMENT_FROM_ELEMENT: Record<string, NoteEvent['ornament']> = {
+  'trill-mark': 'trill',
+  mordent: 'mordent',
+  'inverted-mordent': 'inverted-mordent',
+  turn: 'turn',
+};
 
 function parseArticulation(
   noteEl: XmlElement,
@@ -579,6 +624,21 @@ function parseNote(
   const slurStart = slurEls.some(el => el.getAttribute('type') === 'start');
   const slurStop = slurEls.some(el => el.getAttribute('type') === 'stop');
 
+  /*
+    A pause, also a `<notations>` child. Its presence is the whole marking —
+    the `type` attribute only says which way the glyph is drawn, which the
+    renderer decides for itself from the stem, and `<fermata>` with no
+    attribute at all is both legal and common.
+
+    Only on notes: the model carries a fermata on a `NoteEvent`, so one written
+    over a rest is dropped rather than misfiled onto the following note.
+  */
+  const fermata = restEl
+    ? false
+    : notationsEl !== null && directChildren(notationsEl, 'fermata').length > 0;
+
+  const ornament = restEl ? undefined : parseOrnament(noteEl, warnings);
+
   const lyric = restEl ? undefined : parseLyric(noteEl);
 
   const raw: RawEvent = {
@@ -592,6 +652,8 @@ function parseNote(
     ...(lyric ? { lyric } : {}),
     ...(slurStart ? { slurStart: true } : {}),
     ...(slurStop ? { slurStop: true } : {}),
+    ...(fermata ? { fermata: true } : {}),
+    ...(ornament ? { ornament } : {}),
   };
   return { raw, cursorAdvance: durationTicks };
 }
@@ -649,6 +711,8 @@ function fillAndClip(
         ...(item.tieStart ? { tieStart: true } : {}),
         ...(item.tieStop ? { tieStop: true } : {}),
         ...(item.articulation ? { articulation: item.articulation } : {}),
+        ...(item.fermata ? { fermata: true } : {}),
+        ...(item.ornament ? { ornament: item.ornament } : {}),
         ...(item.dynamic ? { dynamic: item.dynamic } : {}),
         ...(item.slurStart ? { slurStart: true } : {}),
         ...(item.slurStop ? { slurStop: true } : {}),

@@ -342,7 +342,7 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
     expect(warnings.some(w => /unpitched/i.test(w))).toBe(true);
   });
 
-  it('warns about ornaments, but imports a tuplet rather than warning about it', () => {
+  it('imports an ornament and a tuplet, warning about neither', () => {
     const xml = MINIMAL_HEADER(`<measure number="1">
 <attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
 <note><pitch><step>C</step><octave>4</octave></pitch><duration>320</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><ornaments><turn/></ornaments></notations></note>
@@ -356,7 +356,10 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
     expect(score.tracks[0].measures[0].voices[0].events[0].durationTicks).toBe(
       320
     );
-    expect(warnings.some(w => /ornament/i.test(w))).toBe(true);
+    // The turn is now read onto the note rather than reported as unsupported.
+    const first = score.tracks[0].measures[0].voices[0].events[0];
+    expect(isNoteEvent(first) && first.ornament).toBe('turn');
+    expect(warnings.some(w => /ornament/i.test(w))).toBe(false);
     // `<duration>` already carries the scaling, so the tick length above is
     // correct and nothing is simplified.
     expect(warnings.some(w => /tuplet/i.test(w))).toBe(false);

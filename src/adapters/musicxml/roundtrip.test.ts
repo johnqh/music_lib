@@ -18,9 +18,12 @@ import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { allNotes } from '../../domain/score/queries.js';
 import {
+  changeArticulationCommand,
+  changeOrnamentCommand,
   setChordSymbolCommand,
   setLyricCommand,
   toGraceNoteCommand,
+  toggleFermataCommand,
   toggleSlurCommand,
 } from '../../domain/commands/note-commands.js';
 import { changeRepeatsCommand } from '../../domain/commands/structure-commands.js';
@@ -780,5 +783,137 @@ describe('repeats and endings round-trip', () => {
 
   it('writes no barline element for a score without repeats', () => {
     expect(exportMusicXml(twoTrackScore())).not.toContain('<repeat ');
+  });
+});
+
+describe('fermatas round-trip', () => {
+  /** Twinkle with a fermata on its first and last note. */
+  function paused() {
+    const score = twinkleScore();
+    const notes = allNotes(score).filter(isNoteEvent);
+    return toggleFermataCommand(
+      [notes[0].id, notes[notes.length - 1].id],
+      'Fermata'
+    ).execute(score);
+  }
+
+  it('survives export and import on the notes that carried it', () => {
+    const { imported, warnings } = roundTrip(paused());
+    const after = allNotes(imported).filter(isNoteEvent);
+
+    expect(warnings).toEqual([]);
+    expect(after.filter(n => n.fermata)).toHaveLength(2);
+    expect(after[0].fermata).toBe(true);
+    expect(after[after.length - 1].fermata).toBe(true);
+  });
+
+  it('does not spread onto the notes between', () => {
+    const { imported } = roundTrip(paused());
+    const after = allNotes(imported).filter(isNoteEvent);
+    expect(after.length).toBeGreaterThan(4);
+    expect(after.slice(1, -1).some(n => n.fermata)).toBe(false);
+  });
+
+  it('no longer warns that a fermata is unsupported', () => {
+    // Before this, <fermata> was reported as an unsupported notation and the
+    // pause was dropped — so importing a chorale lost every hold in it.
+    const { warnings } = roundTrip(paused());
+    expect(warnings.join(' ')).not.toMatch(/fermata/i);
+  });
+
+  it('leaves an unmarked score unmarked', () => {
+    const { imported } = roundTrip(twinkleScore());
+    expect(
+      allNotes(imported)
+        .filter(isNoteEvent)
+        .every(n => !n.fermata)
+    ).toBe(true);
+  });
+
+  it('survives alongside an articulation on the same note', () => {
+    // The reason it is its own field: MusicXML keeps <fermata> outside
+    // <articulations> too, so both have to come back.
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+    const both = toggleFermataCommand([id], 'Fermata').execute(
+      changeArticulationCommand([id], 'accent', 'Accent').execute(score)
+    );
+
+    const { imported, warnings } = roundTrip(both);
+    const after = allNotes(imported).filter(isNoteEvent)[0];
+
+    expect(warnings).toEqual([]);
+    expect(after.fermata).toBe(true);
+    expect(after.articulation).toBe('accent');
+  });
+});
+
+describe('ornaments round-trip', () => {
+  const SIGNS = ['trill', 'mordent', 'inverted-mordent', 'turn'] as const;
+
+  it.each(SIGNS)('survives export and import: %s', sign => {
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+    const marked = changeOrnamentCommand([id], sign, 'Ornament').execute(score);
+
+    const { imported, warnings } = roundTrip(marked);
+    const after = allNotes(imported).filter(isNoteEvent)[0];
+
+    expect(warnings).toEqual([]);
+    expect(after.ornament).toBe(sign);
+  });
+
+  it('keeps a mordent distinct from an inverted mordent', () => {
+    // They are different signs, and the two libraries name them opposite ways
+    // round — a mapping error here would silently swap them on every import.
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+
+    const asMordent = roundTrip(
+      changeOrnamentCommand([id], 'mordent', 'Ornament').execute(score)
+    ).imported;
+    const asInverted = roundTrip(
+      changeOrnamentCommand([id], 'inverted-mordent', 'Ornament').execute(score)
+    ).imported;
+
+    expect(allNotes(asMordent).filter(isNoteEvent)[0].ornament).toBe('mordent');
+    expect(allNotes(asInverted).filter(isNoteEvent)[0].ornament).toBe(
+      'inverted-mordent'
+    );
+  });
+
+  it('no longer warns that ornaments are unsupported', () => {
+    // Before this, <ornaments> raised "Ornaments are not supported and were
+    // ignored" and every trill in an imported score was lost.
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+    const { warnings } = roundTrip(
+      changeOrnamentCommand([id], 'trill', 'Ornament').execute(score)
+    );
+    expect(warnings.join(' ')).not.toMatch(/ornament/i);
+  });
+
+  it('leaves an unmarked score unmarked', () => {
+    const { imported } = roundTrip(twinkleScore());
+    expect(
+      allNotes(imported)
+        .filter(isNoteEvent)
+        .every(n => !n.ornament)
+    ).toBe(true);
+  });
+
+  it('carries an ornament and a fermata on the same note', () => {
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+    const both = toggleFermataCommand([id], 'Fermata').execute(
+      changeOrnamentCommand([id], 'trill', 'Ornament').execute(score)
+    );
+
+    const { imported, warnings } = roundTrip(both);
+    const after = allNotes(imported).filter(isNoteEvent)[0];
+
+    expect(warnings).toEqual([]);
+    expect(after.ornament).toBe('trill');
+    expect(after.fermata).toBe(true);
   });
 });

@@ -27,7 +27,6 @@ export const TEST_MUSICXML_WARNINGS: MusicXmlWarnings = {
   lyrics: 'Lyrics are not supported and were ignored.',
   tuplets:
     'Tuplets (<time-modification>) are imported using their written duration in ticks, which may not reproduce the exact tuplet grouping.',
-  ornaments: 'Ornaments are not supported and were ignored.',
   unsupportedNotation: tag => `Unsupported notation <${tag}> was ignored.`,
   unsupportedNoteElement: tag =>
     `Unsupported note element <${tag}> was ignored.`,

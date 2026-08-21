@@ -19,12 +19,14 @@ import {
   GhostNote,
   GraceNote,
   GraceNoteGroup,
+  Ornament,
   StaveNote,
 } from 'vexflow';
 import type { StemmableNote } from 'vexflow';
 import type {
   Accidental as DomainAccidental,
   Articulation as DomainArticulation,
+  Ornament as DomainOrnament,
   DurationName,
   KeySignature,
   MusicalEvent,
@@ -149,6 +151,43 @@ const ARTICULATION_CODE: Record<DomainArticulation, string> = {
   accent: 'a>',
   tenuto: 'a-',
   marcato: 'a^',
+};
+
+/**
+ * The fermata glyph: upright, above the stave.
+ *
+ * Always above, which is what an engraver does in single-voice music — the
+ * inverted form (`a@u`) belongs to the lower part of a two-voice texture, not
+ * to any stem-down note. **Known simplification**: a lower voice therefore
+ * gets its pause above the stave too, where it should hang below.
+ *
+ * Deliberately not chosen from the note's stem direction, which is the obvious
+ * wrong answer: `StaveNote.getStemDirection()` reports `Stem.UP` for *every*
+ * pitch at construction — the real direction is resolved later, during
+ * formatting — so keying off it here silently inverts every fermata in the
+ * score. Measured: c/4, g/3, e/5 and a/5 all report UP.
+ */
+const FERMATA_ABOVE = 'a@a';
+
+/**
+ * Domain ornament -> VexFlow `Ornament` code.
+ *
+ * **Two of these look transposed and are not.** VexFlow's `'mordent'` draws
+ * the `ornamentShortTrill` glyph — the one *without* the vertical stroke,
+ * which musicians call an inverted (upper) mordent — while its
+ * `'mordent_inverted'` draws `ornamentMordent`, the stroked one that is
+ * simply "a mordent". So the two words are used the other way round from the
+ * way a player uses them, and mapping them by name draws both backwards.
+ * Verified against the constructed glyph codes rather than the docs.
+ *
+ * `'tr'`, not `'trill'`: the latter is not a code VexFlow knows and throws
+ * inside the constructor.
+ */
+const ORNAMENT_CODE: Record<DomainOrnament, string> = {
+  trill: 'tr',
+  mordent: 'mordent_inverted',
+  'inverted-mordent': 'mordent',
+  turn: 'turn',
 };
 
 /** Groups events by identical `(startTick, durationTicks)` — VexFlow chord candidates within a single voice. */
@@ -307,6 +346,28 @@ export function buildVoiceContent(
           if (noteEvent.articulation) {
             staveNote.addModifier(
               new Articulation(ARTICULATION_CODE[noteEvent.articulation]),
+              keyIndex
+            );
+          }
+          /*
+            The pause, above the stave — see `FERMATA_ABOVE`.
+
+            Added after the articulation deliberately: VexFlow stacks
+            modifiers outward in the order they arrive, so a staccato dot sits
+            against the notehead and the fermata arches over it, rather than
+            the dot floating outside the arc.
+          */
+          if (noteEvent.fermata) {
+            staveNote.addModifier(new Articulation(FERMATA_ABOVE), keyIndex);
+          }
+          /*
+            The ornament sign. A modifier like the others, and only ever one —
+            the model holds a single sign, because a trill that is also a turn
+            is not a marking anybody writes.
+          */
+          if (noteEvent.ornament) {
+            staveNote.addModifier(
+              new Ornament(ORNAMENT_CODE[noteEvent.ornament]),
               keyIndex
             );
           }
