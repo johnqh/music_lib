@@ -17,6 +17,7 @@
  * whole reason `applyMix` exists.
  */
 import { isNoteEvent } from '@sudobility/music_types';
+import { articulatedDuration, articulatedVelocity } from './articulation.js';
 import { dynamicsInForce, effectiveVelocity } from './dynamics.js';
 import type { MusicalEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../pitch/pitch.js';
@@ -80,9 +81,17 @@ export function flattenScoreNotes(score: Score): FlatNote[] {
       const inForce = dynamicsInForce(joined);
       for (const event of joined) {
         if (!isNoteEvent(event)) continue;
-        const velocity = effectiveVelocity(
+        // Two steps, and the order matters: the dynamic sets the level, then
+        // the articulation is an offset on top of it — so an accent inside a
+        // quiet passage stays an accent rather than being flattened to a fixed
+        // loud velocity.
+        const dynamicVelocity = effectiveVelocity(
           event,
           inForce.get(event.id) ?? null
+        );
+        const velocity = articulatedVelocity(
+          dynamicVelocity,
+          event.articulation
         );
 
         /*
@@ -113,8 +122,10 @@ export function flattenScoreNotes(score: Score): FlatNote[] {
               durTicks: each,
               midi: pitchToMidi(grace.pitch),
               // A shade under the principal: an ornament leads into the note,
-              // it does not compete with it.
-              velocity: Math.max(1, Math.round(velocity * 0.8)),
+              // it does not compete with it. Off the *pre-articulation*
+              // velocity, because an accent belongs to the note it is written
+              // on and not to what leads into it.
+              velocity: Math.max(1, Math.round(dynamicVelocity * 0.8)),
               trackId: track.id,
               noteId: `${event.id}-grace-${i}`,
             });
@@ -123,7 +134,13 @@ export function flattenScoreNotes(score: Score): FlatNote[] {
 
         notes.push({
           tick: event.startTick + graceTicks,
-          durTicks: event.durationTicks - graceTicks,
+          // Shortened by a staccato or a marcato, and only ever shortened —
+          // the note still *occupies* its written length, so nothing after it
+          // moves and the bar still adds up.
+          durTicks: articulatedDuration(
+            event.durationTicks - graceTicks,
+            event.articulation
+          ),
           midi: pitchToMidi(event.pitch),
           velocity,
           trackId: track.id,
