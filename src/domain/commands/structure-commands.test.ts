@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from '../score/factory.js';
 import { validateScore } from '../validation/validator.js';
-import { twinkleScore } from '../../test/fixtures.js';
+import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import {
   addMeasureCommand,
   addTrackCommand,
   changeClefCommand,
   changeKeySignatureCommand,
   changeMetadataCommand,
+  changeRepeatsCommand,
   changeTempoCommand,
   removeTempoCommand,
   changeTimeSignatureCommand,
@@ -422,5 +423,108 @@ describe('removeTempoCommand', () => {
     expect(
       removeTempoCommand('no-such-id', 'Remove').execute(added).tempoMap
     ).toHaveLength(2);
+  });
+});
+
+describe('changeRepeatsCommand', () => {
+  it('marks the barlines of a repeated section', () => {
+    const score = twoTrackScore();
+    const first = score.tracks[0].measures[0];
+    const last = score.tracks[0].measures[3];
+
+    let result = changeRepeatsCommand(
+      first.id,
+      { repeatStart: true },
+      'Repeat'
+    ).execute(score);
+    result = changeRepeatsCommand(
+      last.id,
+      { repeatEnd: true },
+      'Repeat'
+    ).execute(result);
+
+    expect(result.tracks[0].measures[0].repeatStart).toBe(true);
+    expect(result.tracks[0].measures[3].repeatEnd).toBe(true);
+  });
+
+  it('applies to every track, so the parts agree', () => {
+    // A `:|` on the top stave but not the others is a score that reads
+    // differently depending on which part you play from.
+    const score = twoTrackScore();
+    const result = changeRepeatsCommand(
+      score.tracks[0].measures[2].id,
+      { repeatEnd: true },
+      'Repeat'
+    ).execute(score);
+
+    expect(result.tracks.every(t => t.measures[2].repeatEnd === true)).toBe(
+      true
+    );
+  });
+
+  it('removes a marking rather than storing a false one', () => {
+    const score = twoTrackScore();
+    const id = score.tracks[0].measures[0].id;
+    const on = changeRepeatsCommand(
+      id,
+      { repeatStart: true },
+      'Repeat'
+    ).execute(score);
+    const off = changeRepeatsCommand(
+      id,
+      { repeatStart: false },
+      'Repeat'
+    ).execute(on);
+
+    expect('repeatStart' in off.tracks[0].measures[0]).toBe(false);
+  });
+
+  it('leaves untouched fields alone', () => {
+    const score = twoTrackScore();
+    const id = score.tracks[0].measures[0].id;
+    let result = changeRepeatsCommand(
+      id,
+      { repeatStart: true },
+      'Repeat'
+    ).execute(score);
+    result = changeRepeatsCommand(id, { endingNumbers: [1] }, 'Repeat').execute(
+      result
+    );
+
+    expect(result.tracks[0].measures[0].repeatStart).toBe(true);
+    expect(result.tracks[0].measures[0].endingNumbers).toEqual([1]);
+  });
+
+  it('sorts ending numbers and drops an empty list', () => {
+    const score = twoTrackScore();
+    const id = score.tracks[0].measures[0].id;
+    const on = changeRepeatsCommand(
+      id,
+      { endingNumbers: [2, 1] },
+      'Repeat'
+    ).execute(score);
+    expect(on.tracks[0].measures[0].endingNumbers).toEqual([1, 2]);
+
+    const off = changeRepeatsCommand(
+      id,
+      { endingNumbers: [] },
+      'Repeat'
+    ).execute(on);
+    expect('endingNumbers' in off.tracks[0].measures[0]).toBe(false);
+  });
+
+  it('leaves the score valid and the bars unchanged in length', () => {
+    const score = twoTrackScore();
+    const before = score.tracks[0].measures.map(m => m.durationTicks);
+    const result = changeRepeatsCommand(
+      score.tracks[0].measures[0].id,
+      { repeatStart: true, endingNumbers: [1] },
+      'Repeat'
+    ).execute(score);
+
+    expect(result.tracks[0].measures.map(m => m.durationTicks)).toEqual(before);
+    expect(validateScore(result).filter(i => i.severity === 'error')).toEqual(
+      []
+    );
   });
 });

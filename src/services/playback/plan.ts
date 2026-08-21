@@ -18,6 +18,10 @@ import type {
   Score,
 } from '@sudobility/music_types';
 import { TempoMap } from '../../domain/time/tempo-map.js';
+import {
+  performanceTimeline,
+  type PerformanceTimeline,
+} from '../../domain/score/performance-timeline.js';
 import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import { beatBoundaries } from '../../domain/time/ticks.js';
 import { gmInstrument } from '../../domain/instruments/gm.js';
@@ -95,17 +99,78 @@ function metronomeClicks(score: Score): MetronomeClick[] {
   return clicks;
 }
 
+/**
+ * Lays `events` out along the timeline, repeating what the repeats repeat.
+ *
+ * Each segment copies the written events inside its source range to its own
+ * place in performance time. A copy gets a distinct id — the caret lights a
+ * note by id, and the same written note sounding twice would otherwise light
+ * both times at once.
+ *
+ * The identity timeline copies everything exactly once at its own tick, so a
+ * score without repeats produces precisely what it did before.
+ */
+function expandAlongTimeline<T extends { tick: number }>(
+  events: T[],
+  timeline: PerformanceTimeline,
+  withTick: (event: T, tick: number, pass: number) => T
+): T[] {
+  if (timeline.segments.length === 0) return events;
+
+  const expanded: T[] = [];
+  const passesBySource = new Map<number, number>();
+
+  for (const segment of timeline.segments) {
+    const pass = (passesBySource.get(segment.sourceTick) ?? 0) + 1;
+    passesBySource.set(segment.sourceTick, pass);
+
+    const end = segment.sourceTick + segment.durationTicks;
+    for (const event of events) {
+      if (event.tick < segment.sourceTick || event.tick >= end) continue;
+      const offset = event.tick - segment.sourceTick;
+      expanded.push(withTick(event, segment.performanceTick + offset, pass));
+    }
+  }
+  return expanded.sort((a, b) => a.tick - b.tick);
+}
+
 export function playbackPlan(score: Score): PlaybackPlan {
-  const notes = flattenScoreNotes(score);
+  const timeline = performanceTimeline(score);
+
+  /*
+    Notes are laid out in *performance* time, so a repeated bar genuinely
+    sounds twice. Everything that draws translates back through `timeline`
+    — see `sourceTickFor` — which is what keeps the score the canonical,
+    written thing rather than teaching the caret about repeats.
+  */
+  const notes = expandAlongTimeline(
+    flattenScoreNotes(score),
+    timeline,
+    (note, tick, pass) => ({
+      ...note,
+      tick,
+      // Distinct per pass: the caret lights a note by id, and one written
+      // note sounding twice must not light both places at once.
+      noteId: pass === 1 ? note.noteId : `${note.noteId}#${pass}`,
+    })
+  );
+
+  const clicks = expandAlongTimeline(
+    metronomeClicks(score),
+    timeline,
+    (click, tick) => ({ ...click, tick })
+  );
+
   return {
     tracks: playbackTracks(score),
     notes,
-    clicks: metronomeClicks(score),
+    clicks,
+    timeline,
     // `TempoMap` satisfies `TempoConversion` structurally, so nothing converts twice.
     tempo: new TempoMap(score.tempoMap, score.ppq),
-    durationTicks: notes.reduce(
-      (n, note) => Math.max(n, note.tick + note.durTicks),
-      0
+    durationTicks: Math.max(
+      timeline.durationTicks,
+      notes.reduce((n, note) => Math.max(n, note.tick + note.durTicks), 0)
     ),
   };
 }

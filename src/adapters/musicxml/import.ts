@@ -704,6 +704,10 @@ function parseMeasure(
   let pendingDynamic: Dynamic | undefined;
   /** Set by a `<harmony>`, consumed by the note it sits over — same shape. */
   let pendingChordSymbol: string | undefined;
+  /** Repeat structure, collected from this measure's `<barline>` elements. */
+  let repeatStart = false;
+  let repeatEnd = false;
+  let endingNumbers: number[] | undefined;
   /**
    * Ornaments read so far, waiting for the note they decorate.
    *
@@ -843,8 +847,34 @@ function parseMeasure(
         break;
       }
 
+      case 'barline': {
+        /*
+          Repeat barlines and volta brackets.
+
+          MusicXML states them per side — a forward repeat and an ending's
+          start on the left, a backward repeat and its stop on the right — so
+          both locations are read into the one measure the model stores them
+          on. The ending's numbers come from the `number` attribute, which is a
+          comma-separated list for a bar played on more than one pass.
+        */
+        const repeat = directChild(child, 'repeat');
+        const direction = repeat?.getAttribute('direction');
+        if (direction === 'forward') repeatStart = true;
+        if (direction === 'backward') repeatEnd = true;
+
+        const ending = directChild(child, 'ending');
+        const numbers = ending?.getAttribute('number');
+        if (numbers) {
+          const parsed = numbers
+            .split(',')
+            .map(part => Number(part.trim()))
+            .filter(n => Number.isInteger(n) && n > 0);
+          if (parsed.length > 0) endingNumbers = parsed;
+        }
+        break;
+      }
+
       case 'print':
-      case 'barline':
       case 'sound':
         break;
 
@@ -892,6 +922,9 @@ function parseMeasure(
     timeSignature: state.timeSignature,
     keySignature: state.keySignature,
     voices,
+    ...(repeatStart ? { repeatStart: true } : {}),
+    ...(repeatEnd ? { repeatEnd: true } : {}),
+    ...(endingNumbers ? { endingNumbers } : {}),
   };
 
   return { measure, tempoEvents };

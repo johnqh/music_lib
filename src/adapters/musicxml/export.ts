@@ -449,7 +449,10 @@ function buildMeasureXml(
   clef: Clef,
   ppq: number,
   tempoMap: TempoEvent[],
-  includeTempo: boolean
+  includeTempo: boolean,
+  /** Neighbours, for deriving where a volta bracket begins and ends. */
+  prevMeasure: Measure | undefined,
+  nextMeasure: Measure | undefined
 ): string {
   const attrs: string[] = [];
   if (isFirstMeasure) attrs.push(`<divisions>${ppq}</divisions>`);
@@ -470,6 +473,27 @@ function buildMeasureXml(
   let xml = `<measure number="${measure.index + 1}">\n`;
   if (attrs.length > 0) xml += `<attributes>${attrs.join('')}</attributes>\n`;
 
+  /*
+    The left-hand barline: a repeat opening, a volta opening, or both.
+
+    MusicXML puts these in a `<barline location="left">` at the top of the
+    measure, and the matching right-hand one at the bottom — which is why they
+    are written in two places rather than one.
+  */
+  const opensEnding =
+    Boolean(measure.endingNumbers?.length) && !sameEnding(prevMeasure, measure);
+  if (measure.repeatStart || opensEnding) {
+    xml +=
+      `<barline location="left">` +
+      (measure.repeatStart
+        ? `<bar-style>heavy-light</bar-style><repeat direction="forward"/>`
+        : '') +
+      (opensEnding
+        ? `<ending number="${measure.endingNumbers!.join(', ')}" type="start"/>`
+        : '') +
+      `</barline>\n`;
+  }
+
   if (includeTempo) {
     for (const tempo of tempoEventsInMeasure(tempoMap, measure)) {
       xml += buildTempoDirectionXml(tempo, measure);
@@ -485,8 +509,30 @@ function buildMeasureXml(
     xml += buildVoiceEventsXml(voice, voiceIndex + 1, ppq);
   });
 
+  const closesEnding =
+    Boolean(measure.endingNumbers?.length) && !sameEnding(nextMeasure, measure);
+  if (measure.repeatEnd || closesEnding) {
+    xml +=
+      `<barline location="right">` +
+      (closesEnding
+        ? `<ending number="${measure.endingNumbers!.join(', ')}" type="stop"/>`
+        : '') +
+      (measure.repeatEnd
+        ? `<bar-style>light-heavy</bar-style><repeat direction="backward"/>`
+        : '') +
+      `</barline>\n`;
+  }
+
   xml += `</measure>\n`;
   return xml;
+}
+
+/** Whether two bars belong to the same volta — the same numbers, in order. */
+function sameEnding(a: Measure | undefined, b: Measure | undefined): boolean {
+  const left = a?.endingNumbers;
+  const right = b?.endingNumbers;
+  if (!left || !right) return false;
+  return left.length === right.length && left.every((n, i) => n === right[i]);
 }
 
 function buildPartXml(
@@ -509,7 +555,9 @@ function buildPartXml(
       track.clef,
       ppq,
       tempoMap,
-      includeTempo
+      includeTempo,
+      track.measures[index - 1],
+      track.measures[index + 1]
     );
     prevTimeSignature = measure.timeSignature;
     prevKeySignature = measure.keySignature;

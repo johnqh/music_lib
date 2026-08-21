@@ -744,12 +744,17 @@ export class CanvasScoreRenderer {
 
         const channels = channelsByTrack.get(track.id)!;
         const prevMeasure = track.measures[measureIndex - 1];
+        // The next bar, for deriving where a volta bracket ends. Taken from
+        // the *score*, not from what is on screen: a bracket that closed at
+        // the edge of the drawn window would change shape as you scroll.
+        const nextMeasure = track.measures[measureIndex + 1];
         const { stave, voices, beams, tuplets, multiMeasureRest } =
           buildMeasureContent(
             measure,
             track,
             placement,
             prevMeasure,
+            nextMeasure,
             score.ppq,
             channels,
             allMetas

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Accidental, Stem, Voice } from 'vexflow';
+import { Accidental, Barline, Stem, Voice, Volta } from 'vexflow';
 import type { StaveNote } from 'vexflow';
 import {
   CUE_GLYPH_SCALE,
@@ -376,6 +376,7 @@ describe('cue notes', () => {
       track,
       placement,
       undefined,
+      undefined,
       480,
       new Map(),
       []
@@ -415,6 +416,7 @@ describe('cue notes', () => {
       measureWith({ label: 'Flute', events: cueEvents }),
       track,
       placement,
+      undefined,
       undefined,
       480,
       channels,
@@ -483,6 +485,7 @@ describe('two voices on one stave', () => {
       stemTrack,
       stemPlacement,
       undefined,
+      undefined,
       480,
       new Map(),
       []
@@ -510,5 +513,115 @@ describe('two voices on one stave', () => {
     // a one-voice stave would point half of them the wrong way.
     const [only] = stemDirections(measureWithVoices(1));
     expect(new Set(only).size).toBeGreaterThan(1);
+  });
+});
+
+describe('repeat barlines and voltas', () => {
+  const repTrack = {
+    id: 't1',
+    name: 'Piano',
+    instrumentName: 'Piano',
+    midiProgram: 0,
+    midiChannel: 0,
+    clef: 'treble' as const,
+    volume: 1,
+    pan: 0,
+    measures: [],
+  } as unknown as Track;
+
+  const repPlacement = {
+    box: { x: 0, y: 0, width: 300, height: 100 },
+    isFirstInSystem: true,
+  } as unknown as MeasureLayout;
+
+  function bar(overrides: Partial<Measure> = {}): Measure {
+    return {
+      id: 'm1',
+      index: 0,
+      startTick: 0,
+      durationTicks: 1920,
+      timeSignature: { numerator: 4, denominator: 4 },
+      keySignature: { fifths: 0, mode: 'major' },
+      voices: [{ id: 'v1', name: 'Voice 1', events: [] }],
+      ...overrides,
+    } as unknown as Measure;
+  }
+
+  function staveFor(measure: Measure, prev?: Measure, next?: Measure) {
+    return buildMeasureContent(
+      measure,
+      repTrack,
+      repPlacement,
+      prev,
+      next,
+      480,
+      new Map(),
+      []
+    ).stave;
+  }
+
+  /**
+   * The barline types on a stave. VexFlow exposes no getter for these — they
+   * are modifiers — so this reads them the way the renderer's own draw path
+   * does.
+   */
+  function barTypes(measure: Measure): number[] {
+    return staveFor(measure)
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Barline')
+      .map(m => (m as unknown as { getType(): number }).getType());
+  }
+
+  it('draws a repeat begin and a repeat end', () => {
+    expect(barTypes(bar({ repeatStart: true }))).toContain(
+      Barline.type.REPEAT_BEGIN
+    );
+    expect(barTypes(bar({ repeatEnd: true }))).toContain(
+      Barline.type.REPEAT_END
+    );
+  });
+
+  it('leaves an ordinary bar alone', () => {
+    const types = barTypes(bar());
+    expect(types).not.toContain(Barline.type.REPEAT_BEGIN);
+    expect(types).not.toContain(Barline.type.REPEAT_END);
+  });
+
+  it('opens and closes a one-bar volta', () => {
+    const stave = staveFor(bar({ endingNumbers: [1] }));
+    expect(stave.getModifiers().some(m => m.getCategory() === 'Volta')).toBe(
+      true
+    );
+  });
+
+  it('spans a volta across its bars, deriving the ends from its neighbours', () => {
+    // A bar opens the bracket when the one before is not the same ending and
+    // closes it when the one after is not — so deleting a bar shortens the
+    // bracket instead of leaving one pointing at nothing.
+    const first = bar({ id: 'a', endingNumbers: [1] });
+    const middle = bar({ id: 'b', endingNumbers: [1] });
+    const last = bar({ id: 'c', endingNumbers: [1] });
+    const plain = bar({ id: 'd' });
+
+    const voltaOf = (m: Measure, prev?: Measure, next?: Measure) =>
+      staveFor(m, prev, next)
+        .getModifiers()
+        .find(mod => mod.getCategory() === 'Volta') as unknown as
+        { volta: number } | undefined;
+
+    expect(voltaOf(first, plain, middle)?.volta).toBe(Volta.type.BEGIN);
+    expect(voltaOf(middle, first, last)?.volta).toBe(Volta.type.MID);
+    expect(voltaOf(last, middle, plain)?.volta).toBe(Volta.type.END);
+  });
+
+  it('treats different ending numbers as different voltas', () => {
+    // A first ending followed by a second is two brackets, not one.
+    const firstEnding = bar({ id: 'a', endingNumbers: [1] });
+    const secondEnding = bar({ id: 'b', endingNumbers: [2] });
+    const volta = staveFor(firstEnding, undefined, secondEnding)
+      .getModifiers()
+      .find(m => m.getCategory() === 'Volta') as unknown as { volta: number };
+
+    expect(volta.volta).toBe(Volta.type.BEGIN_END);
   });
 });

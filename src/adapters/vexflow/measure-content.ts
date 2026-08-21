@@ -13,9 +13,11 @@ import {
   MultiMeasureRest,
   Stave,
   StaveModifierPosition,
+  Barline,
   Curve,
   StaveTie,
   Tuplet,
+  Volta,
   Stem,
   TextJustification,
   Voice,
@@ -102,12 +104,22 @@ function splitHandsAndFeet(events: MusicalEvent[]): {
   return { hands, feet };
 }
 
+/** Whether two bars belong to the same volta — the same numbers, in order. */
+function sameEnding(a: Measure | undefined, b: Measure | undefined): boolean {
+  const left = a?.endingNumbers;
+  const right = b?.endingNumbers;
+  if (!left || !right) return false;
+  return left.length === right.length && left.every((n, i) => n === right[i]);
+}
+
 /** Builds one measure's `Stave`, its VexFlow `Voice`s, and its beams; records notes into `channels` for tie building. */
 export function buildMeasureContent(
   measure: Measure,
   track: Track,
   placement: MeasureLayout,
   prevMeasure: Measure | undefined,
+  /** The bar after this one, for deriving where a volta bracket ends. */
+  nextMeasure: Measure | undefined,
   ppq: number,
   channels: Map<number, Channel>,
   allMetas: NoteMeta[]
@@ -147,6 +159,41 @@ export function buildMeasureContent(
     stave.addTimeSignature(
       `${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`
     );
+  }
+
+  /*
+    Repeat barlines. Stave-level, not note-level: they are the walls of the
+    bar, so they belong here rather than anywhere in the note path.
+
+    Set on both ends independently — a `:|` with no matching `|:` repeats from
+    the start of the piece, which is a real marking rather than an error.
+  */
+  if (measure.repeatStart) stave.setBegBarType(Barline.type.REPEAT_BEGIN);
+  if (measure.repeatEnd) stave.setEndBarType(Barline.type.REPEAT_END);
+
+  /*
+    The volta bracket, and which pass it covers.
+
+    Derived from the neighbours rather than stored as a span: a bar opens the
+    bracket when the bar before it is not part of the same ending, and closes
+    it when the bar after is not. Deleting a bar out of a first ending then
+    shortens the bracket instead of leaving one that points at nothing — the
+    same reason a tuplet is derived from its durations.
+  */
+  if (measure.endingNumbers?.length) {
+    const label = `${measure.endingNumbers.join(', ')}.`;
+    const opens = !sameEnding(prevMeasure, measure);
+    const closes = !sameEnding(nextMeasure, measure);
+    const type = opens
+      ? closes
+        ? Volta.type.BEGIN_END
+        : Volta.type.BEGIN
+      : closes
+        ? Volta.type.END
+        : Volta.type.MID;
+    // Only the opening bar prints the number; a continuation would repeat it
+    // under its own bracket segment.
+    stave.setVoltaType(type, opens ? label : '', 0);
   }
 
   // Boxed, because a bare letter beside a dynamic or a tempo marking is easy

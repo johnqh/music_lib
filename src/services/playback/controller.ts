@@ -25,6 +25,11 @@ import { selectVisibleTrackIds } from '../../store/selectors.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 import { PlaybackBus } from './bus.js';
+import {
+  performanceTickFor,
+  sourceTickFor,
+  type PerformanceTimeline,
+} from '../../domain/score/performance-timeline.js';
 import { playbackPlan, playbackTracks, resolveVoice } from './plan.js';
 
 /** The store shape this module operates on: same type `useAppStore`/`createAppStore()` produce (matches `features/score-editor/editing.ts`'s `EditorStoreApi`). */
@@ -53,12 +58,32 @@ export class PlaybackController {
    */
   readonly bus = new PlaybackBus();
 
+  /**
+   * How the loaded plan's performance time maps onto the written score.
+   *
+   * Kept beside the plan the engine holds, and replaced whenever that is
+   * reloaded — a repeat added or removed changes it. The identity default
+   * means a controller with nothing loaded translates nothing.
+   */
+  private timeline: PerformanceTimeline = { segments: [], durationTicks: 0 };
+
   constructor(
     private readonly engine: PlaybackEngine,
     private readonly store: PlaybackStoreApi
   ) {
     engine.setObserver({
-      onPositionTick: tick => this.bus.publishPosition(tick),
+      /*
+        Translated here, and only here.
+
+        The engine reports *performance* time, which differs from written time
+        the moment a repeat exists. Converting at this one boundary means the
+        caret, the following-scroll, the bar/beat readout and the position
+        scrubber all keep receiving a score tick and none of them has to know
+        repeats exist. Without repeats the timeline is the identity and this
+        costs a single comparison.
+      */
+      onPositionTick: tick =>
+        this.bus.publishPosition(sourceTickFor(this.timeline, tick)),
       onActiveNotes: notes => this.bus.publishSounding(notes),
       onStateChange: state => {
         this.bus.publishTransport(state);
@@ -131,13 +156,19 @@ export class PlaybackController {
     this.engine.stop();
   }
 
+  /**
+   * Seeks to a *written* position.
+   *
+   * The caret keeps the score tick, because that is where the reader is
+   * looking; the engine is given the first performance position of that tick,
+   * which is what "play from here" means to somebody reading the page — the
+   * first time through, not the repeat.
+   */
   seek(tick: number): void {
     if (!this.store.getState().score) return;
     const target = Math.max(0, tick);
-    // The caret moves with an explicit seek whether or not the transport is
-    // running: seeking *is* the user saying where they are.
     this.store.getState().setCaretTick(target);
-    this.engine.seek(target);
+    this.engine.seek(performanceTickFor(this.timeline, target));
   }
 
   seekToMeasure(measureIndex: number): void {
@@ -275,7 +306,12 @@ export class PlaybackController {
   /** Loads a score into the engine, reporting a failure rather than swallowing it. */
   private async loadScore(score: Score): Promise<void> {
     try {
-      await this.engine.load(playbackPlan(score));
+      const plan = playbackPlan(score);
+      // Kept in step with what the engine holds: a repeat added or removed
+      // changes the mapping, and a stale one would put the caret in the wrong
+      // bar for every frame until the next load.
+      this.timeline = plan.timeline;
+      await this.engine.load(plan);
       // loadScore reseeds every channel's mute from `Track.muted`, so hidden
       // tracks would sound again on the next load without this.
       this.applyTrackAudibility();

@@ -157,6 +157,74 @@ export function changeTimeSignatureCommand(
   );
 }
 
+/**
+ * Sets the repeat barlines and volta numbers on a bar.
+ *
+ * Applied at the same **measure index** across every track, not just the one
+ * whose id was given: a repeat is a property of the piece's structure, and a
+ * `:|` printed on the top stave but not the others would be a score that reads
+ * differently depending on which part you play from.
+ *
+ * A patch rather than three commands, because the Measure tab sets them
+ * together and each one alone would be its own undo entry.
+ */
+export type RepeatPatch = {
+  repeatStart?: boolean;
+  repeatEnd?: boolean;
+  endingNumbers?: number[];
+};
+
+function changeRepeats(
+  score: Score,
+  measureId: UUID,
+  patch: RepeatPatch
+): Score {
+  const index = score.tracks
+    .map(track => track.measures.findIndex(m => m.id === measureId))
+    .find(i => i !== -1);
+  if (index === undefined || index === -1) return score;
+
+  const tracks = score.tracks.map(track => {
+    const measure = track.measures[index];
+    if (!measure) return track;
+
+    const updated: Measure = { ...measure };
+    // Absent means "no repeat here", so a false or an empty list removes the
+    // field rather than storing a marking that prints nothing.
+    if (patch.repeatStart === undefined) {
+      // untouched
+    } else if (patch.repeatStart) updated.repeatStart = true;
+    else delete updated.repeatStart;
+
+    if (patch.repeatEnd === undefined) {
+      // untouched
+    } else if (patch.repeatEnd) updated.repeatEnd = true;
+    else delete updated.repeatEnd;
+
+    if (patch.endingNumbers !== undefined) {
+      if (patch.endingNumbers.length > 0)
+        updated.endingNumbers = [...patch.endingNumbers].sort((a, b) => a - b);
+      else delete updated.endingNumbers;
+    }
+
+    const measures = track.measures.slice();
+    measures[index] = updated;
+    return { ...track, measures };
+  });
+
+  return withTracks(score, tracks);
+}
+
+export function changeRepeatsCommand(
+  measureId: UUID,
+  patch: RepeatPatch,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    changeRepeats(score, measureId, patch)
+  );
+}
+
 function changeKeySignature(
   score: Score,
   measureId: UUID,

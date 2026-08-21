@@ -23,6 +23,7 @@ import {
   toGraceNoteCommand,
   toggleSlurCommand,
 } from '../../domain/commands/note-commands.js';
+import { changeRepeatsCommand } from '../../domain/commands/structure-commands.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import {
@@ -725,5 +726,59 @@ describe('chord symbols round-trip', () => {
 
   it('writes no harmony for a score without chords', () => {
     expect(exportMusicXml(twinkleScore())).not.toContain('<harmony');
+  });
+});
+
+describe('repeats and endings round-trip', () => {
+  /** Bars 1–4 repeated, with a first and second ending on bars 3 and 4. */
+  function repeated(): Score {
+    const base = twoTrackScore();
+    const m = base.tracks[0].measures;
+    let score = changeRepeatsCommand(
+      m[0].id,
+      { repeatStart: true },
+      'R'
+    ).execute(base);
+    score = changeRepeatsCommand(
+      score.tracks[0].measures[2].id,
+      { endingNumbers: [1], repeatEnd: true },
+      'R'
+    ).execute(score);
+    score = changeRepeatsCommand(
+      score.tracks[0].measures[3].id,
+      { endingNumbers: [2] },
+      'R'
+    ).execute(score);
+    return score;
+  }
+
+  it('writes the barlines on the right sides', () => {
+    const xml = exportMusicXml(repeated());
+    expect(xml).toContain('<repeat direction="forward"/>');
+    expect(xml).toContain('<repeat direction="backward"/>');
+    expect(xml).toContain('<ending number="1" type="start"/>');
+    expect(xml).toContain('<ending number="1" type="stop"/>');
+  });
+
+  it('survives export and import on the same bars', () => {
+    const { imported, warnings } = roundTrip(repeated());
+    const bars = imported.tracks[0].measures;
+
+    expect(warnings).toEqual([]);
+    expect(bars[0].repeatStart).toBe(true);
+    expect(bars[2].repeatEnd).toBe(true);
+    expect(bars[2].endingNumbers).toEqual([1]);
+    expect(bars[3].endingNumbers).toEqual([2]);
+  });
+
+  it('keeps every track in step, so the parts agree', () => {
+    const { imported } = roundTrip(repeated());
+    expect(imported.tracks.every(t => t.measures[0].repeatStart === true)).toBe(
+      true
+    );
+  });
+
+  it('writes no barline element for a score without repeats', () => {
+    expect(exportMusicXml(twoTrackScore())).not.toContain('<repeat ');
   });
 });
