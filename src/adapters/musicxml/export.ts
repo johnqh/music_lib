@@ -26,6 +26,7 @@ import type {
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NotatedDuration } from './duration-map.js';
 import { tupletGroups } from '../../domain/time/tuplets.js';
+import { parseChordSymbol } from '../../domain/notation/chord-symbol.js';
 import { notateDuration } from './duration-map.js';
 
 /** Escapes the five characters not otherwise safe inside MusicXML element text/attribute values. */
@@ -369,6 +370,30 @@ function buildVoiceEventsXml(
         `<dynamics><${chordDynamic}/></dynamics>` +
         `</direction-type></direction>\n`;
     }
+    /*
+      The chord symbol, as a `<harmony>` before the note it sits over — a
+      measure-level element like `<direction>`, because a chord change happens
+      at a point in the bar rather than belonging to a notehead.
+
+      `kind="other"` carrying the typed text, deliberately: mapping every
+      dialect of "minor seventh" onto MusicXML's enumeration is a dictionary
+      that is wrong for somebody, and the printed text is what a player reads.
+      The root is parsed out because that part is unambiguous.
+    */
+    const chordSymbol = isNoteEvent(root) ? root.chordSymbol : undefined;
+    const parsedChord = chordSymbol ? parseChordSymbol(chordSymbol) : null;
+    if (chordSymbol && parsedChord) {
+      xml +=
+        `<harmony print-frame="no">` +
+        `<root><root-step>${parsedChord.step}</root-step>` +
+        (parsedChord.alter !== 0
+          ? `<root-alter>${parsedChord.alter}</root-alter>`
+          : '') +
+        `</root>` +
+        `<kind text="${escapeXml(parsedChord.quality)}">other</kind>` +
+        `</harmony>\n`;
+    }
+
     /*
       Ornaments are written as their own `<note>` elements carrying `<grace/>`,
       placed before the note they decorate and given no `<duration>` — which is

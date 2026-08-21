@@ -292,6 +292,7 @@ type RawEvent = {
   slurStart?: boolean;
   slurStop?: boolean;
   lyric?: Lyric;
+  chordSymbol?: string;
   graceNotes?: GraceNote[];
   tieStart?: boolean;
   tieStop?: boolean;
@@ -653,6 +654,7 @@ function fillAndClip(
         ...(item.slurStop ? { slurStop: true } : {}),
         ...(item.lyric ? { lyric: item.lyric } : {}),
         ...(item.graceNotes?.length ? { graceNotes: item.graceNotes } : {}),
+        ...(item.chordSymbol ? { chordSymbol: item.chordSymbol } : {}),
       };
       events.push(note);
     } else {
@@ -700,6 +702,8 @@ function parseMeasure(
   let lastNoteStart = 0;
   /** Set by a `<direction>`, consumed by the next `<note>` it applies from. */
   let pendingDynamic: Dynamic | undefined;
+  /** Set by a `<harmony>`, consumed by the note it sits over — same shape. */
+  let pendingChordSymbol: string | undefined;
   /**
    * Ornaments read so far, waiting for the note they decorate.
    *
@@ -759,6 +763,25 @@ function parseMeasure(
         break;
       }
 
+      case 'harmony': {
+        /*
+          Rebuilt from the root plus the kind's display text, which is how it
+          was written: `<kind>`'s enumerated value is deliberately not consulted
+          because the text is what a player reads and what round-trips.
+        */
+        const rootEl = directChild(child, 'root');
+        const step = rootEl ? textOf(rootEl, 'root-step') : null;
+        if (step) {
+          const alter = Number(rootEl ? textOf(rootEl, 'root-alter') : '0');
+          const accidental = alter === 1 ? '#' : alter === -1 ? 'b' : '';
+          const kindEl = directChild(child, 'kind');
+          const quality =
+            kindEl?.getAttribute('text') ?? kindEl?.textContent?.trim() ?? '';
+          pendingChordSymbol = `${step}${accidental}${quality === 'other' ? '' : quality}`;
+        }
+        break;
+      }
+
       case 'note': {
         const isChord = Boolean(directChild(child, 'chord'));
         // A chord note shares its "root" (the preceding non-chord note)'s
@@ -789,6 +812,10 @@ function parseMeasure(
           }
           // Only a pitched note carries a dynamic: a rest has nothing to
           // sound at that level, and MusicXML would not put one on it.
+          if (pendingChordSymbol && raw.pitch !== null) {
+            raw.chordSymbol = pendingChordSymbol;
+            pendingChordSymbol = undefined;
+          }
           if (pendingDynamic && raw.pitch !== null) {
             raw.dynamic = pendingDynamic;
             pendingDynamic = undefined;

@@ -319,6 +319,18 @@ export function buildVoiceContent(
             moment, not each notehead in it.
           */
           /*
+            The chord symbol, above the stave where a player reads it — the
+            opposite side from the lyric and the dynamic, which is what keeps
+            the three legible at once on a lead sheet.
+          */
+          if (noteEvent.chordSymbol && keyIndex === 0) {
+            const symbol = new Annotation(noteEvent.chordSymbol);
+            symbol.setVerticalJustification(AnnotationVerticalJustify.TOP);
+            symbol.setFont('serif', 12, 'bold');
+            staveNote.addModifier(symbol, keyIndex);
+          }
+
+          /*
             Ornaments, drawn small and ahead of the note they decorate.
 
             A `GraceNoteGroup` is a modifier on the principal, which is the

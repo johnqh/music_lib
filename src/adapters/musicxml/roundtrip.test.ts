@@ -18,6 +18,7 @@ import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { allNotes } from '../../domain/score/queries.js';
 import {
+  setChordSymbolCommand,
   setLyricCommand,
   toGraceNoteCommand,
   toggleSlurCommand,
@@ -687,5 +688,42 @@ describe('grace notes round-trip', () => {
 
   it('writes no grace element for an unornamented score', () => {
     expect(exportMusicXml(twinkleScore())).not.toContain('<grace');
+  });
+});
+
+describe('chord symbols round-trip', () => {
+  /** Twinkle with a chord change on each of its first three notes. */
+  function leadSheet(): Score {
+    const base = twinkleScore();
+    const notes = allNotes(base).filter(isNoteEvent).slice(0, 3);
+    const symbols = ['C', 'F#m7', 'Bb7#11'];
+    return notes.reduce(
+      (score, note, i) =>
+        setChordSymbolCommand(note.id, symbols[i], 'Chord').execute(score),
+      base
+    );
+  }
+
+  it('survives export and import, dialect and all', () => {
+    // The typed text is what round-trips — not a classification of it.
+    const { imported, warnings } = roundTrip(leadSheet());
+    const symbols = allNotes(imported)
+      .filter(isNoteEvent)
+      .map(n => n.chordSymbol)
+      .filter(Boolean);
+
+    expect(warnings).toEqual([]);
+    expect(symbols).toEqual(['C', 'F#m7', 'Bb7#11']);
+  });
+
+  it('writes a harmony element before its note', () => {
+    const xml = exportMusicXml(leadSheet());
+    expect(xml).toContain('<root-step>F</root-step>');
+    expect(xml).toContain('<root-alter>1</root-alter>');
+    expect(xml.indexOf('<harmony')).toBeLessThan(xml.indexOf('<note>'));
+  });
+
+  it('writes no harmony for a score without chords', () => {
+    expect(exportMusicXml(twinkleScore())).not.toContain('<harmony');
   });
 });

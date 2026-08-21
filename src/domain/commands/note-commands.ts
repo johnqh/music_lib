@@ -493,6 +493,33 @@ export function setLyricCommand(
 }
 
 /**
+ * Sets or clears the chord symbol printed from a note.
+ *
+ * One note at a time, like a lyric: every chord in a progression is different,
+ * so applying one across a selection could only write the same symbol
+ * repeatedly. Blank text clears it rather than storing an empty symbol, which
+ * would reserve space above the stave and print nothing.
+ */
+export function setChordSymbolCommand(
+  eventId: UUID,
+  symbol: string | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, [eventId], note => {
+      const updated: NoteEvent = { ...note };
+      const trimmed = symbol?.trim();
+      if (!trimmed) {
+        delete updated.chordSymbol;
+        return updated;
+      }
+      updated.chordSymbol = trimmed;
+      return updated;
+    })
+  );
+}
+
+/**
  * Turns a written note into a grace note on the note that follows it.
  *
  * The note leaves the voice and reappears hanging off its neighbour, and the

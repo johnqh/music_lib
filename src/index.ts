@@ -68,6 +68,7 @@ export * from './domain/instruments/icon-art.js';
 export * from './domain/time/tuplets.js';
 export * from './domain/score/dynamics.js';
 export * from './domain/notation/music-vocabulary.js';
+export * from './domain/notation/chord-symbol.js';
 export * from './domain/instruments/instrument-options.js';
 export * from './domain/instruments/instrument-fit.js';
 
