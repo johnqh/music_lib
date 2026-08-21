@@ -263,6 +263,31 @@ export function changeTempoCommand(
   return transformCommand(label, score => changeTempo(score, params));
 }
 
+/**
+ * Drops a tempo change.
+ *
+ * The first event is never removed: it is the score's starting tempo, and a
+ * score with an empty `tempoMap` has no tempo at all. Asking to remove it is a
+ * no-op rather than an error, because the only caller is a button that should
+ * simply not be offered there.
+ */
+function removeTempo(score: Score, tempoEventId: UUID): Score {
+  if (score.tempoMap.length <= 1 || score.tempoMap[0]?.id === tempoEventId)
+    return score;
+
+  const tempoMap = score.tempoMap.filter(e => e.id !== tempoEventId);
+  if (tempoMap.length === score.tempoMap.length) return score;
+
+  return { ...score, tempoMap, metadata: touchMetadata(score.metadata) };
+}
+
+export function removeTempoCommand(
+  tempoEventId: UUID,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => removeTempo(score, tempoEventId));
+}
+
 // ---- changeMetadataCommand --------------------------------------------------------
 
 function changeMetadata(

@@ -1,5 +1,5 @@
 /**
- * @sudobility/music_lib — ScoreSmith business logic.
+ * @sudobility/music_lib — Moosiac business logic.
  *
  * Domain layer (framework-free): score model factories/queries, undoable
  * commands + history, validation, quantization, voice allocation,
@@ -65,6 +65,11 @@ export * from './domain/instruments/gm-range.js';
 export * from './domain/instruments/gm-polyphony.js';
 export * from './domain/instruments/gm-transposition.js';
 export * from './domain/instruments/icon-art.js';
+export * from './domain/time/tuplets.js';
+export * from './domain/score/dynamics.js';
+export * from './domain/notation/music-vocabulary.js';
+export * from './domain/instruments/instrument-options.js';
+export * from './domain/instruments/instrument-fit.js';
 
 // domain/pitch
 export * from './domain/pitch/pitch.js';
@@ -123,6 +128,7 @@ export * from './services/regeneration/controller.js';
 export * from './store/context.js';
 export * from './services/prefs.js';
 export * from './templates/index.js';
+export * from './store/slices/track-slice.js';
 export * from './store/slices/ui-slice.js';
 export * from './store/useAppStore.js';
 export * from './store/selectors.js';

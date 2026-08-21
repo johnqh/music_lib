@@ -71,6 +71,17 @@ export type UiSlice = {
    * project, so a device-level preference would carry a dead id across
    * projects. It resets to "first track" on load, which is the default anyway.
    */
+  /**
+   * Whether a click on a stave writes a note instead of moving the caret.
+   *
+   * Off by default, because the caret is how everything else is aimed —
+   * selection ranges, insertion, "play from here". A mode rather than a
+   * permanent behaviour for the same reason every notation editor makes it
+   * one: clicking to place a note and clicking to put the cursor somewhere are
+   * both things people need, and they cannot share a gesture.
+   */
+  noteInput: boolean;
+
   activeTrackId: UUID | null;
 
   /**
@@ -133,6 +144,7 @@ export type UiSlice = {
   toasts: Toast[];
 
   setActiveTrack: (trackId: UUID | null) => void;
+  setNoteInput: (on: boolean) => void;
 
   /**
    * Sets which tracks are drawn, and marks the project dirty so the choice
@@ -172,6 +184,7 @@ export const createUiSlice: StateCreator<
   [],
   UiSlice
 > = (set, get) => ({
+  noteInput: false,
   activeTrackId: null,
   visibleTrackIds: null,
   themeMode: 'system',
@@ -184,6 +197,12 @@ export const createUiSlice: StateCreator<
   devSettings: DEFAULT_DEV_SETTINGS,
   dialogs: {},
   toasts: [],
+
+  setNoteInput: on => {
+    set(state => {
+      state.noteInput = on;
+    });
+  },
 
   setActiveTrack: trackId => {
     let revealed = false;

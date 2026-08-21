@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { importMusicXml } from './import.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
+import type { NoteEvent } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { ticksFor } from '../../domain/time/ticks.js';
 
@@ -257,7 +258,7 @@ describe('importMusicXml: tempo', () => {
 });
 
 describe('importMusicXml: unsupported/decorative elements never throw, and are reported', () => {
-  it('warns once about lyrics and continues importing', () => {
+  it('imports lyrics rather than dropping them with a warning', () => {
     const xml = MINIMAL_HEADER(`<measure number="1">
 <attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
 <note><pitch><step>C</step><octave>4</octave></pitch><duration>480</duration><voice>1</voice><type>quarter</type><lyric><text>la</text></lyric></note>
@@ -268,15 +269,37 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
       parser,
       TEST_MUSICXML_WARNINGS
     );
-    expect(score.tracks[0].measures[0].voices[0].events).toHaveLength(2);
-    const lyricWarnings = warnings.filter(w => /lyric/i.test(w));
-    expect(lyricWarnings).toHaveLength(1); // deduplicated
+    const events = score.tracks[0].measures[0].voices[0].events;
+    expect(events).toHaveLength(2);
+    // They used to be dropped, and warned about once (deduplicated).
+    expect(warnings.filter(w => /lyric/i.test(w))).toHaveLength(0);
+    expect(events.filter(isNoteEvent).map(e => e.lyric?.text)).toEqual([
+      'la',
+      'la',
+    ]);
   });
 
-  it('skips grace notes with a warning, without disrupting subsequent note timing', () => {
+  it('reads how a syllable joins the next, which is what draws the hyphen', () => {
     const xml = MINIMAL_HEADER(`<measure number="1">
 <attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
-<note><grace/><pitch><step>B</step><octave>4</octave></pitch><voice>1</voice><type>eighth</type></note>
+<note><pitch><step>C</step><octave>4</octave></pitch><duration>480</duration><voice>1</voice><type>quarter</type><lyric><syllabic>begin</syllabic><text>beau</text></lyric></note>
+<note><pitch><step>D</step><octave>4</octave></pitch><duration>480</duration><voice>1</voice><type>quarter</type><lyric><syllabic>end</syllabic><text>ty</text></lyric></note>
+<note><pitch><step>E</step><octave>4</octave></pitch><duration>960</duration><voice>1</voice><type>half</type><lyric><syllabic>single</syllabic><text>now</text></lyric></note>
+</measure>`);
+    const { score } = importMusicXml(xml, parser, TEST_MUSICXML_WARNINGS);
+    const notes =
+      score.tracks[0].measures[0].voices[0].events.filter(isNoteEvent);
+
+    expect(notes[0].lyric).toEqual({ text: 'beau', syllabic: 'begin' });
+    expect(notes[1].lyric).toEqual({ text: 'ty', syllabic: 'end' });
+    // `single` is the model's default, so it is not stored.
+    expect(notes[2].lyric).toEqual({ text: 'now' });
+  });
+
+  it('attaches a grace note to the note it decorates, taking no time from the bar', () => {
+    const xml = MINIMAL_HEADER(`<measure number="1">
+<attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+<note><grace slash="yes"/><pitch><step>B</step><octave>4</octave></pitch><voice>1</voice><type>eighth</type></note>
 <note><pitch><step>C</step><octave>4</octave></pitch><duration>1920</duration><voice>1</voice><type>whole</type></note>
 </measure>`);
     const { score, warnings } = importMusicXml(
@@ -285,9 +308,16 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
       TEST_MUSICXML_WARNINGS
     );
     const events = score.tracks[0].measures[0].voices[0].events;
+
+    // One event, not two: the ornament hangs off its principal.
     expect(events).toHaveLength(1);
-    expect(isNoteEvent(events[0]) && events[0].startTick).toBe(0);
-    expect(warnings.some(w => /grace/i.test(w))).toBe(true);
+    expect(events[0].durationTicks).toBe(1920);
+    expect(warnings.some(w => /grace/i.test(w))).toBe(false);
+
+    const principal = events[0] as NoteEvent;
+    expect(principal.graceNotes).toHaveLength(1);
+    expect(principal.graceNotes?.[0].pitch.step).toBe('B');
+    expect(principal.graceNotes?.[0].slashed).toBe(true);
   });
 
   it('skips an unpitched note but still advances the cursor by its duration, so later notes keep their correct position', () => {
@@ -312,7 +342,7 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
     expect(warnings.some(w => /unpitched/i.test(w))).toBe(true);
   });
 
-  it('warns about ornaments and unsupported time-modification (tuplets) without throwing', () => {
+  it('warns about ornaments, but imports a tuplet rather than warning about it', () => {
     const xml = MINIMAL_HEADER(`<measure number="1">
 <attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
 <note><pitch><step>C</step><octave>4</octave></pitch><duration>320</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><ornaments><turn/></ornaments></notations></note>
@@ -327,7 +357,23 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
       320
     );
     expect(warnings.some(w => /ornament/i.test(w))).toBe(true);
-    expect(warnings.some(w => /tuplet/i.test(w))).toBe(true);
+    // `<duration>` already carries the scaling, so the tick length above is
+    // correct and nothing is simplified.
+    expect(warnings.some(w => /tuplet/i.test(w))).toBe(false);
+  });
+
+  it('scales a tuplet that states only its written type', () => {
+    // The fallback path: no <duration>, so the ratio has to be applied or the
+    // note imports a third too long.
+    const xml = MINIMAL_HEADER(`<measure number="1">
+<attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+<note><pitch><step>C</step><octave>4</octave></pitch><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+</measure>`);
+    const { score } = importMusicXml(xml, parser, TEST_MUSICXML_WARNINGS);
+    // An eighth is 240 ticks; a triplet eighth is 160.
+    expect(score.tracks[0].measures[0].voices[0].events[0].durationTicks).toBe(
+      160
+    );
   });
 
   it('approximates an unsupported clef as treble with a warning', () => {

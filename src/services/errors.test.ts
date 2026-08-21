@@ -46,11 +46,7 @@ describe('reportError', () => {
 
     reportError(err, { context: 'Save failed', store: freshStore() });
 
-    expect(debug).toHaveBeenCalledWith(
-      '[ScoreSmith error]',
-      'Save failed',
-      err
-    );
+    expect(debug).toHaveBeenCalledWith('[Moosiac error]', 'Save failed', err);
   });
 
   it('still shows the user a toast when logging is on — the console is additional, not instead', () => {

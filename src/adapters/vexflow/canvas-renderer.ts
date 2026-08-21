@@ -21,7 +21,7 @@ import {
   StaveConnector,
   MultiMeasureRest,
 } from 'vexflow';
-import type { Beam, StaveNote, Voice } from 'vexflow';
+import type { Beam, StaveNote, Tuplet, Voice } from 'vexflow';
 import {
   noteColorFor,
   noteEmphasisFor,
@@ -30,7 +30,11 @@ import {
 import { trackInstrumentIcon } from '../../domain/instruments/track-instrument.js';
 import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
-import { buildMeasureContent, buildTies } from './measure-content.js';
+import {
+  buildMeasureContent,
+  buildSlurs,
+  buildTies,
+} from './measure-content.js';
 import type { Channel } from './measure-content.js';
 import {
   MEASURE_HEADER_HEIGHT,
@@ -87,6 +91,7 @@ type SystemDrawing = {
   staves: Array<{ stave: Stave; trackId: string }>;
   voicesToDraw: Voice[];
   beamsToDraw: Array<{ beam: Beam; trackId: string }>;
+  tupletsToDraw: Array<{ tuplet: Tuplet; trackId: string }>;
   restsToDraw: MultiMeasureRest[];
   firstStaveByTrack: Map<number, Stave>;
   measureIdToBBox: Map<string, BBox>;
@@ -368,6 +373,26 @@ export class CanvasScoreRenderer {
           } catch (error) {
             console.error(
               'CanvasScoreRenderer: skipping a tie after draw failure',
+              error
+            );
+          }
+        }
+
+        // Phrase marks, drawn the same way and for the same reasons: culled to
+        // drawn staves, and each guarded on its own so one failure does not
+        // take the rest of the channel's curves with it.
+        const slurs = buildSlurs(channel, note => {
+          const stave = note.getStave();
+          return !!stave && drawnStaves.has(stave);
+        });
+        for (const slur of slurs) {
+          try {
+            slur.setStyle({ fillStyle: tieColor, strokeStyle: tieColor });
+            slur.setContext(vexCtx);
+            slur.draw();
+          } catch (error) {
+            console.error(
+              'CanvasScoreRenderer: skipping a slur after draw failure',
               error
             );
           }
@@ -688,6 +713,7 @@ export class CanvasScoreRenderer {
     const drawnMeasureIndices = new Set<number>();
     const voicesToDraw: Voice[] = [];
     const beamsToDraw: Array<{ beam: Beam; trackId: string }> = [];
+    const tupletsToDraw: Array<{ tuplet: Tuplet; trackId: string }> = [];
     const restsToDraw: MultiMeasureRest[] = [];
     /** trackIndex -> the system's first-measure stave, for the brace connector. */
     const firstStaveByTrack = new Map<number, Stave>();
@@ -718,15 +744,16 @@ export class CanvasScoreRenderer {
 
         const channels = channelsByTrack.get(track.id)!;
         const prevMeasure = track.measures[measureIndex - 1];
-        const { stave, voices, beams, multiMeasureRest } = buildMeasureContent(
-          measure,
-          track,
-          placement,
-          prevMeasure,
-          score.ppq,
-          channels,
-          allMetas
-        );
+        const { stave, voices, beams, tuplets, multiMeasureRest } =
+          buildMeasureContent(
+            measure,
+            track,
+            placement,
+            prevMeasure,
+            score.ppq,
+            channels,
+            allMetas
+          );
         // Formatting only. Which colour this stave draws in depends on the
         // active track, which is a paint-time decision — keeping it out of here
         // is what lets the built objects survive a selection change.
@@ -734,6 +761,8 @@ export class CanvasScoreRenderer {
         staves.push({ stave, trackId: track.id });
         measureStaves.push(stave);
         for (const beam of beams) beamsToDraw.push({ beam, trackId: track.id });
+        for (const tuplet of tuplets)
+          tupletsToDraw.push({ tuplet, trackId: track.id });
         if (multiMeasureRest) {
           multiMeasureRest.setStave(stave);
           restsToDraw.push(multiMeasureRest);
@@ -782,6 +811,7 @@ export class CanvasScoreRenderer {
       staves,
       voicesToDraw,
       beamsToDraw,
+      tupletsToDraw,
       restsToDraw,
       firstStaveByTrack,
       measureIdToBBox,
@@ -813,6 +843,7 @@ export class CanvasScoreRenderer {
       staves,
       voicesToDraw,
       beamsToDraw,
+      tupletsToDraw,
       restsToDraw,
       firstStaveByTrack,
     } = drawing;
@@ -904,6 +935,23 @@ export class CanvasScoreRenderer {
       beam.setStyle({ fillStyle: color, strokeStyle: color });
       beam.setContext(vexCtx);
       beam.draw();
+    });
+
+    /*
+      Brackets and their numbers, drawn after the beams they sit beside and
+      culled to visible staves for the same reason everything else is: a
+      tuplet takes its position from notes that must already have been drawn.
+    */
+    tupletsToDraw.forEach(({ tuplet, trackId }) => {
+      const stave = tuplet.getNotes()[0]?.getStave();
+      if (stave && !visibleStaves.has(stave)) return;
+      const color = this.trackColor(
+        this.notesDimmed(trackId, options),
+        options
+      );
+      tuplet.setStyle({ fillStyle: color, strokeStyle: color });
+      tuplet.setContext(vexCtx);
+      tuplet.draw();
     });
 
     if (plan.tracks.length > 1) {

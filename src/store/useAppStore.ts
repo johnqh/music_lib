@@ -21,6 +21,8 @@ import { createGenerationSlice } from './slices/generation-slice.js';
 import type { GenerationSlice } from './slices/generation-slice.js';
 import { createProjectSlice } from './slices/project-slice.js';
 import type { ProjectSlice } from './slices/project-slice.js';
+import { createTrackSlice } from './slices/track-slice.js';
+import type { TrackSlice } from './slices/track-slice.js';
 import { createUiSlice } from './slices/ui-slice.js';
 import type { UiSlice } from './slices/ui-slice.js';
 
@@ -29,6 +31,7 @@ export type AppState = ScoreSlice &
   PlaybackSlice &
   GenerationSlice &
   ProjectSlice &
+  TrackSlice &
   UiSlice;
 
 export type CreateAppStoreOptions = {
@@ -49,6 +52,7 @@ export function createAppStore(options: CreateAppStoreOptions) {
       ...createPlaybackSlice(set, get, api),
       ...createGenerationSlice(context)(set, get, api),
       ...createProjectSlice(context)(set, get, api),
+      ...createTrackSlice(set, get, api),
       ...createUiSlice(set, get, api),
     }))
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Accidental, Voice } from 'vexflow';
+import { Accidental, Stem, Voice } from 'vexflow';
 import type { StaveNote } from 'vexflow';
 import {
   CUE_GLYPH_SCALE,
@@ -422,5 +422,93 @@ describe('cue notes', () => {
     );
     expect(channels.size).toBe(0);
     expect(metas).toHaveLength(0);
+  });
+});
+
+describe('two voices on one stave', () => {
+  const stemTrack = {
+    id: 't1',
+    name: 'Piano',
+    instrumentName: 'Piano',
+    midiProgram: 0,
+    midiChannel: 0,
+    clef: 'treble' as const,
+    volume: 1,
+    pan: 0,
+    measures: [],
+  } as unknown as Track;
+
+  const stemPlacement = {
+    box: { x: 0, y: 0, width: 300, height: 100 },
+    isFirstInSystem: true,
+  } as unknown as MeasureLayout;
+
+  /** A bar of quarter notes in `voiceCount` voices, spread across the stave. */
+  function measureWithVoices(voiceCount: number): Measure {
+    const quarter = ticksFor('quarter', 480);
+    const octaves = [5, 4];
+    return {
+      id: 'm1',
+      index: 0,
+      startTick: 0,
+      durationTicks: 1920,
+      timeSignature: { numerator: 4, denominator: 4 },
+      keySignature: { fifths: 0, mode: 'major' },
+      voices: Array.from({ length: voiceCount }, (_, vi) => ({
+        id: `v${vi}`,
+        name: `Voice ${vi + 1}`,
+        events: ['C', 'E', 'G', 'B'].map((step, i) => ({
+          id: `n${vi}-${i}`,
+          pitch: {
+            step,
+            accidental: 0,
+            // One voice: straddle the middle line, so VexFlow's own
+            // per-position choice produces both directions and the assertion
+            // is about the choice rather than about where the notes sit.
+            octave: voiceCount === 1 ? (i < 2 ? 4 : 5) : (octaves[vi] ?? 4),
+          },
+          startTick: i * quarter,
+          durationTicks: quarter,
+          velocity: 80,
+          voiceId: `v${vi}`,
+          trackId: 't1',
+        })),
+      })),
+    } as unknown as Measure;
+  }
+
+  function stemDirections(measure: Measure): number[][] {
+    const { voices } = buildMeasureContent(
+      measure,
+      stemTrack,
+      stemPlacement,
+      undefined,
+      480,
+      new Map(),
+      []
+    );
+    return voices.map(v =>
+      v
+        .getTickables()
+        .filter(t => typeof (t as StaveNote).getStemDirection === 'function')
+        .map(t => (t as StaveNote).getStemDirection())
+    );
+  }
+
+  it('stems the upper voice up and the lower voice down', () => {
+    // Without this the two draw identically, and there is no way to see which
+    // line is being edited — the whole reason a second voice exists.
+    const [upper, lower] = stemDirections(measureWithVoices(2));
+    expect(upper.length).toBeGreaterThan(0);
+    expect(lower.length).toBeGreaterThan(0);
+    expect(upper.every(d => d === Stem.UP)).toBe(true);
+    expect(lower.every(d => d === Stem.DOWN)).toBe(true);
+  });
+
+  it('leaves a single voice to VexFlow, which stems by staff position', () => {
+    // An engraver points a stem by where the note sits; forcing a direction on
+    // a one-voice stave would point half of them the wrong way.
+    const [only] = stemDirections(measureWithVoices(1));
+    expect(new Set(only).size).toBeGreaterThan(1);
   });
 });

@@ -13,7 +13,9 @@ import {
   MultiMeasureRest,
   Stave,
   StaveModifierPosition,
+  Curve,
   StaveTie,
+  Tuplet,
   Stem,
   TextJustification,
   Voice,
@@ -33,6 +35,7 @@ import {
   pitchToVexKey,
 } from './convert.js';
 import { displayGroups, drumDisplayGroups } from './display-timing.js';
+import { tupletGroups } from '../../domain/time/tuplets.js';
 import { isFootDrum } from './percussion.js';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import type { NoteMeta } from './convert.js';
@@ -112,6 +115,8 @@ export function buildMeasureContent(
   stave: Stave;
   voices: Voice[];
   beams: Beam[];
+  /** Tuplet brackets and their numbers, drawn after the voices like beams. */
+  tuplets: Tuplet[];
   multiMeasureRest?: MultiMeasureRest;
 } {
   const { box, isFirstInSystem } = placement;
@@ -160,6 +165,7 @@ export function buildMeasureContent(
       stave,
       voices: [],
       beams: [],
+      tuplets: [],
       // The count goes in twice: VexFlow takes it positionally and also
       // requires it in the options, which `Factory.MultiMeasureRest` fills in
       // for you. Constructing directly means supplying both.
@@ -206,7 +212,8 @@ export function buildMeasureContent(
       CUE_GLYPH_SCALE,
       isPercussion
     );
-    if (notes.length === 0) return { stave, voices: [], beams: [] };
+    if (notes.length === 0)
+      return { stave, voices: [], beams: [], tuplets: [] };
 
     const cueVoice = new Voice({
       num_beats: measure.timeSignature.numerator,
@@ -224,11 +231,15 @@ export function buildMeasureContent(
       stave,
       voices: [cueVoice],
       beams: beamsFor(tickables, isPercussion ? Stem.UP : undefined),
+      // A cue is a reminder of another player's line, printed small; it never
+      // carries a bracket of its own.
+      tuplets: [],
     };
   }
 
   const voices: Voice[] = [];
   const beams: Beam[] = [];
+  const tuplets: Tuplet[] = [];
 
   /** Builds one VexFlow voice, recording its notes under `voiceOrdinal` for ties. */
   const addVoice = (
@@ -265,15 +276,53 @@ export function buildMeasureContent(
     voices.push(vexVoice);
     beams.push(...beamsFor(tickables, stemDirection));
 
+    /*
+      Triplet brackets, derived from the durations rather than stored: three
+      notes each two thirds of a plain value *are* a triplet, and `tupletGroups`
+      reads exactly that. Built from `events` and applied to `notes` by index —
+      the two are parallel only while nothing decomposes, so a group whose
+      notes cannot be found is skipped rather than bracketing the wrong ones.
+    */
+    for (const group of tupletGroups(events, ppq)) {
+      const members = notes.slice(group.start, group.start + group.length);
+      if (members.length !== group.length) continue;
+      const tuplet = new Tuplet(members, {
+        num_notes: group.actualNotes,
+        notes_occupied: group.normalNotes,
+      });
+      if (stemDirection !== undefined) tuplet.setTupletLocation(stemDirection);
+      tuplets.push(tuplet);
+    }
+
     const channel = channels.get(voiceOrdinal) ?? [];
     notes.forEach((note, i) => channel.push({ note, meta: metas[i] }));
     channels.set(voiceOrdinal, channel);
     allMetas.push(...metas);
   };
 
+  /**
+   * Whether this stave carries more than one voice with anything in it.
+   *
+   * A single voice keeps VexFlow's automatic stem direction, which is decided
+   * per note from its position on the stave and is what an engraver would do.
+   * Fixing it up on a one-voice stave would point half the notes the wrong way
+   * for no benefit.
+   */
+  const soundingVoices = measure.voices.filter(v => v.events.length > 0).length;
+
   measure.voices.forEach((domainVoice, voiceOrdinal) => {
     if (!isPercussion) {
-      addVoice(domainVoice.events, voiceOrdinal);
+      // Two voices sharing a stave are told apart by their stems: the upper
+      // voice up, the lower voice down. Without this they are drawn
+      // identically and there is no way to see which line is being edited —
+      // which is the whole reason a second voice exists.
+      const stemDirection =
+        soundingVoices > 1
+          ? voiceOrdinal === 0
+            ? Stem.UP
+            : Stem.DOWN
+          : undefined;
+      addVoice(domainVoice.events, voiceOrdinal, stemDirection);
       return;
     }
     // A drum staff carries two voices, not one: hands stemmed up, feet stemmed
@@ -300,7 +349,7 @@ export function buildMeasureContent(
       );
   }
 
-  return { stave, voices, beams };
+  return { stave, voices, beams, tuplets };
 }
 
 /**
@@ -365,4 +414,42 @@ export function buildTies(
     );
   }
   return ties;
+}
+
+/**
+ * Draws each phrase mark in a channel as one curve, start note to stop note.
+ *
+ * Unlike `buildTies` this does not work on adjacent pairs: a slur spans a run
+ * of notes, and the pair to join is "the note that opened it" and "the next
+ * one that closes it". Matching is by order rather than by pitch for the same
+ * reason — a slur groups different pitches, which is what distinguishes it
+ * from a tie.
+ *
+ * `isDrawn` filters the same hazard ties have: a curve is positioned from its
+ * two notes' Y values, which only exist once they have been drawn, so one
+ * reaching a culled off-screen stave would throw inside VexFlow.
+ */
+export function buildSlurs(
+  channel: Channel,
+  isDrawn: (note: StaveNote) => boolean = () => true
+): Curve[] {
+  const slurs: Curve[] = [];
+  let open: Channel[number] | null = null;
+
+  for (const entry of channel) {
+    if (entry.meta.isRest) continue;
+    if (!open && entry.meta.slurStart) {
+      open = entry;
+      continue;
+    }
+    if (open && entry.meta.slurStop) {
+      if (isDrawn(open.note) && isDrawn(entry.note)) {
+        slurs.push(new Curve(open.note, entry.note, {}));
+      }
+      open = null;
+    }
+  }
+  // An unclosed start draws nothing: half a phrase mark is not a phrase mark,
+  // and the command that writes these never produces one.
+  return slurs;
 }

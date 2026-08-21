@@ -5,7 +5,9 @@
 > explicitly asks in that turn**. Approval for an earlier change does not carry forward, and
 > finishing a task is not permission to commit it.
 
-Business logic for ScoreSmith (the Sudobility music app family): the entire non-UI layer — score domain model, undoable commands, validation, quantization, rendering/audio/file adapters, and the Zustand app store.
+Business logic for Moosiac (the Sudobility music app family): the entire non-UI layer — score domain model, undoable commands, validation, quantization, rendering/audio/file adapters, and the Zustand app store.
+
+- **`music-vocabulary.ts` says score values the way a musician says them.** Ticks, fifths and zero-based voice indexes are the right things to compute with and the wrong things to show, so the conversions — note-value names, key names (`D major`, `2 sharps`), bar/beat positions, and the pitch at a staff position — live here rather than in an app. Which tick count is a quarter note and how many sharps D major has are facts about music. No translatable prose: note values and key names are domain terms, fixed across locales the way General MIDI's instrument names are. `pitchAtStavePosition` is measured from each clef's top line, which is what lets an editor turn a click on a stave into a pitch that agrees with what was drawn.
 
 ## Tech Stack
 

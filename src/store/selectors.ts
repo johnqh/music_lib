@@ -17,10 +17,10 @@
  * store update (even ones that didn't touch selection/score) and
  * re-render every time.
  */
-import { findEvent } from '../domain/score/queries.js';
+import { findEvent, findTrack } from '../domain/score/queries.js';
 import { selectionToRange } from '../domain/selection/selection.js';
 import type { ScoreRange } from '../domain/selection/types.js';
-import type { NoteEvent } from '@sudobility/music_types';
+import type { Measure, NoteEvent, Track } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { beatDurationTicks } from '../domain/time/ticks.js';
 import type { AppState } from './useAppStore.js';
@@ -162,5 +162,43 @@ export const selectActiveTrackId = memoize2(
     if (activeTrackId && visibleIds.includes(activeTrackId))
       return activeTrackId;
     return visibleIds[0];
+  }
+);
+
+/**
+ * The track the property sheet edits: the *active* one, resolved to the object.
+ *
+ * Deliberately not `selection.trackIds`. Clicking the track gutter sets both,
+ * but any later click on a note or the stave replaces the whole selection and
+ * wipes `trackIds` — so a panel keyed on the selection emptied as soon as you
+ * touched the music you were inspecting. The active track is sticky, and
+ * `selectActiveTrackId` already falls back to the first visible track, so
+ * there is always exactly one and it needs no reconciliation.
+ */
+export const selectSelectedTrack = memoize2(
+  state => state.score,
+  selectActiveTrackId,
+  (score, activeTrackId): Track | null => {
+    if (!score || !activeTrackId) return null;
+    return findTrack(score, activeTrackId);
+  }
+);
+
+/**
+ * Every `Measure` named by `state.selection.measureIds` that still resolves,
+ * in score order. Stale ids are skipped, the same way `selectSelectedNotes`
+ * skips them: a selection can outlive the thing it named.
+ */
+export const selectSelectedMeasures = memoize2(
+  state => state.score,
+  state => state.selection.measureIds,
+  (score, measureIds): Measure[] => {
+    if (!score || measureIds.length === 0) return [];
+    const wanted = new Set(measureIds);
+    const found: Measure[] = [];
+    for (const track of score.tracks)
+      for (const measure of track.measures)
+        if (wanted.has(measure.id)) found.push(measure);
+    return found;
   }
 );

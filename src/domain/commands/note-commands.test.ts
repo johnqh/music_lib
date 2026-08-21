@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from '../score/factory.js';
 import { validateScore } from '../validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { Pitch } from '@sudobility/music_types';
+import type { NoteEvent, Pitch, Score } from '@sudobility/music_types';
+import { twinkleScore } from '../../test/fixtures.js';
+import { allNotes } from '../score/queries.js';
 import { ticksFor } from '../time/ticks.js';
 import {
   addNoteCommand,
@@ -15,6 +17,9 @@ import {
   deleteEventsCommand,
   moveNotesCommand,
   resizeNotesCommand,
+  clearGraceNotesCommand,
+  toGraceNoteCommand,
+  toggleSlurCommand,
   toggleTieCommand,
 } from './note-commands.js';
 
@@ -571,5 +576,162 @@ describe('changeVoiceCommand', () => {
     expect(measure.voices[1].events.filter(isNoteEvent)).toHaveLength(1);
     expect(validateScore(next)).toEqual([]);
     expect(cmd.undo(next)).toEqual(withNote);
+  });
+});
+
+describe('toggleSlurCommand', () => {
+  /** Twinkle's first n notes, in tick order. */
+  function firstNotes(score: Score, n: number): NoteEvent[] {
+    return allNotes(score).filter(isNoteEvent).slice(0, n);
+  }
+
+  it('marks the first and last of a selection, and nothing between', () => {
+    // A slur is one mark over a run of notes, not a flag on each of them.
+    const score = twinkleScore();
+    const notes = firstNotes(score, 4);
+    const result = toggleSlurCommand(
+      notes.map(n => n.id),
+      'Slur'
+    ).execute(score);
+    const after = allNotes(result).filter(isNoteEvent);
+
+    expect(after.find(n => n.id === notes[0].id)?.slurStart).toBe(true);
+    expect(after.find(n => n.id === notes[3].id)?.slurStop).toBe(true);
+    expect(after.find(n => n.id === notes[1].id)?.slurStart).toBeUndefined();
+    expect(after.find(n => n.id === notes[2].id)?.slurStop).toBeUndefined();
+  });
+
+  it('picks the endpoints by tick, not by the order they were selected', () => {
+    // Shift-clicking around a phrase still selects that phrase.
+    const score = twinkleScore();
+    const notes = firstNotes(score, 3);
+    const shuffled = [notes[2].id, notes[0].id, notes[1].id];
+    const after = allNotes(
+      toggleSlurCommand(shuffled, 'Slur').execute(score)
+    ).filter(isNoteEvent);
+
+    expect(after.find(n => n.id === notes[0].id)?.slurStart).toBe(true);
+    expect(after.find(n => n.id === notes[2].id)?.slurStop).toBe(true);
+  });
+
+  it('removes a slur it already made, so one control does both', () => {
+    const score = twinkleScore();
+    const ids = firstNotes(score, 3).map(n => n.id);
+    const slurred = toggleSlurCommand(ids, 'Slur').execute(score);
+    const cleared = toggleSlurCommand(ids, 'Slur').execute(slurred);
+
+    expect(
+      allNotes(cleared)
+        .filter(isNoteEvent)
+        .some(n => n.slurStart || n.slurStop)
+    ).toBe(false);
+  });
+
+  it('refuses a single note, which cannot carry a phrase mark', () => {
+    const score = twinkleScore();
+    const one = firstNotes(score, 1)[0];
+    const after = toggleSlurCommand([one.id], 'Slur').execute(score);
+
+    expect(
+      allNotes(after)
+        .filter(isNoteEvent)
+        .some(n => n.slurStart)
+    ).toBe(false);
+  });
+
+  it('does not join durations the way a tie does', () => {
+    // The distinction the two fields exist for: a slur groups different
+    // pitches as a phrase and sounds them separately.
+    const score = twinkleScore();
+    const notes = firstNotes(score, 3);
+    const after = toggleSlurCommand(
+      notes.map(n => n.id),
+      'Slur'
+    ).execute(score);
+    const durations = allNotes(after)
+      .filter(isNoteEvent)
+      .slice(0, 3)
+      .map(n => n.durationTicks);
+
+    expect(durations).toEqual(notes.map(n => n.durationTicks));
+    expect(
+      allNotes(after)
+        .filter(isNoteEvent)
+        .some(n => n.tieStart)
+    ).toBe(false);
+  });
+});
+
+describe('toGraceNoteCommand', () => {
+  it('hangs the note off its neighbour and leaves a rest behind', () => {
+    // The bar must still add up: an ornament borrows from its principal, it
+    // does not shorten the measure.
+    const score = twinkleScore();
+    const voice = score.tracks[0].measures[0].voices[0];
+    const [first, second] = voice.events.filter(isNoteEvent);
+    const before = voice.events.reduce((sum, e) => sum + e.durationTicks, 0);
+
+    const after = toGraceNoteCommand(first.id, 'Grace').execute(score);
+    const afterVoice = after.tracks[0].measures[0].voices[0];
+
+    expect(afterVoice.events.reduce((sum, e) => sum + e.durationTicks, 0)).toBe(
+      before
+    );
+    expect(isNoteEvent(afterVoice.events[0])).toBe(false); // now a rest
+    const principal = afterVoice.events.find(
+      e => e.id === second.id
+    ) as NoteEvent;
+    expect(principal.graceNotes?.[0].pitch).toEqual(first.pitch);
+  });
+
+  it('refuses a note with nothing after it to ornament', () => {
+    const score = twinkleScore();
+    const notes = allNotes(score).filter(isNoteEvent);
+    const last = notes[notes.length - 1];
+    const after = toGraceNoteCommand(last.id, 'Grace').execute(score);
+
+    expect(allNotes(after).filter(isNoteEvent)).toHaveLength(notes.length);
+  });
+
+  it('stacks a second ornament rather than replacing the first', () => {
+    const score = twinkleScore();
+    const voice = score.tracks[0].measures[0].voices[0];
+    const [first, second, third] = voice.events.filter(isNoteEvent);
+
+    let result = toGraceNoteCommand(first.id, 'Grace').execute(score);
+    result = toGraceNoteCommand(second.id, 'Grace').execute(result);
+
+    const principal = allNotes(result).find(
+      n => n.id === third.id
+    ) as NoteEvent;
+    expect(principal.graceNotes).toHaveLength(2);
+  });
+
+  it('leaves the measure valid', () => {
+    const score = twinkleScore();
+    const first = allNotes(score).filter(isNoteEvent)[0];
+    const after = toGraceNoteCommand(first.id, 'Grace').execute(score);
+
+    expect(validateScore(after).filter(i => i.severity === 'error')).toEqual(
+      []
+    );
+  });
+});
+
+describe('clearGraceNotesCommand', () => {
+  it('removes every ornament from a note', () => {
+    const score = twinkleScore();
+    const voice = score.tracks[0].measures[0].voices[0];
+    const [first, second] = voice.events.filter(isNoteEvent);
+    const withGrace = toGraceNoteCommand(first.id, 'Grace').execute(score);
+
+    const cleared = clearGraceNotesCommand([second.id], 'Clear').execute(
+      withGrace
+    );
+    const principal = allNotes(cleared).find(
+      n => n.id === second.id
+    ) as NoteEvent;
+
+    expect(principal.graceNotes).toBeUndefined();
   });
 });

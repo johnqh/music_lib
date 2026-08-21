@@ -17,6 +17,7 @@
  * whole reason `applyMix` exists.
  */
 import { isNoteEvent } from '@sudobility/music_types';
+import { dynamicsInForce, effectiveVelocity } from './dynamics.js';
 import type { MusicalEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../pitch/pitch.js';
 import { joinTiedNotes } from './ties.js';
@@ -72,13 +73,59 @@ export function flattenScoreNotes(score: Score): FlatNote[] {
   const notes: FlatNote[] = [];
   for (const track of score.tracks) {
     for (const channel of trackVoiceChannels(track)) {
-      for (const event of joinTiedNotes(channel)) {
+      const joined = joinTiedNotes(channel);
+      // Resolved over the joined, ordered channel: "the next dynamic" only
+      // means anything in tick order, and a tie join can merge the note a
+      // marking sits on into the one before it.
+      const inForce = dynamicsInForce(joined);
+      for (const event of joined) {
         if (!isNoteEvent(event)) continue;
+        const velocity = effectiveVelocity(
+          event,
+          inForce.get(event.id) ?? null
+        );
+
+        /*
+          Ornaments sound, and they borrow from the note they decorate.
+
+          They take no time from the *bar* — that is why they hang off their
+          principal — but they have to take it from somewhere, and an
+          acciaccatura is crushed against the note it leads into. So they are
+          laid before it and the principal starts that much later, which leaves
+          the bar's total unchanged and every following note where it was.
+
+          Never more than half the principal: an ornament that swallowed its
+          own note would be a rewrite rather than a decoration.
+        */
+        const graceNotes = event.graceNotes ?? [];
+        let graceTicks = 0;
+        if (graceNotes.length > 0) {
+          const wanted = graceNotes.reduce(
+            (sum, g) => sum + g.durationTicks,
+            0
+          );
+          graceTicks = Math.min(wanted, Math.floor(event.durationTicks / 2));
+          const each = Math.floor(graceTicks / graceNotes.length);
+          graceNotes.forEach((grace, i) => {
+            if (each <= 0) return;
+            notes.push({
+              tick: event.startTick + i * each,
+              durTicks: each,
+              midi: pitchToMidi(grace.pitch),
+              // A shade under the principal: an ornament leads into the note,
+              // it does not compete with it.
+              velocity: Math.max(1, Math.round(velocity * 0.8)),
+              trackId: track.id,
+              noteId: `${event.id}-grace-${i}`,
+            });
+          });
+        }
+
         notes.push({
-          tick: event.startTick,
-          durTicks: event.durationTicks,
+          tick: event.startTick + graceTicks,
+          durTicks: event.durationTicks - graceTicks,
           midi: pitchToMidi(event.pitch),
-          velocity: event.velocity,
+          velocity,
           trackId: track.id,
           noteId: event.id,
         });

@@ -11,7 +11,16 @@
  * Pure-ish: builds VexFlow objects but never touches the DOM, a `Stave`'s
  * position, or a rendering context. No store/React imports (spec §3, §37).
  */
-import { Articulation, Dot, GhostNote, StaveNote } from 'vexflow';
+import {
+  Annotation,
+  AnnotationVerticalJustify,
+  Articulation,
+  Dot,
+  GhostNote,
+  GraceNote,
+  GraceNoteGroup,
+  StaveNote,
+} from 'vexflow';
 import type { StemmableNote } from 'vexflow';
 import type {
   Accidental as DomainAccidental,
@@ -181,6 +190,14 @@ export type NoteMeta = {
   isRest: boolean;
   /** Per-key tie state, parallel to the `StaveNote`'s keys. Empty for rests. */
   keyTies: KeyTie[];
+  /**
+   * Whether a phrase mark starts or ends here.
+   *
+   * Not per-key, unlike ties: a slur is one curve over a run of notes, so a
+   * chord under one carries it as a whole rather than per notehead.
+   */
+  slurStart: boolean;
+  slurStop: boolean;
 };
 
 export type VoiceContent = {
@@ -293,6 +310,75 @@ export function buildVoiceContent(
               keyIndex
             );
           }
+          /*
+            The dynamic marking, under the stave where it is read.
+            `Annotation` rather than VexFlow's `TextDynamics`, which is a
+            tickable and would need a voice of its own aligned to this one —
+            a whole parallel layout for a piece of text that belongs to a
+            note. Only on the first key of a chord: a dynamic marks the
+            moment, not each notehead in it.
+          */
+          /*
+            Ornaments, drawn small and ahead of the note they decorate.
+
+            A `GraceNoteGroup` is a modifier on the principal, which is the
+            same relationship the model stores — the notes are not tickables in
+            the voice and take none of the bar's time, so nothing that sums a
+            measure has to know they exist.
+
+            First key only: an ornament leads into the moment, not into each
+            notehead of a chord.
+          */
+          if (noteEvent.graceNotes?.length && keyIndex === 0) {
+            const graceNotes = noteEvent.graceNotes.map(grace => {
+              const { code, dots } = ticksToVexDuration(
+                grace.durationTicks,
+                ppq
+              );
+              return new GraceNote({
+                keys: [pitchToVexKey(grace.pitch)],
+                duration: code,
+                dots,
+                slash: grace.slashed ?? false,
+              });
+            });
+            const group = new GraceNoteGroup(graceNotes, true);
+            // Beamed when there is more than one, the way a run of ornaments
+            // is engraved.
+            if (graceNotes.length > 1) group.beamNotes();
+            staveNote.addModifier(group, keyIndex);
+          }
+
+          /*
+            The sung syllable, under the stave.
+
+            Added before the dynamic so VexFlow's modifier context stacks it
+            nearest the notes, which is where a singer reads it — a dynamic
+            belongs below the words, not between them and the staff. A
+            hyphenated syllable prints its own trailing hyphen, because the
+            model records that the word continues and nothing else in the draw
+            path knows it.
+          */
+          if (noteEvent.lyric && keyIndex === 0) {
+            const continues =
+              noteEvent.lyric.syllabic === 'begin' ||
+              noteEvent.lyric.syllabic === 'middle';
+            const text = new Annotation(
+              continues ? `${noteEvent.lyric.text}-` : noteEvent.lyric.text
+            );
+            text.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+            text.setFont('serif', 11, 'normal');
+            staveNote.addModifier(text, keyIndex);
+          }
+
+          if (noteEvent.dynamic && keyIndex === 0) {
+            const mark = new Annotation(noteEvent.dynamic);
+            mark.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+            // Bold italic serif is how a dynamic is engraved, and is what
+            // distinguishes it from a lyric or a chord symbol at a glance.
+            mark.setFont('serif', 12, 'bold', 'italic');
+            staveNote.addModifier(mark, keyIndex);
+          }
         });
       }
 
@@ -332,6 +418,17 @@ export function buildVoiceContent(
         tieStop,
         isRest,
         keyTies,
+        // Only the segment a decomposed note actually begins or ends on can
+        // carry the mark, or a note split across a barline would sprout a
+        // curve at every join.
+        slurStart:
+          isFirstSegment &&
+          group.some(
+            e => isNoteEvent(e) && Boolean((e as NoteEvent).slurStart)
+          ),
+        slurStop:
+          isLastSegment &&
+          group.some(e => isNoteEvent(e) && Boolean((e as NoteEvent).slurStop)),
       });
     });
   }

@@ -121,6 +121,6 @@ export function reportError(
   });
 
   if (logTechnicalDetail) {
-    console.debug('[ScoreSmith error]', options.context ?? '(no context)', err);
+    console.debug('[Moosiac error]', options.context ?? '(no context)', err);
   }
 }

@@ -60,7 +60,7 @@ export async function requireToken(context: StoreContext): Promise<string> {
  */
 export class ApiGenerationProvider implements MusicGenerationProvider {
   readonly id = 'music-api-openai';
-  readonly name = 'ScoreSmith AI';
+  readonly name = 'Moosiac AI';
   private readonly context: StoreContext;
 
   constructor(context: StoreContext) {

@@ -23,6 +23,8 @@ import type {
   UUID,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
+import type { Dynamic, GraceNote, Lyric } from '@sudobility/music_types';
+import { findEvent } from '../score/queries.js';
 import { ticksFor } from '../time/ticks.js';
 import { transposePitch } from '../pitch/transpose.js';
 import type { ScoreCommand } from './types.js';
@@ -361,6 +363,29 @@ export function changeArticulationCommand(
   );
 }
 
+/**
+ * Sets or clears the dynamic marking the given notes start.
+ *
+ * A dynamic is stored on the note it applies *from* and governs until the next
+ * one on that track, so marking one note `f` is how a passage becomes loud —
+ * there is nothing to apply to the notes in between, and applying it to each
+ * would print a marking under every notehead.
+ */
+export function changeDynamicCommand(
+  eventIds: UUID[],
+  dynamic: Dynamic | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => {
+      if (dynamic) return { ...note, dynamic };
+      const updated: NoteEvent = { ...note };
+      delete updated.dynamic;
+      return updated;
+    })
+  );
+}
+
 /** Sets the given notes' pitch accidental, keeping their step/octave. */
 export function changeAccidentalCommand(
   eventIds: UUID[],
@@ -383,6 +408,176 @@ export function toggleTieCommand(
 ): ScoreCommand {
   return transformCommand(label, score =>
     mapNotes(score, eventIds, note => ({ ...note, [which]: !note[which] }))
+  );
+}
+
+/**
+ * Slurs a selection, or removes the slur it already carries.
+ *
+ * Takes the whole selection rather than a flag per note, because that is what
+ * a slur is: one mark over a run of notes. The caller says "slur these" and
+ * this decides which of them is the start and which the stop — marking them
+ * individually would let a user create a start with no stop, which draws
+ * nothing and is invisible to fix.
+ *
+ * Endpoints are the earliest and latest note by tick, not the order the ids
+ * arrived in: a selection built by shift-clicking around a phrase is still
+ * that phrase.
+ *
+ * Fewer than two notes cannot be slurred — a phrase mark over one note means
+ * nothing — and toggling off is offered when the span is already slurred, so
+ * the same control removes what it made.
+ */
+export function toggleSlurCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      )
+      .sort((a, b) => a.startTick - b.startTick);
+    if (notes.length < 2) return score;
+
+    const first = notes[0];
+    const last = notes[notes.length - 1];
+    const alreadySlurred = Boolean(first.slurStart && last.slurStop);
+
+    return mapNotes(score, eventIds, note => {
+      const updated: NoteEvent = { ...note };
+      delete updated.slurStart;
+      delete updated.slurStop;
+      if (alreadySlurred) return updated;
+      if (note.id === first.id) updated.slurStart = true;
+      if (note.id === last.id) updated.slurStop = true;
+      return updated;
+    });
+  });
+}
+
+/**
+ * Sets or clears the syllable sung on one note.
+ *
+ * One note at a time, unlike the other note commands: every syllable in a line
+ * is different, so applying one across a selection could only ever write the
+ * same word repeatedly.
+ *
+ * Blank text clears the lyric rather than storing an empty one — an empty
+ * syllable would reserve space under the note and print nothing.
+ */
+export function setLyricCommand(
+  eventId: UUID,
+  lyric: Lyric | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, [eventId], note => {
+      const updated: NoteEvent = { ...note };
+      if (!lyric || lyric.text.trim() === '') {
+        delete updated.lyric;
+        return updated;
+      }
+      updated.lyric = {
+        text: lyric.text.trim(),
+        // `single` is the default the model states, so storing it would only
+        // be noise in every saved score.
+        ...(lyric.syllabic && lyric.syllabic !== 'single'
+          ? { syllabic: lyric.syllabic }
+          : {}),
+      };
+      return updated;
+    })
+  );
+}
+
+/**
+ * Turns a written note into a grace note on the note that follows it.
+ *
+ * The note leaves the voice and reappears hanging off its neighbour, and the
+ * gap it leaves is filled with a rest — so the bar still adds up, which is the
+ * whole reason grace notes are stored on their principal rather than as events
+ * of their own.
+ *
+ * The principal is the next note *in the same voice*, since that is what the
+ * ornament leads into. A note with nothing after it cannot become one: an
+ * ornament with nothing to ornament would simply vanish from the page.
+ */
+export function toGraceNoteCommand(eventId: UUID, label: string): ScoreCommand {
+  return transformCommand(label, score => {
+    const tracks = score.tracks.map(track => ({
+      ...track,
+      measures: track.measures.map(measure => ({
+        ...measure,
+        voices: measure.voices.map(voice => {
+          const index = voice.events.findIndex(e => e.id === eventId);
+          if (index === -1) return voice;
+
+          const source = voice.events[index];
+          if (!isNoteEvent(source)) return voice;
+
+          // The principal: the next *note* after it in this voice.
+          const principalIndex = voice.events.findIndex(
+            (e, i) => i > index && isNoteEvent(e)
+          );
+          if (principalIndex === -1) return voice;
+          const principal = voice.events[principalIndex] as NoteEvent;
+
+          const grace: GraceNote = {
+            pitch: source.pitch,
+            durationTicks: source.durationTicks,
+            slashed: true,
+          };
+
+          /*
+            Ornaments the source itself carried travel with it, ahead of the
+            note it becomes: turning a decorated note into a grace note should
+            move the whole ornamental run to the new principal, not silently
+            drop everything in front of it.
+          */
+          const carried: GraceNote[] = [...(source.graceNotes ?? []), grace];
+
+          return {
+            ...voice,
+            events: voice.events.map((event, i) => {
+              // The time the note occupied stays occupied, by a rest: an
+              // ornament borrows from its principal, it does not shorten the
+              // bar.
+              if (i === index)
+                return {
+                  id: source.id,
+                  startTick: source.startTick,
+                  durationTicks: source.durationTicks,
+                  voiceId: source.voiceId,
+                  trackId: source.trackId,
+                };
+              if (i === principalIndex)
+                return {
+                  ...principal,
+                  graceNotes: [...(principal.graceNotes ?? []), ...carried],
+                };
+              return event;
+            }),
+          };
+        }),
+      })),
+    }));
+    return withTracks(score, tracks);
+  });
+}
+
+/** Removes every ornament from the given notes. */
+export function clearGraceNotesCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => {
+      const updated: NoteEvent = { ...note };
+      delete updated.graceNotes;
+      return updated;
+    })
   );
 }
 

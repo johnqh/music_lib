@@ -16,10 +16,14 @@
  * every imported note is given the domain default velocity, 80.
  */
 import { createId } from '../../domain/score/ids.js';
+import { DYNAMICS } from '@sudobility/music_types';
 import type { XmlElement, XmlParser } from '@sudobility/music_types';
 import type {
   Accidental,
   Clef,
+  Dynamic,
+  GraceNote,
+  Lyric,
   KeySignature,
   Measure,
   MusicalEvent,
@@ -284,6 +288,11 @@ type RawEvent = {
   pitch: Pitch | null; // null => rest
   voiceNumber: string;
   articulation?: NoteEvent['articulation'];
+  dynamic?: Dynamic;
+  slurStart?: boolean;
+  slurStop?: boolean;
+  lyric?: Lyric;
+  graceNotes?: GraceNote[];
   tieStart?: boolean;
   tieStop?: boolean;
 };
@@ -341,6 +350,26 @@ const SILENTLY_IGNORED_NOTE_CHILDREN = new Set([
   'listen',
 ]);
 
+/**
+ * The syllable sung on a note, or `undefined` when it carries none.
+ *
+ * `single` is the model's default and is not stored, so an ordinary one-word
+ * syllable round-trips without carrying a redundant field.
+ */
+function parseLyric(noteEl: XmlElement): Lyric | undefined {
+  const lyricEl = directChild(noteEl, 'lyric');
+  if (!lyricEl) return undefined;
+  const text = directChild(lyricEl, 'text')?.textContent?.trim();
+  if (!text) return undefined;
+  const syllabic = directChild(lyricEl, 'syllabic')?.textContent ?? undefined;
+  return {
+    text,
+    ...(syllabic && syllabic !== 'single'
+      ? { syllabic: syllabic as NonNullable<Lyric['syllabic']> }
+      : {}),
+  };
+}
+
 function warnUnsupportedNoteChildren(
   noteEl: XmlElement,
   warnings: WarningCollector
@@ -348,16 +377,29 @@ function warnUnsupportedNoteChildren(
   for (const child of Array.from(noteEl.children)) {
     if (SILENTLY_IGNORED_NOTE_CHILDREN.has(child.tagName)) continue;
     if (child.tagName === 'grace') {
-      warnings.add(warnings.text.graceNotes);
+      // Read now: a `<grace/>` note is attached to the note it decorates
+      // rather than dropped.
+      continue;
     } else if (child.tagName === 'lyric') {
-      warnings.add(warnings.text.lyrics);
+      // Read in `parseLyric`, so no longer dropped and no longer warned about.
+      continue;
     } else if (child.tagName === 'time-modification') {
-      warnings.add(warnings.text.tuplets);
+      // No longer simplified: `<duration>` already carries the scaling — a
+      // triplet eighth genuinely has two thirds of an eighth's divisions — so
+      // the imported tick length is the right one, and the model expresses it
+      // as a `triplet-*` duration. `parseTimeModification` covers the case
+      // where a note states only its `<type>`.
+      continue;
     } else if (child.tagName === 'notations') {
       for (const notationChild of Array.from(child.children)) {
         if (
           notationChild.tagName === 'articulations' ||
-          notationChild.tagName === 'tied'
+          notationChild.tagName === 'tied' ||
+          notationChild.tagName === 'slur' ||
+          // The bracket. Its scaling rides on `<time-modification>` and the
+          // tick length, so there is nothing more to read here — but it is
+          // understood, not ignored, and must not be reported as unsupported.
+          notationChild.tagName === 'tuplet'
         )
           continue;
         if (notationChild.tagName === 'ornaments') {
@@ -405,6 +447,8 @@ function parseArticulation(
 }
 
 type ParsedNote = {
+  /** Set when this `<note>` was an ornament, to attach to the next real note. */
+  graceNote?: GraceNote;
   /** `null` when this note must be skipped (grace note, or unsupported/malformed content). */
   raw: RawEvent | null;
   /**
@@ -432,8 +476,30 @@ function parseNote(
 ): ParsedNote {
   warnUnsupportedNoteChildren(noteEl, warnings);
 
-  if (directChild(noteEl, 'grace')) {
-    return { raw: null, cursorAdvance: 0 };
+  /*
+    A grace note: no `<duration>`, so it advances nothing, and it is held to be
+    attached to the note it decorates rather than dropped. `graceNote` is
+    returned separately from `raw` because it is not an event of its own — the
+    model hangs it off its principal.
+  */
+  const graceEl = directChild(noteEl, 'grace');
+  if (graceEl) {
+    const pitchElement = directChild(noteEl, 'pitch');
+    if (!pitchElement) return { raw: null, cursorAdvance: 0 };
+    const typeText = textOf(noteEl, 'type');
+    const dots = directChildren(noteEl, 'dot').length;
+    return {
+      raw: null,
+      cursorAdvance: 0,
+      graceNote: {
+        pitch: parsePitch(pitchElement, warnings),
+        durationTicks:
+          typeText && isMusicXmlNoteType(typeText)
+            ? ticksForNotatedType(typeText, dots, SCORE_PPQ)
+            : ticksForNotatedType('eighth', 0, SCORE_PPQ),
+        ...(graceEl.getAttribute('slash') === 'yes' ? { slashed: true } : {}),
+      },
+    };
   }
 
   const restEl = directChild(noteEl, 'rest');
@@ -446,6 +512,25 @@ function parseNote(
       unpitchedEl ? warnings.text.unpitched : warnings.text.noPitchOrRest
     );
   }
+
+  /*
+    The tuplet ratio, when a note carries one.
+
+    Only needed for the `<type>`-without-`<duration>` fallback below:
+    `<duration>` is stated in divisions and already scaled, so a triplet
+    eighth arrives at the right tick length with no help. A note giving only
+    its written type would otherwise import a third too long.
+  */
+  const timeModEl = directChild(noteEl, 'time-modification');
+  const actualNotes = Number(textOf(timeModEl ?? noteEl, 'actual-notes'));
+  const normalNotes = Number(textOf(timeModEl ?? noteEl, 'normal-notes'));
+  const tupletRatio =
+    timeModEl &&
+    Number.isFinite(actualNotes) &&
+    Number.isFinite(normalNotes) &&
+    actualNotes > 0
+      ? normalNotes / actualNotes
+      : 1;
 
   const durationEl = directChild(noteEl, 'duration');
   let durationTicks: number;
@@ -460,7 +545,9 @@ function parseNote(
     const typeText = textOf(noteEl, 'type');
     const dots = directChildren(noteEl, 'dot').length;
     if (typeText && isMusicXmlNoteType(typeText)) {
-      durationTicks = ticksForNotatedType(typeText, dots, SCORE_PPQ);
+      durationTicks = Math.round(
+        ticksForNotatedType(typeText, dots, SCORE_PPQ) * tupletRatio
+      );
     } else {
       warnings.add(warnings.text.noDuration);
       return { raw: null, cursorAdvance: 0 };
@@ -484,6 +571,15 @@ function parseNote(
   const tieStart = tieEls.some(t => t.getAttribute('type') === 'start');
   const tieStop = tieEls.some(t => t.getAttribute('type') === 'stop');
 
+  // A phrase mark, which lives inside `<notations>` rather than beside the
+  // `<tie>` elements — a slur is a property of the note, unlike a dynamic.
+  const notationsEl = directChild(noteEl, 'notations');
+  const slurEls = notationsEl ? directChildren(notationsEl, 'slur') : [];
+  const slurStart = slurEls.some(el => el.getAttribute('type') === 'start');
+  const slurStop = slurEls.some(el => el.getAttribute('type') === 'stop');
+
+  const lyric = restEl ? undefined : parseLyric(noteEl);
+
   const raw: RawEvent = {
     startTick: cursor,
     durationTicks,
@@ -492,6 +588,9 @@ function parseNote(
     articulation,
     tieStart,
     tieStop,
+    ...(lyric ? { lyric } : {}),
+    ...(slurStart ? { slurStart: true } : {}),
+    ...(slurStop ? { slurStop: true } : {}),
   };
   return { raw, cursorAdvance: durationTicks };
 }
@@ -549,6 +648,11 @@ function fillAndClip(
         ...(item.tieStart ? { tieStart: true } : {}),
         ...(item.tieStop ? { tieStop: true } : {}),
         ...(item.articulation ? { articulation: item.articulation } : {}),
+        ...(item.dynamic ? { dynamic: item.dynamic } : {}),
+        ...(item.slurStart ? { slurStart: true } : {}),
+        ...(item.slurStop ? { slurStop: true } : {}),
+        ...(item.lyric ? { lyric: item.lyric } : {}),
+        ...(item.graceNotes?.length ? { graceNotes: item.graceNotes } : {}),
       };
       events.push(note);
     } else {
@@ -594,6 +698,15 @@ function parseMeasure(
   let cursor = 0;
   /** The position `<chord/>`-flagged notes attach to: the cursor value at the start of the current (non-chord) note. */
   let lastNoteStart = 0;
+  /** Set by a `<direction>`, consumed by the next `<note>` it applies from. */
+  let pendingDynamic: Dynamic | undefined;
+  /**
+   * Ornaments read so far, waiting for the note they decorate.
+   *
+   * MusicXML writes them *before* their principal, so by the time it is parsed
+   * they have already gone past — the same shape of problem as a dynamic.
+   */
+  let pendingGraceNotes: GraceNote[] = [];
 
   const knownTags = new Set([
     'attributes',
@@ -613,6 +726,20 @@ function parseMeasure(
         break;
 
       case 'direction': {
+        /*
+          A dynamic marking. Held until the next `<note>`, which is the one it
+          applies from — MusicXML places the direction *before* that note, so
+          by the time the note is parsed the marking has already gone past.
+        */
+        const dynamicsEl = directChild(
+          directChild(child, 'direction-type') ?? child,
+          'dynamics'
+        );
+        const markName = dynamicsEl?.children[0]?.tagName;
+        if (markName && (DYNAMICS as readonly string[]).includes(markName)) {
+          pendingDynamic = markName as Dynamic;
+        }
+
         const soundEl = directChild(child, 'sound');
         const tempoAttr = soundEl?.getAttribute('tempo');
         if (tempoAttr) {
@@ -643,14 +770,29 @@ function parseMeasure(
           state.timeSignature,
           SCORE_PPQ
         );
-        const { raw, cursorAdvance } = parseNote(
+        const parsed = parseNote(
           child,
           eventStart,
           measureEndTick,
           state.ratio,
           warnings
         );
+        const { raw, cursorAdvance } = parsed;
+        if (parsed.graceNote) {
+          pendingGraceNotes.push(parsed.graceNote);
+        }
         if (raw) {
+          // Ornaments belong to the next sounding note, never to a rest.
+          if (pendingGraceNotes.length > 0 && raw.pitch !== null) {
+            raw.graceNotes = pendingGraceNotes;
+            pendingGraceNotes = [];
+          }
+          // Only a pitched note carries a dynamic: a rest has nothing to
+          // sound at that level, and MusicXML would not put one on it.
+          if (pendingDynamic && raw.pitch !== null) {
+            raw.dynamic = pendingDynamic;
+            pendingDynamic = undefined;
+          }
           const bucket = buckets.get(raw.voiceNumber) ?? [];
           buckets.set(raw.voiceNumber, bucket);
           bucket.push(raw);

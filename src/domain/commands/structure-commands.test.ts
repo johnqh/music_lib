@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyScore } from '../score/factory.js';
 import { validateScore } from '../validation/validator.js';
+import { twinkleScore } from '../../test/fixtures.js';
 import {
   addMeasureCommand,
   addTrackCommand,
@@ -8,6 +9,7 @@ import {
   changeKeySignatureCommand,
   changeMetadataCommand,
   changeTempoCommand,
+  removeTempoCommand,
   changeTimeSignatureCommand,
   changeTrackPropsCommand,
   deleteMeasureCommand,
@@ -385,5 +387,40 @@ describe('command kind', () => {
 
   it('defaults every other command to content', () => {
     expect(addTrackCommand({ name: 'New' }, 'Add track').kind).toBe('content');
+  });
+});
+
+describe('removeTempoCommand', () => {
+  it('drops a mid-score tempo change', () => {
+    const score = twinkleScore();
+    const added = changeTempoCommand({ tick: 1920, bpm: 90 }, 'Add').execute(
+      score
+    );
+    expect(added.tempoMap).toHaveLength(2);
+
+    const removed = removeTempoCommand(added.tempoMap[1].id, 'Remove').execute(
+      added
+    );
+    expect(removed.tempoMap).toHaveLength(1);
+    expect(removed.tempoMap[0].tick).toBe(0);
+  });
+
+  it('refuses to remove the starting tempo, which is not a change', () => {
+    // A score with an empty tempoMap has no tempo at all.
+    const score = twinkleScore();
+    const result = removeTempoCommand(score.tempoMap[0].id, 'Remove').execute(
+      score
+    );
+    expect(result.tempoMap).toHaveLength(1);
+  });
+
+  it('leaves the score alone for an id it does not have', () => {
+    const score = twinkleScore();
+    const added = changeTempoCommand({ tick: 1920, bpm: 90 }, 'Add').execute(
+      score
+    );
+    expect(
+      removeTempoCommand('no-such-id', 'Remove').execute(added).tempoMap
+    ).toHaveLength(2);
   });
 });

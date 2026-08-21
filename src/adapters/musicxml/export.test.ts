@@ -626,3 +626,50 @@ describe('safeFilename', () => {
     expect(safeFilename('***')).toBe('untitled');
   });
 });
+
+describe('dynamics', () => {
+  /** Twinkle with a marking on its very first note. */
+  function marked(dynamic: NoteEvent['dynamic']): Score {
+    const score = twinkleScore();
+    return {
+      ...score,
+      tracks: score.tracks.map(track => ({
+        ...track,
+        measures: track.measures.map((m, mi) =>
+          mi !== 0
+            ? m
+            : {
+                ...m,
+                voices: m.voices.map(v => ({
+                  ...v,
+                  events: v.events.map((e, i) =>
+                    i === 0 && 'pitch' in e ? { ...e, dynamic } : e
+                  ),
+                })),
+              }
+        ),
+      })),
+    };
+  }
+
+  it('writes a marking as a direction before its note', () => {
+    // MusicXML treats a dynamic as an instruction at a point in the measure,
+    // not as a property of a notehead — so it is a <direction>, and it comes
+    // before the <note> it applies from.
+    const xml = exportMusicXml(marked('ff'));
+    expect(xml).toContain('<dynamics><ff/></dynamics>');
+    expect(xml.indexOf('<dynamics>')).toBeLessThan(xml.indexOf('<note>'));
+
+    // The *dynamics* direction, not the first direction in the document —
+    // that one is the tempo mark, which is placed above.
+    const doc = parse(xml);
+    const dynamicsDirection = [...doc.querySelectorAll('direction')].find(d =>
+      d.querySelector('dynamics')
+    );
+    expect(dynamicsDirection?.getAttribute('placement')).toBe('below');
+  });
+
+  it('writes nothing for an unmarked score', () => {
+    expect(exportMusicXml(twinkleScore())).not.toContain('<dynamics>');
+  });
+});

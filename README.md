@@ -1,6 +1,6 @@
 # @sudobility/music_lib
 
-Business logic for the ScoreSmith music platform: score domain model with undoable commands, validation, quantization, VexFlow rendering adapter, Tone.js playback, MIDI/MusicXML import/export, and the Zustand app store.
+Business logic for the Moosiac music platform: score domain model with undoable commands, validation, quantization, VexFlow rendering adapter, Tone.js playback, MIDI/MusicXML import/export, and the Zustand app store.
 
 ## Installation
 

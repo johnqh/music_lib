@@ -17,6 +17,11 @@ import { isNoteEvent } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../../domain/pitch/pitch.js';
 import { allNotes } from '../../domain/score/queries.js';
+import {
+  setLyricCommand,
+  toGraceNoteCommand,
+  toggleSlurCommand,
+} from '../../domain/commands/note-commands.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import {
@@ -453,5 +458,234 @@ describe('MusicXML round trip: chord grouping stays simultaneous', () => {
       expect(notes).toHaveLength(3);
       expect(new Set(notes.map(n => n.startTick)).size).toBe(1);
     });
+  });
+});
+
+describe('dynamics round-trip', () => {
+  /** Twinkle with markings on two notes, so "until the next one" is exercised. */
+  function marked(): Score {
+    const score = twinkleScore();
+    return {
+      ...score,
+      tracks: score.tracks.map(track => ({
+        ...track,
+        measures: track.measures.map((m, mi) => ({
+          ...m,
+          voices: m.voices.map(v => ({
+            ...v,
+            events: v.events.map((e, i) => {
+              if (!isNoteEvent(e)) return e;
+              if (mi === 0 && i === 0) return { ...e, dynamic: 'pp' as const };
+              if (mi === 2 && i === 0) return { ...e, dynamic: 'ff' as const };
+              return e;
+            }),
+          })),
+        })),
+      })),
+    };
+  }
+
+  it('survives export and import on the notes that carried it', () => {
+    const { imported, warnings } = roundTrip(marked());
+    const notes = allNotes(imported).filter(isNoteEvent);
+    const withDynamics = notes.filter(n => n.dynamic);
+
+    expect(warnings).toEqual([]);
+    expect(withDynamics.map(n => n.dynamic)).toEqual(['pp', 'ff']);
+  });
+
+  it('does not spread the marking onto every note', () => {
+    // A dynamic marks where a level begins. Writing one under every notehead
+    // is what the "in force until the next" rule exists to avoid.
+    const { imported } = roundTrip(marked());
+    const notes = allNotes(imported).filter(isNoteEvent);
+    expect(notes.length).toBeGreaterThan(4);
+    expect(notes.filter(n => n.dynamic)).toHaveLength(2);
+  });
+
+  it('leaves an unmarked score unmarked', () => {
+    const { imported } = roundTrip(twinkleScore());
+    expect(
+      allNotes(imported)
+        .filter(isNoteEvent)
+        .every(n => !n.dynamic)
+    ).toBe(true);
+  });
+});
+
+describe('slurs round-trip', () => {
+  it('survives export and import on the notes that carried it', () => {
+    const score = twinkleScore();
+    const notes = allNotes(score).filter(isNoteEvent).slice(0, 4);
+    const slurred = toggleSlurCommand(
+      notes.map(n => n.id),
+      'Slur'
+    ).execute(score);
+
+    const { imported, warnings } = roundTrip(slurred);
+    const after = allNotes(imported).filter(isNoteEvent);
+
+    expect(warnings).toEqual([]);
+    expect(after.filter(n => n.slurStart)).toHaveLength(1);
+    expect(after.filter(n => n.slurStop)).toHaveLength(1);
+    expect(after.findIndex(n => n.slurStart)).toBeLessThan(
+      after.findIndex(n => n.slurStop)
+    );
+  });
+
+  it('no longer warns that a slur is unsupported', () => {
+    // The importer used to report every <slur> as an unsupported notation.
+    const score = twinkleScore();
+    const ids = allNotes(score)
+      .filter(isNoteEvent)
+      .slice(0, 3)
+      .map(n => n.id);
+    const { warnings } = roundTrip(
+      toggleSlurCommand(ids, 'Slur').execute(score)
+    );
+    expect(warnings.join(' ')).not.toMatch(/slur/i);
+  });
+});
+
+describe('lyrics round-trip', () => {
+  /** Twinkle's first three notes given a hyphenated word plus a whole one. */
+  function sung(): Score {
+    const score = twinkleScore();
+    const notes = allNotes(score).filter(isNoteEvent).slice(0, 3);
+    let result = score;
+    const words: Array<[string, 'begin' | 'end' | undefined]> = [
+      ['twin', 'begin'],
+      ['kle', 'end'],
+      ['star', undefined],
+    ];
+    notes.forEach((note, i) => {
+      const [text, syllabic] = words[i];
+      result = setLyricCommand(
+        note.id,
+        { text, ...(syllabic ? { syllabic } : {}) },
+        'Lyric'
+      ).execute(result);
+    });
+    return result;
+  }
+
+  it('survives export and import, syllable joins included', () => {
+    const { imported, warnings } = roundTrip(sung());
+    const notes = allNotes(imported).filter(isNoteEvent);
+
+    expect(warnings).toEqual([]);
+    expect(notes[0].lyric).toEqual({ text: 'twin', syllabic: 'begin' });
+    expect(notes[1].lyric).toEqual({ text: 'kle', syllabic: 'end' });
+    expect(notes[2].lyric).toEqual({ text: 'star' });
+  });
+
+  it('leaves an unsung score unsung', () => {
+    const { imported } = roundTrip(twinkleScore());
+    expect(
+      allNotes(imported)
+        .filter(isNoteEvent)
+        .every(n => !n.lyric)
+    ).toBe(true);
+  });
+});
+
+describe('tuplets round-trip', () => {
+  /** A bar whose first beat is a triplet of eighths. */
+  function withTriplet(): Score {
+    const score = twinkleScore();
+    const tripletEighth = ticksFor('triplet-eighth', score.ppq);
+    const quarter = ticksFor('quarter', score.ppq);
+    const measure = score.tracks[0].measures[0];
+    const pitch = { step: 'C' as const, accidental: 0 as const, octave: 4 };
+
+    return {
+      ...score,
+      tracks: score.tracks.map((track, ti) =>
+        ti !== 0
+          ? track
+          : {
+              ...track,
+              measures: track.measures.map((m, mi) =>
+                mi !== 0
+                  ? m
+                  : {
+                      ...m,
+                      voices: m.voices.map((v, vi) =>
+                        vi !== 0
+                          ? v
+                          : {
+                              ...v,
+                              events: [
+                                ...[0, 1, 2].map(i => ({
+                                  id: `trip-${i}`,
+                                  pitch,
+                                  startTick:
+                                    measure.startTick + i * tripletEighth,
+                                  durationTicks: tripletEighth,
+                                  velocity: 80,
+                                  voiceId: v.id,
+                                  trackId: track.id,
+                                })),
+                                ...[0, 1, 2].map(i => ({
+                                  id: `rest-${i}`,
+                                  startTick:
+                                    measure.startTick + quarter * (i + 1),
+                                  durationTicks: quarter,
+                                  voiceId: v.id,
+                                  trackId: track.id,
+                                })),
+                              ],
+                            }
+                      ),
+                    }
+              ),
+            }
+      ),
+    };
+  }
+
+  it('writes the scaling and the bracket, and reads them back', () => {
+    const source = withTriplet();
+    const xml = exportMusicXml(source);
+
+    expect(xml).toContain('<actual-notes>3</actual-notes>');
+    expect(xml).toContain('<tuplet type="start" number="1"/>');
+    expect(xml).toContain('<tuplet type="stop" number="1"/>');
+
+    const { imported, warnings } = roundTrip(source);
+    const first = allNotes(imported).filter(isNoteEvent)[0];
+    // Printed so a surprise warning names itself rather than showing as a
+    // bare array length.
+    expect(warnings.join(' | ')).toBe('');
+    expect(first.durationTicks).toBe(ticksFor('triplet-eighth', imported.ppq));
+  });
+
+  it('says nothing about tuplets for an ordinary bar', () => {
+    expect(exportMusicXml(twinkleScore())).not.toContain('<time-modification>');
+  });
+});
+
+describe('grace notes round-trip', () => {
+  it('survives export and import, attached to the same principal', () => {
+    const base = twinkleScore();
+    const voice = base.tracks[0].measures[0].voices[0];
+    const [first, second] = voice.events.filter(isNoteEvent);
+    const source = toGraceNoteCommand(first.id, 'Grace').execute(base);
+
+    const xml = exportMusicXml(source);
+    expect(xml).toContain('<grace slash="yes"/>');
+
+    const { imported, warnings } = roundTrip(source);
+    const notes = allNotes(imported).filter(isNoteEvent);
+    const ornamented = notes.filter(n => n.graceNotes?.length);
+
+    expect(warnings).toEqual([]);
+    expect(ornamented).toHaveLength(1);
+    expect(ornamented[0].graceNotes?.[0].pitch.step).toBe(first.pitch.step);
+    expect(second).toBeDefined();
+  });
+
+  it('writes no grace element for an unornamented score', () => {
+    expect(exportMusicXml(twinkleScore())).not.toContain('<grace');
   });
 });

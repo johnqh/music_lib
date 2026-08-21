@@ -5,8 +5,10 @@ import {
   selectActiveTrackId,
   selectCurrentMeasureBeat,
   selectSelectedMeasureRange,
+  selectSelectedMeasures,
   selectSelectedNoteCount,
   selectSelectedNotes,
+  selectSelectedTrack,
   selectVisibleTrackIds,
 } from './selectors.js';
 import type { Score } from '@sudobility/music_types';
@@ -283,5 +285,71 @@ describe('selectVisibleTrackIds', () => {
     const first = selectVisibleTrackIds(store.getState());
     store.getState().setZoom(2);
     expect(selectVisibleTrackIds(store.getState())).toBe(first);
+  });
+});
+
+describe('selectSelectedTrack', () => {
+  it('resolves the active track to its object', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twoTrackScore());
+    const second = store.getState().score!.tracks[1];
+    store.getState().setActiveTrack(second.id);
+
+    expect(selectSelectedTrack(store.getState())?.id).toBe(second.id);
+  });
+
+  it('falls back to the first track rather than emptying', () => {
+    // "One track is always active" is what lets a property sheet render with
+    // no reconciliation effect — including right after the active one is
+    // deleted, when the stored id is stale.
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twoTrackScore());
+    store.getState().setActiveTrack('no-such-track');
+
+    expect(selectSelectedTrack(store.getState())?.id).toBe(
+      store.getState().score!.tracks[0].id
+    );
+  });
+
+  it('is null with no score', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    expect(selectSelectedTrack(store.getState())).toBeNull();
+  });
+
+  it('returns the same reference until the track changes', () => {
+    // Handed straight to `useAppStore(selector)`, so an unstable reference
+    // would re-render the panel on every unrelated store update.
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twinkleScore());
+    const first = selectSelectedTrack(store.getState());
+    store.getState().setZoom(1.5);
+    expect(selectSelectedTrack(store.getState())).toBe(first);
+  });
+});
+
+describe('selectSelectedMeasures', () => {
+  it('resolves selected measure ids, in score order', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twinkleScore());
+    const measures = store.getState().score!.tracks[0].measures;
+    store.getState().setSelection({
+      eventIds: [],
+      measureIds: [measures[1].id, measures[0].id],
+      trackIds: [],
+    });
+
+    expect(selectSelectedMeasures(store.getState()).map(m => m.id)).toEqual([
+      measures[0].id,
+      measures[1].id,
+    ]);
+  });
+
+  it('skips ids that no longer resolve', () => {
+    const store = createAppStore({ context: testStoreContext() });
+    store.getState().setScore(twinkleScore());
+    store
+      .getState()
+      .setSelection({ eventIds: [], measureIds: ['gone'], trackIds: [] });
+    expect(selectSelectedMeasures(store.getState())).toEqual([]);
   });
 });

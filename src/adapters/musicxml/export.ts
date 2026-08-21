@@ -25,6 +25,7 @@ import type {
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NotatedDuration } from './duration-map.js';
+import { tupletGroups } from '../../domain/time/tuplets.js';
 import { notateDuration } from './duration-map.js';
 
 /** Escapes the five characters not otherwise safe inside MusicXML element text/attribute values. */
@@ -149,6 +150,12 @@ function buildPitchXml(note: NoteEvent): string {
 
 type NoteSegmentOptions = {
   isChord: boolean;
+  /** Set when this note belongs to a tuplet; `position` marks its ends. */
+  tuplet?: {
+    actualNotes: number;
+    normalNotes: number;
+    position: 'start' | 'middle' | 'stop';
+  };
   segment: NotatedDuration;
   tieStop: boolean;
   tieStart: boolean;
@@ -171,10 +178,57 @@ function buildPitchedNoteXml(
   const articulationsXml = note.articulation
     ? `<articulations>${buildArticulationXml(note.articulation)}</articulations>`
     : '';
+  /*
+    A slur *is* a `<notations>` child, unlike a dynamic: it is a property of
+    the note it starts or ends on rather than an instruction at a point in the
+    measure. `number="1"` is MusicXML's slur id — one level is enough here
+    because the model has no nested phrase marks.
+
+    Only on the segment the note truly begins or ends on: a note decomposed
+    into tied segments would otherwise open a slur at every join.
+  */
+  const slurXml = [
+    opts.tieStop === false && note.slurStart
+      ? '<slur type="start" number="1"/>'
+      : '',
+    opts.tieStart === false && note.slurStop
+      ? '<slur type="stop" number="1"/>'
+      : '',
+  ].join('');
+  const tupletNotation =
+    opts.tuplet?.position === 'start'
+      ? '<tuplet type="start" number="1"/>'
+      : opts.tuplet?.position === 'stop'
+        ? '<tuplet type="stop" number="1"/>'
+        : '';
   const notations =
-    tiedNotations || articulationsXml
-      ? `<notations>${tiedNotations}${articulationsXml}</notations>`
+    tiedNotations || articulationsXml || slurXml || tupletNotation
+      ? `<notations>${tiedNotations}${articulationsXml}${slurXml}${tupletNotation}</notations>`
       : '';
+  /*
+    The sung syllable. A `<lyric>` is a child of `<note>`, not of
+    `<notations>`: it is sung text rather than a performance marking.
+
+    Only on the segment the note begins on — a note decomposed into tied
+    segments would otherwise repeat the word at every join — and never on a
+    chord's non-root member, where it would print the syllable once per
+    notehead.
+  */
+  const lyricXml =
+    note.lyric && !opts.isChord && opts.tieStop === false
+      ? `<lyric><syllabic>${note.lyric.syllabic ?? 'single'}</syllabic>` +
+        `<text>${escapeXml(note.lyric.text)}</text></lyric>`
+      : '';
+  /*
+    A tuplet says two things in MusicXML: `<time-modification>` on every note
+    in the group — how its written value is scaled — and a `<tuplet>` notation
+    on the first and last, which is what draws the bracket. Both are needed;
+    the modification alone plays correctly and prints without a bracket.
+  */
+  const timeModificationXml = opts.tuplet
+    ? `<time-modification><actual-notes>${opts.tuplet.actualNotes}</actual-notes>` +
+      `<normal-notes>${opts.tuplet.normalNotes}</normal-notes></time-modification>`
+    : '';
   const dots = '<dot/>'.repeat(opts.segment.dots);
 
   return (
@@ -186,7 +240,9 @@ function buildPitchedNoteXml(
     `<voice>${opts.voiceNumber}</voice>` +
     `<type>${opts.segment.type}</type>` +
     dots +
+    timeModificationXml +
     notations +
+    lyricXml +
     `</note>\n`
   );
 }
@@ -233,6 +289,35 @@ function buildVoiceEventsXml(
   ppq: number
 ): string {
   let xml = '';
+
+  /*
+    Which events belong to a tuplet, by event id.
+
+    Derived from the durations by `tupletGroups`, the same rule the renderer
+    brackets by — so what is exported is what is drawn. Keyed by id because the
+    loop below walks chord groups rather than the flat event list.
+  */
+  const tupletByEventId = new Map<
+    string,
+    {
+      actualNotes: number;
+      normalNotes: number;
+      position: 'start' | 'middle' | 'stop';
+    }
+  >();
+  for (const group of tupletGroups(voice.events, ppq)) {
+    for (let i = 0; i < group.length; i += 1) {
+      const event = voice.events[group.start + i];
+      if (!event) continue;
+      tupletByEventId.set(event.id, {
+        actualNotes: group.actualNotes,
+        normalNotes: group.normalNotes,
+        position:
+          i === 0 ? 'start' : i === group.length - 1 ? 'stop' : 'middle',
+      });
+    }
+  }
+
   for (const group of groupByStartTick(voice.events)) {
     const root = group[0];
     if (!isNoteEvent(root)) {
@@ -242,7 +327,69 @@ function buildVoiceEventsXml(
       continue;
     }
 
-    const segments = notateDuration(root.durationTicks, ppq);
+    /*
+      A tuplet note is written as its *base* value and sounds for less: a
+      triplet eighth is an `<type>eighth</type>` whose `<duration>` is two
+      thirds of an eighth's divisions. `notateDuration` only knows plain
+      values, so handing it 160 ticks classified it as the nearest thing it
+      had — a 16th — and the note came back a third short.
+
+      So the type is chosen from the unscaled length and the duration stays
+      the real one. This is what `<time-modification>` exists to reconcile.
+    */
+    const rootTuplet = tupletByEventId.get(root.id);
+    const segments = rootTuplet
+      ? notateDuration(
+          Math.round(
+            (root.durationTicks * rootTuplet.actualNotes) /
+              rootTuplet.normalNotes
+          ),
+          ppq
+        ).map(segment => ({
+          ...segment,
+          ticks: Math.round(
+            (segment.ticks * rootTuplet.normalNotes) / rootTuplet.actualNotes
+          ),
+        }))
+      : notateDuration(root.durationTicks, ppq);
+    /*
+      A dynamic is a `<direction>` before the note, not a `<notations>` child:
+      MusicXML treats it as an instruction to the player at a point in the
+      measure rather than as a property of a notehead. Written once for the
+      chord — the marking belongs to the moment — and taken from whichever
+      voice member carries it.
+    */
+    const chordDynamic = group.find(
+      (event): event is NoteEvent =>
+        isNoteEvent(event) && event.dynamic !== undefined
+    )?.dynamic;
+    if (chordDynamic) {
+      xml +=
+        `<direction placement="below"><direction-type>` +
+        `<dynamics><${chordDynamic}/></dynamics>` +
+        `</direction-type></direction>\n`;
+    }
+    /*
+      Ornaments are written as their own `<note>` elements carrying `<grace/>`,
+      placed before the note they decorate and given no `<duration>` — which is
+      exactly how they behave: notes on the page that take none of the bar's
+      time. Only the chord root's, since the model hangs them off a moment
+      rather than a notehead.
+    */
+    for (const grace of isNoteEvent(root) ? (root.graceNotes ?? []) : []) {
+      const { type, dots } = notateDuration(grace.durationTicks, ppq)[0] ?? {
+        type: 'eighth' as const,
+        dots: 0,
+      };
+      xml +=
+        `<note><grace${grace.slashed ? ' slash="yes"' : ''}/>` +
+        buildPitchXml({ pitch: grace.pitch } as NoteEvent) +
+        `<voice>${voiceNumber}</voice>` +
+        `<type>${type}</type>` +
+        '<dot/>'.repeat(dots) +
+        `</note>\n`;
+    }
+
     group.forEach((event, groupIndex) => {
       const note = event as NoteEvent;
       segments.forEach((segment, segmentIndex) => {
@@ -255,6 +402,11 @@ function buildVoiceEventsXml(
               ? Boolean(note.tieStart)
               : true,
           voiceNumber,
+          // Only on the segment the note begins on: a decomposed note would
+          // otherwise open a tuplet at every join.
+          ...(segmentIndex === 0 && tupletByEventId.has(note.id)
+            ? { tuplet: tupletByEventId.get(note.id) }
+            : {}),
         });
       });
     });
