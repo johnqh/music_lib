@@ -8,15 +8,12 @@
  * that already depend on an injected import/export service can treat both
  * uniformly.
  */
-import {
-  exportMusicXml,
-  safeFilename,
-} from '../../adapters/musicxml/export.js';
-import { importMusicXml } from '../../adapters/musicxml/import.js';
+import { exportMusicXml, safeFilename } from '@sudobility/music_codecs';
+import { importMusicXml } from '@sudobility/music_codecs';
 import type {
   MusicXmlImportResult,
   MusicXmlWarnings,
-} from '../../adapters/musicxml/import.js';
+} from '@sudobility/music_codecs';
 import type { Score, XmlParser } from '@sudobility/music_types';
 
 export class MusicXmlService {

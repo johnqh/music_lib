@@ -2,8 +2,8 @@ import { testXmlParser } from '../../test/platform.js';
 import { describe, expect, it } from 'vitest';
 import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { MusicXmlService } from './musicxml-service.js';
-import { exportMusicXml } from '../../adapters/musicxml/export.js';
-import { importMusicXml } from '../../adapters/musicxml/import.js';
+import { exportMusicXml } from '@sudobility/music_codecs';
+import { importMusicXml } from '@sudobility/music_codecs';
 import { twinkleScore } from '../../test/fixtures.js';
 
 describe('MusicXmlService', () => {

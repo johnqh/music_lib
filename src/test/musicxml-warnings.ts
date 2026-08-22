@@ -6,7 +6,7 @@
  * carry, which keeps the existing assertions (`/grace/i`, `/clef/i`) meaningful
  * without the library shipping English again.
  */
-import type { MusicXmlWarnings } from '../adapters/musicxml/import.js';
+import type { MusicXmlWarnings } from '@sudobility/music_codecs';
 
 export const TEST_MUSICXML_WARNINGS: MusicXmlWarnings = {
   unsupportedClef: (sign, line) =>

@@ -81,7 +81,16 @@ describe('music_lib is platform-free', () => {
     ) as {
       dependencies: Record<string, string>;
     };
+    /*
+      Pinned exactly, so a platform package cannot arrive unnoticed.
+
+      `music_codecs` is a sibling, not a platform: it is the note-file
+      encoders and decoders, which this package used to carry its own copy of.
+      Both it and `music_types` are free of anything platform-shaped by their
+      own guard tests, so depending on them cannot smuggle one in here.
+    */
     expect(Object.keys(dependencies).sort()).toEqual([
+      '@sudobility/music_codecs',
       'immer',
       'vexflow',
       'zod',

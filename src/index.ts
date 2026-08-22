@@ -9,6 +9,18 @@
   line is what keeps every existing `@sudobility/music_lib` import working.
 */
 export * from '@sudobility/music_types';
+/*
+  The note-file codecs live in `@sudobility/music_codecs` and are re-exported
+  here.
+
+  They used to exist in both packages, and had diverged: `music_api` imported
+  music_codecs while this package used its own copies, so the server and the
+  browser encoded MIDI differently — the server's exports were still missing
+  every dynamic, hairpin and articulation. One home, re-exported, so an
+  `@sudobility/music_lib` import keeps working and there is nothing left to
+  drift.
+*/
+export * from '@sudobility/music_codecs';
 
 /**
  * @sudobility/music_lib — Moosiac business logic.
@@ -107,27 +119,6 @@ export * from './adapters/vexflow/pagination.js';
 export * from './adapters/vexflow/playhead.js';
 export * from './adapters/vexflow/canvas-renderer.js';
 export * from './adapters/vexflow/note-color.js';
-
-// adapters/mod
-export * from './adapters/mod/types.js';
-export * from './adapters/mod/timing.js';
-export * from './adapters/mod/import.js';
-export * from './adapters/mod/limits.js';
-export * from './adapters/mod/export.js';
-
-// adapters/midi
-export * from './adapters/midi/analyze.js';
-export * from './adapters/midi/grid-detection.js';
-export * from './adapters/midi/import.js';
-export * from './adapters/midi/import-options.js';
-export * from './adapters/midi/export.js';
-export * from './adapters/midi/measures.js';
-export * from './adapters/midi/key-detection.js';
-
-// adapters/musicxml
-export * from './adapters/musicxml/import.js';
-export { escapeXml, exportMusicXml } from './adapters/musicxml/export.js';
-export * from './adapters/musicxml/duration-map.js';
 
 // services
 export * from './services/errors.js';

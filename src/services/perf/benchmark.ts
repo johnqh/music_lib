@@ -24,7 +24,7 @@ import { validateScore } from '@sudobility/music_types';
 import { quantizeEvents } from '@sudobility/music_types';
 import { allNotes } from '@sudobility/music_types';
 import { extractFragment, replaceFragment } from '@sudobility/music_types';
-import { exportMidi } from '../../adapters/midi/export.js';
+import { exportMidi } from '@sudobility/music_codecs';
 import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import type { RenderTheme } from '../../adapters/vexflow/types.js';
