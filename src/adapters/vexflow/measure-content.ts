@@ -16,7 +16,10 @@ import {
   Barline,
   Curve,
   Modifier,
+  Repetition,
   StaveHairpin,
+  StaveLine,
+  TextBracket,
   StaveTie,
   Tuplet,
   Volta,
@@ -118,6 +121,21 @@ function sameEnding(a: Measure | undefined, b: Measure | undefined): boolean {
   return left.length === right.length && left.every((n, i) => n === right[i]);
 }
 
+/**
+ * Domain jump -> the `Repetition` VexFlow draws for it.
+ *
+ * A straight mapping: the two libraries name these the same way, unlike the
+ * mordents, because the vocabulary is fixed Italian rather than a description.
+ */
+const JUMP_REPETITION: Record<NonNullable<Measure['jump']>, number> = {
+  'da-capo': Repetition.type.DC,
+  'da-capo-al-fine': Repetition.type.DC_AL_FINE,
+  'da-capo-al-coda': Repetition.type.DC_AL_CODA,
+  'dal-segno': Repetition.type.DS,
+  'dal-segno-al-fine': Repetition.type.DS_AL_FINE,
+  'dal-segno-al-coda': Repetition.type.DS_AL_CODA,
+};
+
 /** Builds one measure's `Stave`, its VexFlow `Voice`s, and its beams; records notes into `channels` for tie building. */
 export function buildMeasureContent(
   measure: Measure,
@@ -191,6 +209,41 @@ export function buildMeasureContent(
   */
   if (measure.repeatStart) stave.setBegBarType(Barline.type.REPEAT_BEGIN);
   if (measure.repeatEnd) stave.setEndBarType(Barline.type.REPEAT_END);
+
+  /*
+    A section break or the end of the piece.
+
+    Applied *after* the repeat above and only when there is no repeat end here,
+    so a bar that both closes a repeat and ends a section keeps the `:|` — the
+    repeat is the instruction a player acts on, and a double bar drawn over it
+    would silently remove a repeat from the performance.
+  */
+  if (measure.barline && !measure.repeatEnd) {
+    stave.setEndBarType(
+      measure.barline === 'final' ? Barline.type.END : Barline.type.DOUBLE
+    );
+  }
+
+  /*
+    The navigation marks: the sign, the coda, `Fine`, `To Coda` and the jump
+    instruction itself.
+
+    Drawn with VexFlow's `Repetition`, which places each above the stave at
+    the side an engraver puts it — the segno and coda open a section so they
+    sit on the left, while an instruction obeyed at the end of a bar sits on
+    the right. Every one is independent: a bar can carry the coda sign and a
+    `Fine`, and one can carry `To Coda` and nothing else.
+  */
+  if (measure.segno)
+    stave.addModifier(new Repetition(Repetition.type.SEGNO_LEFT, 0, 0));
+  if (measure.coda)
+    stave.addModifier(new Repetition(Repetition.type.CODA_LEFT, 0, 0));
+  if (measure.toCoda)
+    stave.addModifier(new Repetition(Repetition.type.TO_CODA, 0, 0));
+  if (measure.fine)
+    stave.addModifier(new Repetition(Repetition.type.FINE, 0, 0));
+  if (measure.jump)
+    stave.addModifier(new Repetition(JUMP_REPETITION[measure.jump], 0, 0));
 
   /*
     The volta bracket, and which pass it covers.
@@ -542,6 +595,87 @@ export function buildHairpins(
   // An unclosed opening draws nothing: half a wedge is not a wedge, and the
   // command that writes these never produces one.
   return hairpins;
+}
+
+/**
+ * The octave brackets in a channel, one `TextBracket` per span.
+ *
+ * Above the stave for `8va`/`15ma` and below for the `b` forms, which is where
+ * the displacement points. Culled like the curves: a bracket is positioned
+ * from its two notes, so one reaching an off-screen stave throws.
+ */
+export function buildOttavas(
+  channel: Channel,
+  isDrawn: (note: StaveNote) => boolean = () => true
+): TextBracket[] {
+  const brackets: TextBracket[] = [];
+  let open: {
+    note: StaveNote;
+    kind: NonNullable<NoteMeta['ottavaStart']>;
+  } | null = null;
+
+  for (const entry of channel) {
+    if (entry.meta.isRest) continue;
+    if (!open && entry.meta.ottavaStart) {
+      open = { note: entry.note, kind: entry.meta.ottavaStart };
+      continue;
+    }
+    if (open && entry.meta.ottavaStop) {
+      if (isDrawn(open.note) && isDrawn(entry.note)) {
+        const above = open.kind === '8va' || open.kind === '15ma';
+        brackets.push(
+          new TextBracket({
+            start: open.note,
+            stop: entry.note,
+            text: open.kind === '8va' || open.kind === '8vb' ? '8' : '15',
+            superscript: open.kind.slice(1),
+            position: above
+              ? TextBracket.Position.TOP
+              : TextBracket.Position.BOTTOM,
+          })
+        );
+      }
+      open = null;
+    }
+  }
+  return brackets;
+}
+
+/**
+ * The slides in a channel, drawn as a straight line between the two notes.
+ *
+ * VexFlow has no `Glissando`; a `StaveLine` between the notes is what its own
+ * examples use, and it is what a glissando is on the page — a line from one
+ * notehead to the next.
+ */
+export function buildGlissandos(
+  channel: Channel,
+  isDrawn: (note: StaveNote) => boolean = () => true
+): StaveLine[] {
+  const lines: StaveLine[] = [];
+  let open: Channel[number] | null = null;
+
+  for (const entry of channel) {
+    if (entry.meta.isRest) continue;
+    if (!open && entry.meta.glissandoStart) {
+      open = entry;
+      continue;
+    }
+    if (open && entry.meta.glissandoStop) {
+      if (isDrawn(open.note) && isDrawn(entry.note)) {
+        lines.push(
+          new StaveLine({
+            first_note: open.note,
+            last_note: entry.note,
+            first_indices: [0],
+            last_indices: [0],
+          })
+        );
+      }
+      open = null;
+    }
+  }
+  return lines;
 }
 
 export function buildSlurs(

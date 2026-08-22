@@ -4,20 +4,16 @@
  * and its use here is an explicitly sanctioned exception to the
  * adapters/services "no non-domain library" purity rule.
  */
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { joinTiedNotes } from '../../domain/score/ties.js';
+import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
+import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import type {
   MidiCodec,
   MidiFile,
   MidiTimeSignatureEvent,
   MidiTrackData,
-  MusicalEvent,
-  NoteEvent,
   Score,
   TimeSignature,
-  Track,
 } from '@sudobility/music_types';
-import { isNoteEvent } from '@sudobility/music_types';
 
 /** General MIDI channel 10 (0-indexed 9), the standard percussion channel. */
 const PERCUSSION_CHANNEL = 9;
@@ -32,39 +28,6 @@ function clamp01(v: number): number {
 /** Maps a track's `pan` ([-1, 1], 0 = center) to MIDI CC10's normalized [0, 1] range (0.5 = center). */
 function panToNormalized(pan: number): number {
   return clamp01((pan + 1) / 2);
-}
-
-/** The most voices any single measure of `track` has (so every "voice channel" ordinal position is covered). */
-function maxVoiceCount(track: Track): number {
-  return track.measures.reduce(
-    (max, measure) => Math.max(max, measure.voices.length),
-    0
-  );
-}
-
-/**
- * All of `track`'s note events, ordinal-voice ties rejoined across measure
- * boundaries. Notes are gathered per "voice channel" — the same ordinal
- * voice-index-across-measures approximation `domain/score/ties.ts` uses
- * internally (see its `voiceChannel` doc comment) — since a measure's voice
- * ids aren't stable across a barline, so a chain can only be tracked by
- * position. Order across channels/within is by `startTick`.
- */
-function collectTrackNotes(track: Track): NoteEvent[] {
-  const voiceCount = maxVoiceCount(track);
-  const notes: NoteEvent[] = [];
-
-  for (let voiceIndex = 0; voiceIndex < voiceCount; voiceIndex += 1) {
-    const channelEvents: MusicalEvent[] = [];
-    for (const measure of track.measures) {
-      const voice = measure.voices[voiceIndex];
-      if (voice) channelEvents.push(...voice.events);
-    }
-    channelEvents.sort((a, b) => a.startTick - b.startTick);
-    notes.push(...joinTiedNotes(channelEvents).filter(isNoteEvent));
-  }
-
-  return notes;
 }
 
 /**
@@ -103,17 +66,33 @@ function collectTimeSignatureChanges(score: Score): MidiTimeSignatureEvent[] {
  * Exports `score` as a Standard MIDI File byte array: PPQ, tempo map, time
  * signatures, per-track name/program/channel (percussion-clef tracks use
  * channel 9/GM channel 10), notes (with velocity), and volume (CC7) / pan
- * (CC10) set at each track's start. Tied notes are rejoined into single MIDI
- * notes before export (MIDI has no tie concept). Sustain pedal data isn't
- * part of the internal `Score` model, so none is emitted (spec §16's
- * "sustain where represented" — nothing is represented here yet).
+ * (CC10) set at each track's start. Sustain pedal data isn't part of the
+ * internal `Score` model, so none is emitted (spec §16's "sustain where
+ * represented" — nothing is represented here yet).
+ *
+ * **Notes come from `flattenScoreNotes`**, the traversal live playback and
+ * offline audio export already share — not from a walk of its own. This used
+ * to read the stored events directly, which meant a Standard MIDI File
+ * carried none of the score's expression: measured on a passage marked `ff`
+ * with accents, the transport played it at velocity 127 and the exported file
+ * held 80, the raw stored value. Dynamics, hairpin ramps, articulation weight
+ * and shortening, and grace notes were all absent, and ties were the only
+ * thing the old walk did rejoin.
+ *
+ * The tempo map is `fermataTempoMap` for the same reason: a pause is a local
+ * slowing, so a file written from the plain map runs straight through every
+ * hold. What the file plays is now what the transport just played.
  */
 export function exportMidi(score: Score, codec: MidiCodec): Uint8Array {
+  // One traversal for the whole file, then split per track: `flattenScoreNotes`
+  // resolves ties, dynamics, hairpins, articulations and grace notes together,
+  // and re-running it per track would repeat that work for every part.
+  const sounding = flattenScoreNotes(score);
   const file: MidiFile = {
     header: {
       name: score.metadata.title,
       ppq: score.ppq,
-      tempos: score.tempoMap.map(t => ({ ticks: t.tick, bpm: t.bpm })),
+      tempos: fermataTempoMap(score).map(t => ({ ticks: t.tick, bpm: t.bpm })),
       timeSignatures: collectTimeSignatureChanges(score),
     },
     tracks: score.tracks.map((track): MidiTrackData => ({
@@ -121,12 +100,14 @@ export function exportMidi(score: Score, codec: MidiCodec): Uint8Array {
       channel:
         track.clef === 'percussion' ? PERCUSSION_CHANNEL : track.midiChannel,
       instrument: { number: track.midiProgram },
-      notes: collectTrackNotes(track).map(note => ({
-        midi: pitchToMidi(note.pitch),
-        ticks: note.startTick,
-        durationTicks: Math.max(1, note.durationTicks),
-        velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
-      })),
+      notes: sounding
+        .filter(note => note.trackId === track.id)
+        .map(note => ({
+          midi: note.midi,
+          ticks: note.tick,
+          durationTicks: Math.max(1, note.durTicks),
+          velocity: clamp01(note.velocity / MIDI_VELOCITY_MAX),
+        })),
       controlChanges: {
         [CC_VOLUME]: [
           { number: CC_VOLUME, ticks: 0, value: clamp01(track.volume) },

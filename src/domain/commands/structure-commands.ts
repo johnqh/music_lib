@@ -15,6 +15,7 @@ import { createId } from '../score/ids.js';
 import { clefAtMeasure } from '../score/effective-clef.js';
 import { beatDurationTicks, measureDurationTicks } from '../time/ticks.js';
 import type {
+  BarlineStyle,
   Clef,
   KeySignature,
   Measure,
@@ -415,6 +416,90 @@ export function setPickupCommand(
 
     // Every following bar shifts, since bar 0 changed length.
     return rebuildMeasureTicks({ ...score, tracks });
+  });
+}
+
+/**
+ * Sets or clears the heavier barline at the end of one bar.
+ *
+ * Applies at the same measure **index across every track**, like
+ * `changeRepeatsCommand` and for the same reason: a double bar on one stave
+ * and not the others is a score that reads differently depending on which part
+ * you play from.
+ *
+ * `undefined` restores the ordinary single barline.
+ */
+export function changeBarlineCommand(
+  measureIndex: number,
+  barline: BarlineStyle | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    if (measureIndex < 0) return score;
+    return {
+      ...score,
+      tracks: score.tracks.map(track => {
+        const measure = track.measures[measureIndex];
+        if (!measure) return track;
+        const next = { ...measure };
+        if (barline) next.barline = barline;
+        else delete next.barline;
+        return {
+          ...track,
+          measures: track.measures.map((m, i) =>
+            i === measureIndex ? next : m
+          ),
+        };
+      }),
+    };
+  });
+}
+
+/** The navigation marks a bar can carry, as a partial patch. */
+export type NavigationPatch = Partial<
+  Pick<Measure, 'segno' | 'coda' | 'toCoda' | 'fine' | 'jump'>
+>;
+
+/**
+ * Sets or clears the navigation marks on one bar, across every track.
+ *
+ * Across every track like `changeRepeatsCommand`, and for the same reason: a
+ * D.S. on one stave and not the others is a score that navigates differently
+ * depending on which part you read from.
+ *
+ * A partial patch rather than a whole value, because the marks are
+ * independent: a bar can carry the coda sign and a `Fine`, and setting one
+ * must not silently clear another. `false`/`undefined` in the patch clears
+ * that mark; a key absent from the patch is left alone.
+ */
+export function changeNavigationCommand(
+  measureIndex: number,
+  patch: NavigationPatch,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    if (measureIndex < 0) return score;
+    return {
+      ...score,
+      tracks: score.tracks.map(track => {
+        const measure = track.measures[measureIndex];
+        if (!measure) return track;
+        const next: Measure = { ...measure };
+        for (const [key, value] of Object.entries(patch)) {
+          if (value) {
+            (next as Record<string, unknown>)[key] = value;
+          } else {
+            delete (next as Record<string, unknown>)[key];
+          }
+        }
+        return {
+          ...track,
+          measures: track.measures.map((m, i) =>
+            i === measureIndex ? next : m
+          ),
+        };
+      }),
+    };
   });
 }
 

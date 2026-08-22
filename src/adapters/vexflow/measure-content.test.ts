@@ -720,3 +720,86 @@ describe('clef changes', () => {
     expect(clefsOn(build(track, 0, true))).toEqual(['gClef']);
   });
 });
+
+describe('barline styles', () => {
+  function barTrack(): Track {
+    return {
+      id: 't1',
+      name: 'Piano',
+      instrumentName: 'Piano',
+      midiProgram: 0,
+      midiChannel: 0,
+      clef: 'treble' as const,
+      volume: 1,
+      pan: 0,
+      measures: [],
+    } as unknown as Track;
+  }
+
+  function staveWith(overrides: Partial<Measure>) {
+    const measure = {
+      id: 'm0',
+      index: 0,
+      startTick: 0,
+      durationTicks: 1920,
+      timeSignature: { numerator: 4, denominator: 4 },
+      keySignature: { fifths: 0, mode: 'major' },
+      voices: [{ id: 'v1', name: 'Voice 1', events: [] }],
+      ...overrides,
+    } as unknown as Measure;
+    return buildMeasureContent(
+      measure,
+      barTrack(),
+      0,
+      {
+        box: { x: 0, y: 0, width: 300, height: 100 },
+        isFirstInSystem: true,
+      } as unknown as MeasureLayout,
+      undefined,
+      undefined,
+      480,
+      new Map(),
+      []
+    ).stave;
+  }
+
+  /**
+   * The type of the stave's *end* barline.
+   *
+   * A `Stave` has no `getEndBarType`; the barlines are modifiers, and VexFlow
+   * adds the beginning one before the end one — so the end barline is the last
+   * `Barline` modifier on the stave.
+   */
+  function endBarType(overrides: Partial<Measure>): number | undefined {
+    const bars = staveWith(overrides)
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Barline');
+    return (
+      bars[bars.length - 1] as unknown as { getType: () => number }
+    )?.getType();
+  }
+
+  it('draws a single barline by default', () => {
+    expect(endBarType({})).toBe(Barline.type.SINGLE);
+  });
+
+  it('draws a double barline for a section break', () => {
+    expect(endBarType({ barline: 'double' } as Partial<Measure>)).toBe(
+      Barline.type.DOUBLE
+    );
+  });
+
+  it('draws the heavy barline at the end of the piece', () => {
+    expect(endBarType({ barline: 'final' } as Partial<Measure>)).toBe(
+      Barline.type.END
+    );
+  });
+
+  it('keeps a repeat close in preference to a double bar on the same bar', () => {
+    // The repeat is the instruction a player acts on; drawing over it would
+    // silently remove a repeat from the performance.
+    expect(
+      endBarType({ repeatEnd: true, barline: 'double' } as Partial<Measure>)
+    ).toBe(Barline.type.REPEAT_END);
+  });
+});

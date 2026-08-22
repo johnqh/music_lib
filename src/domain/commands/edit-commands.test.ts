@@ -3,7 +3,16 @@ import { createEmptyScore } from '../score/factory.js';
 import { validateScore } from '../validation/validator.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent, Pitch } from '@sudobility/music_types';
-import { addNoteCommand } from './note-commands.js';
+import {
+  addNoteCommand,
+  changeArticulationCommand,
+  changeDynamicCommand,
+  changeOrnamentCommand,
+  setLyricCommand,
+  toggleFermataCommand,
+} from './note-commands.js';
+import { twinkleScore } from '../../test/fixtures.js';
+import { allNotes } from '../score/queries.js';
 import {
   collectQuantizeTargets,
   pasteEventsCommand,
@@ -242,5 +251,53 @@ describe('transposeCommand', () => {
     const withNote = withOneNote();
     const cmd = transposeCommand(['missing'], 3, 'Transpose');
     expect(cmd.execute(withNote)).toEqual(withNote);
+  });
+});
+
+describe('paste keeps a note’s markings', () => {
+  it('carries articulation, dynamic, fermata, ornament and lyric to the copy', () => {
+    // A phrase copied without its expression is a different phrase. Verified
+    // by the pasted note's NEW id rather than by tick: identifying it by
+    // position finds whatever already sat there and reports a false failure.
+    const score = twinkleScore();
+    const id = allNotes(score).filter(isNoteEvent)[0].id;
+    let marked = changeArticulationCommand([id], 'staccato', 'a').execute(
+      score
+    );
+    marked = changeDynamicCommand([id], 'ff', 'd').execute(marked);
+    marked = toggleFermataCommand([id], 'f').execute(marked);
+    marked = changeOrnamentCommand([id], 'trill', 'o').execute(marked);
+    marked = setLyricCommand(id, { text: 'la' }, 'l').execute(marked);
+
+    const source = allNotes(marked)
+      .filter(isNoteEvent)
+      .find(n => n.id === id)!;
+    const before = new Set(allNotes(marked).map(n => n.id));
+
+    const track = marked.tracks[0];
+    const pasted = pasteEventsCommand(
+      [source],
+      {
+        trackId: track.id,
+        voiceIndex: 0,
+        anchorTick: track.measures[1].startTick,
+      },
+      'Paste'
+    ).execute(marked);
+
+    const fresh = allNotes(pasted)
+      .filter(isNoteEvent)
+      .filter(n => !before.has(n.id));
+
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0]).toMatchObject({
+      articulation: 'staccato',
+      dynamic: 'ff',
+      fermata: true,
+      ornament: 'trill',
+    });
+    expect(fresh[0].lyric?.text).toBe('la');
+    // A new id, so a pasted note can never collide with its source.
+    expect(fresh[0].id).not.toBe(source.id);
   });
 });

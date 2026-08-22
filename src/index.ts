@@ -18,6 +18,8 @@ export * from './domain/score/cue-notes.js';
 export * from './domain/score/effective-clef.js';
 export * from './domain/score/fermata-tempo.js';
 export * from './domain/score/bar-numbers.js';
+export * from './domain/score/repeat-order.js';
+export * from './domain/score/ottava.js';
 export * from './domain/score/written-pitch.js';
 export * from './domain/generation/replacement-region.js';
 export * from './domain/score/ties.js';

@@ -83,6 +83,16 @@ const CLEF_SIGN_LINE: Record<Clef, { sign: string; line?: number }> = {
   percussion: { sign: 'percussion' },
 };
 
+/** The Italian a player reads for each jump. */
+const JUMP_WORDS: Record<NonNullable<Measure['jump']>, string> = {
+  'da-capo': 'D.C.',
+  'da-capo-al-fine': 'D.C. al Fine',
+  'da-capo-al-coda': 'D.C. al Coda',
+  'dal-segno': 'D.S.',
+  'dal-segno-al-fine': 'D.S. al Fine',
+  'dal-segno-al-coda': 'D.S. al Coda',
+};
+
 function buildClefXml(clef: Clef): string {
   const { sign, line } = CLEF_SIGN_LINE[clef];
   return `<clef><sign>${sign}</sign>${line !== undefined ? `<line>${line}</line>` : ''}</clef>`;
@@ -240,6 +250,26 @@ function buildPitchedNoteXml(
     dynamic it belongs to the notehead, and MusicXML puts it on every note of
     the chord — which is what the model stores too.
   */
+  /*
+    A slide, and the finger. Both `<notations>` children: they belong to the
+    notehead, unlike the octave bracket below, which is an instruction at a
+    point in the measure.
+
+    The fingering nests inside `<technical>`, which is where MusicXML keeps
+    anything about *how* an instrument produces the note.
+  */
+  const glissandoXml = [
+    opts.tieStop === false && note.glissandoStart
+      ? '<glissando type="start" number="1"/>'
+      : '',
+    opts.tieStart === false && note.glissandoStop
+      ? '<glissando type="stop" number="1"/>'
+      : '',
+  ].join('');
+  const fingeringXml =
+    note.fingering && opts.tieStop === false
+      ? `<technical><fingering>${escapeXml(note.fingering)}</fingering></technical>`
+      : '';
   const arpeggiateXml =
     note.arpeggiate && opts.tieStop === false ? '<arpeggiate/>' : '';
   const ornamentsXml =
@@ -253,8 +283,10 @@ function buildPitchedNoteXml(
     tupletNotation ||
     fermataXml ||
     ornamentsXml ||
-    arpeggiateXml
-      ? `<notations>${tiedNotations}${articulationsXml}${ornamentsXml}${slurXml}${tupletNotation}${fermataXml}${arpeggiateXml}</notations>`
+    arpeggiateXml ||
+    glissandoXml ||
+    fingeringXml
+      ? `<notations>${tiedNotations}${articulationsXml}${ornamentsXml}${slurXml}${tupletNotation}${fermataXml}${arpeggiateXml}${glissandoXml}${fingeringXml}</notations>`
       : '';
   /*
     The sung syllable. A `<lyric>` is a child of `<note>`, not of
@@ -430,6 +462,21 @@ function buildVoiceEventsXml(
     const chordHairpin = group.find(
       e => isNoteEvent(e) && (e as NoteEvent).hairpinStart
     ) as NoteEvent | undefined;
+    const chordOttava = group.find(
+      e => isNoteEvent(e) && (e as NoteEvent).ottavaStart
+    ) as NoteEvent | undefined;
+    if (chordOttava?.ottavaStart) {
+      const kind = chordOttava.ottavaStart;
+      const size = kind === '8va' || kind === '8vb' ? 8 : 15;
+      // `up` means the *notes* move up off the page — which is what a bracket
+      // below the stave asks for. MusicXML names the direction the notes go,
+      // not the direction the sound goes, and the two are opposites.
+      const type = kind === '8va' || kind === '15ma' ? 'down' : 'up';
+      xml +=
+        `<direction><direction-type>` +
+        `<octave-shift type="${type}" size="${size}"/>` +
+        `</direction-type></direction>\n`;
+    }
     if (chordHairpin?.hairpinStart) {
       xml +=
         `<direction placement="below"><direction-type>` +
@@ -511,6 +558,15 @@ function buildVoiceEventsXml(
     const chordHairpinStop = group.find(
       e => isNoteEvent(e) && (e as NoteEvent).hairpinStop
     );
+    const chordOttavaStop = group.find(
+      e => isNoteEvent(e) && (e as NoteEvent).ottavaStop
+    );
+    if (chordOttavaStop) {
+      xml +=
+        `<direction><direction-type>` +
+        `<octave-shift type="stop" size="8"/>` +
+        `</direction-type></direction>\n`;
+    }
     if (chordHairpinStop) {
       xml +=
         `<direction placement="below"><direction-type>` +
@@ -571,10 +627,48 @@ function buildMeasureXml(
     the number the part shows, so an exported score numbers its bars the same
     way the editor does.
   */
+  /*
+    The navigation marks, as `<direction>`s at the head of the bar.
+
+    `<segno/>` and `<coda/>` are their own direction-types; the rest are
+    `<words>` carrying the Italian a player reads, which is what MusicXML does
+    with them. Each also gets the matching `<sound>` attribute — `dacapo`,
+    `dalsegno`, `fine`, `tocoda` — because that is the half a *playing*
+    application reads, and writing only the words would export a score that
+    looks right and navigates nowhere.
+  */
+  const navigation: string[] = [];
+  if (measure.segno)
+    navigation.push(
+      `<direction placement="above"><direction-type><segno/></direction-type><sound segno="segno"/></direction>`
+    );
+  if (measure.coda)
+    navigation.push(
+      `<direction placement="above"><direction-type><coda/></direction-type><sound coda="coda"/></direction>`
+    );
+  if (measure.toCoda)
+    navigation.push(
+      `<direction placement="above"><direction-type><words>To Coda</words></direction-type><sound tocoda="coda"/></direction>`
+    );
+  if (measure.fine)
+    navigation.push(
+      `<direction placement="above"><direction-type><words>Fine</words></direction-type><sound fine="yes"/></direction>`
+    );
+  if (measure.jump) {
+    const words = JUMP_WORDS[measure.jump];
+    const sound = measure.jump.startsWith('dal-segno')
+      ? `dalsegno="segno"`
+      : `dacapo="yes"`;
+    navigation.push(
+      `<direction placement="above"><direction-type><words>${words}</words></direction-type><sound ${sound}/></direction>`
+    );
+  }
+
   let xml = `<measure number="${printedNumber ?? 0}"${
     measure.pickup ? ' implicit="yes"' : ''
   }>\n`;
   if (attrs.length > 0) xml += `<attributes>${attrs.join('')}</attributes>\n`;
+  xml += navigation.join('');
 
   /*
     The left-hand barline: a repeat opening, a volta opening, or both.
@@ -614,6 +708,18 @@ function buildMeasureXml(
 
   const closesEnding =
     Boolean(measure.endingNumbers?.length) && !sameEnding(nextMeasure, measure);
+  /*
+    A section break or the final barline. Written only where there is no
+    repeat close on the same bar — the repeat below owns the right-hand
+    barline there, and a `:|` is an instruction a player acts on where a
+    double bar is a reading aid.
+  */
+  if (measure.barline && !measure.repeatEnd && !closesEnding) {
+    xml +=
+      `<barline location="right"><bar-style>` +
+      (measure.barline === 'final' ? 'light-heavy' : 'light-light') +
+      `</bar-style></barline>\n`;
+  }
   if (measure.repeatEnd || closesEnding) {
     xml +=
       `<barline location="right">` +

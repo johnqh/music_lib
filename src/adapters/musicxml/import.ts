@@ -20,7 +20,9 @@ import { DYNAMICS } from '@sudobility/music_types';
 import type { XmlElement, XmlParser } from '@sudobility/music_types';
 import type {
   Accidental,
+  BarlineStyle,
   Clef,
+  RepeatJump,
   Dynamic,
   GraceNote,
   Hairpin,
@@ -29,6 +31,7 @@ import type {
   Measure,
   MusicalEvent,
   NoteEvent,
+  Ottava,
   Pitch,
   PitchStep,
   RestEvent,
@@ -308,6 +311,11 @@ type RawEvent = {
   hairpinStart?: Hairpin;
   hairpinStop?: boolean;
   arpeggiate?: boolean;
+  glissandoStart?: boolean;
+  glissandoStop?: boolean;
+  fingering?: string;
+  ottavaStart?: Ottava;
+  ottavaStop?: boolean;
   dynamic?: Dynamic;
   slurStart?: boolean;
   slurStop?: boolean;
@@ -422,6 +430,9 @@ function warnUnsupportedNoteChildren(
           notationChild.tagName === 'fermata' ||
           // Read just below, onto the note.
           notationChild.tagName === 'arpeggiate' ||
+          // Both read just below, onto the note.
+          notationChild.tagName === 'glissando' ||
+          notationChild.tagName === 'technical' ||
           // The bracket. Its scaling rides on `<time-modification>` and the
           // tick length, so there is nothing more to read here — but it is
           // understood, not ignored, and must not be reported as unsupported.
@@ -659,6 +670,23 @@ function parseNote(
     notationsEl !== null &&
     directChildren(notationsEl, 'arpeggiate').length > 0;
 
+  const glissandoEls = notationsEl
+    ? directChildren(notationsEl, 'glissando')
+    : [];
+  const glissandoStart = glissandoEls.some(
+    el => el.getAttribute('type') === 'start'
+  );
+  const glissandoStop = glissandoEls.some(
+    el => el.getAttribute('type') === 'stop'
+  );
+  const technicalEl = notationsEl
+    ? directChild(notationsEl, 'technical')
+    : null;
+  const fingering = technicalEl
+    ? (directChild(technicalEl, 'fingering')?.textContent ?? '').trim() ||
+      undefined
+    : undefined;
+
   const fermata = restEl
     ? false
     : notationsEl !== null && directChildren(notationsEl, 'fermata').length > 0;
@@ -680,6 +708,9 @@ function parseNote(
     ...(slurStop ? { slurStop: true } : {}),
     ...(fermata ? { fermata: true } : {}),
     ...(arpeggiate ? { arpeggiate: true } : {}),
+    ...(glissandoStart ? { glissandoStart: true } : {}),
+    ...(glissandoStop ? { glissandoStop: true } : {}),
+    ...(fingering ? { fingering } : {}),
     ...(ornament ? { ornament } : {}),
   };
   return { raw, cursorAdvance: durationTicks };
@@ -743,6 +774,11 @@ function fillAndClip(
         ...(item.hairpinStart ? { hairpinStart: item.hairpinStart } : {}),
         ...(item.hairpinStop ? { hairpinStop: true } : {}),
         ...(item.arpeggiate ? { arpeggiate: true } : {}),
+        ...(item.glissandoStart ? { glissandoStart: true } : {}),
+        ...(item.glissandoStop ? { glissandoStop: true } : {}),
+        ...(item.fingering ? { fingering: item.fingering } : {}),
+        ...(item.ottavaStart ? { ottavaStart: item.ottavaStart } : {}),
+        ...(item.ottavaStop ? { ottavaStop: true } : {}),
         ...(item.dynamic ? { dynamic: item.dynamic } : {}),
         ...(item.slurStart ? { slurStart: true } : {}),
         ...(item.slurStop ? { slurStop: true } : {}),
@@ -797,6 +833,13 @@ function parseMeasure(
   /** Set by a `<direction>`, consumed by the next `<note>` it applies from. */
   let pendingDynamic: Dynamic | undefined;
   let pendingHairpin: Hairpin | undefined;
+  let pendingOttava: Ottava | undefined;
+  let barlineStyle: BarlineStyle | undefined;
+  let navSegno = false;
+  let navCoda = false;
+  let navToCoda = false;
+  let navFine = false;
+  let navJump: RepeatJump | undefined;
   /** The last pitched note parsed, for a hairpin close that follows it. */
   let lastNoteRaw: RawEvent | undefined;
   /** Set by a `<harmony>`, consumed by the note it sits over — same shape. */
@@ -852,6 +895,31 @@ function parseMeasure(
           after the note it covers, which is the only way a wedge can actually
           span that note.
         */
+        /*
+          An octave bracket. Like the wedge: the opening applies to the next
+          note, the close to the one already parsed. MusicXML names the
+          direction the *notes* move, which is the opposite of the sound —
+          `down` on the page is `8va` to a player.
+        */
+        const shiftEl = directChild(
+          directChild(child, 'direction-type') ?? child,
+          'octave-shift'
+        );
+        const shiftType = shiftEl?.getAttribute('type');
+        if (shiftType === 'down' || shiftType === 'up') {
+          const size = Number(shiftEl?.getAttribute('size') ?? '8');
+          pendingOttava =
+            shiftType === 'down'
+              ? size >= 15
+                ? '15ma'
+                : '8va'
+              : size >= 15
+                ? '15mb'
+                : '8vb';
+        } else if (shiftType === 'stop' && lastNoteRaw) {
+          lastNoteRaw.ottavaStop = true;
+        }
+
         const wedgeEl = directChild(
           directChild(child, 'direction-type') ?? child,
           'wedge'
@@ -861,6 +929,36 @@ function parseMeasure(
           pendingHairpin = wedgeType;
         } else if (wedgeType === 'stop' && lastNoteRaw) {
           lastNoteRaw.hairpinStop = true;
+        }
+
+        /*
+          The navigation marks. Read from `<sound>` where it is present —
+          `dacapo`, `dalsegno`, `fine`, `tocoda`, `segno`, `coda` — because
+          that is the unambiguous half; the `<words>` beside it are free text
+          and say "D.C. al Fine" in as many spellings as there are engravers.
+          The bare `<segno/>` and `<coda/>` direction-types are read too, since
+          a score may mark the places without a `<sound>` on them.
+        */
+        const dirType = directChild(child, 'direction-type');
+        const sound = directChild(child, 'sound');
+        if (dirType && directChild(dirType, 'segno')) navSegno = true;
+        if (dirType && directChild(dirType, 'coda')) navCoda = true;
+        if (sound?.getAttribute('segno')) navSegno = true;
+        if (sound?.getAttribute('coda')) navCoda = true;
+        if (sound?.getAttribute('tocoda')) navToCoda = true;
+        if (sound?.getAttribute('fine')) navFine = true;
+        const dacapo = sound?.getAttribute('dacapo');
+        const dalsegno = sound?.getAttribute('dalsegno');
+        if (dacapo || dalsegno) {
+          const wordsEl = dirType ? directChild(dirType, 'words') : null;
+          const words = (wordsEl?.textContent ?? '').toLowerCase();
+          const target = words.includes('coda')
+            ? '-al-coda'
+            : words.includes('fine')
+              ? '-al-fine'
+              : '';
+          navJump = ((dalsegno ? 'dal-segno' : 'da-capo') +
+            target) as RepeatJump;
         }
 
         const soundEl = directChild(child, 'sound');
@@ -939,6 +1037,10 @@ function parseMeasure(
             raw.dynamic = pendingDynamic;
             pendingDynamic = undefined;
           }
+          if (pendingOttava && raw.pitch !== null) {
+            raw.ottavaStart = pendingOttava;
+            pendingOttava = undefined;
+          }
           if (pendingHairpin && raw.pitch !== null) {
             raw.hairpinStart = pendingHairpin;
             pendingHairpin = undefined;
@@ -993,6 +1095,13 @@ function parseMeasure(
             .filter(n => Number.isInteger(n) && n > 0);
           if (parsed.length > 0) endingNumbers = parsed;
         }
+        // A section break or the end of the piece. Repeat barlines are read
+        // separately below; this is only the *style* of the line.
+        const styleEl = directChild(child, 'bar-style');
+        const style = styleEl?.textContent?.trim();
+        if (style === 'light-heavy') barlineStyle = 'final';
+        else if (style === 'light-light') barlineStyle = 'double';
+
         break;
       }
 
@@ -1078,6 +1187,12 @@ function parseMeasure(
     // inferred from a short duration: a short bar mid-score is an irregular
     // bar, which is numbered.
     ...(isPickup ? { pickup: true } : {}),
+    ...(barlineStyle ? { barline: barlineStyle } : {}),
+    ...(navSegno ? { segno: true } : {}),
+    ...(navCoda ? { coda: true } : {}),
+    ...(navToCoda ? { toCoda: true } : {}),
+    ...(navFine ? { fine: true } : {}),
+    ...(navJump ? { jump: navJump } : {}),
   };
   delete state.clefChange;
 

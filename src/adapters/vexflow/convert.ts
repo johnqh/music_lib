@@ -19,6 +19,7 @@ import {
   GhostNote,
   GraceNote,
   GraceNoteGroup,
+  FretHandFinger,
   Ornament,
   StaveNote,
   Stroke,
@@ -29,6 +30,7 @@ import type {
   Articulation as DomainArticulation,
   Hairpin as DomainHairpin,
   Ornament as DomainOrnament,
+  Ottava as DomainOttava,
   DurationName,
   KeySignature,
   MusicalEvent,
@@ -249,6 +251,12 @@ export type NoteMeta = {
    */
   hairpinStart: DomainHairpin | null;
   hairpinStop: boolean;
+  /** The ends of an octave bracket, carried like the hairpin's. */
+  ottavaStart: DomainOttava | null;
+  ottavaStop: boolean;
+  /** The ends of a slide. */
+  glissandoStart: boolean;
+  glissandoStop: boolean;
 };
 
 export type VoiceContent = {
@@ -395,6 +403,16 @@ export function buildVoiceContent(
             staveNote.addStroke(0, new Stroke(Stroke.Type.ROLL_UP));
           }
           /*
+            The finger to play with, beside its own notehead — per key, unlike
+            the marks above, because in a chord each note has its own finger.
+          */
+          if (noteEvent.fingering) {
+            staveNote.addModifier(
+              new FretHandFinger(noteEvent.fingering),
+              keyIndex
+            );
+          }
+          /*
             The dynamic marking, under the stave where it is read.
             `Annotation` rather than VexFlow's `TextDynamics`, which is a
             tickable and would need a voice of its own aligned to this one —
@@ -538,6 +556,28 @@ export function buildVoiceContent(
           isLastSegment &&
           group.some(
             e => isNoteEvent(e) && Boolean((e as NoteEvent).hairpinStop)
+          ),
+        ottavaStart: isFirstSegment
+          ? ((
+              group.find(
+                e => isNoteEvent(e) && (e as NoteEvent).ottavaStart
+              ) as NoteEvent | undefined
+            )?.ottavaStart ?? null)
+          : null,
+        ottavaStop:
+          isLastSegment &&
+          group.some(
+            e => isNoteEvent(e) && Boolean((e as NoteEvent).ottavaStop)
+          ),
+        glissandoStart:
+          isFirstSegment &&
+          group.some(
+            e => isNoteEvent(e) && Boolean((e as NoteEvent).glissandoStart)
+          ),
+        glissandoStop:
+          isLastSegment &&
+          group.some(
+            e => isNoteEvent(e) && Boolean((e as NoteEvent).glissandoStop)
           ),
       });
     });

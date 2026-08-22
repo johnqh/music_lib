@@ -23,17 +23,22 @@ import {
   setChordSymbolCommand,
   setLyricCommand,
   toGraceNoteCommand,
+  setFingeringCommand,
   toggleArpeggiateCommand,
+  toggleGlissandoCommand,
+  toggleOttavaCommand,
   toggleFermataCommand,
   toggleHairpinCommand,
   toggleSlurCommand,
 } from '../../domain/commands/note-commands.js';
 import {
+  changeBarlineCommand,
   changeMeasureClefCommand,
   changeRepeatsCommand,
   setPickupCommand,
 } from '../../domain/commands/structure-commands.js';
 import { barNumberAt } from '../../domain/score/bar-numbers.js';
+import { repeatPlayOrder } from '../../domain/score/repeat-order.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import {
@@ -1075,6 +1080,214 @@ describe('hairpins and arpeggios round-trip', () => {
     );
     expect(
       after.every(n => !n.hairpinStart && !n.hairpinStop && !n.arpeggiate)
+    ).toBe(true);
+  });
+});
+
+describe('barlines round-trip', () => {
+  it('survives a final barline', () => {
+    const score = twinkleScore();
+    const last = score.tracks[0].measures.length - 1;
+    const marked = changeBarlineCommand(last, 'final', 'Barline').execute(
+      score
+    );
+
+    const { imported, warnings } = roundTrip(marked);
+    expect(warnings).toEqual([]);
+    expect(imported.tracks[0].measures[last].barline).toBe('final');
+  });
+
+  it('survives a double barline, and tells the two apart', () => {
+    const score = twinkleScore();
+    const marked = changeBarlineCommand(1, 'double', 'Barline').execute(score);
+    const measures = roundTrip(marked).imported.tracks[0].measures;
+
+    expect(measures[1].barline).toBe('double');
+    expect(measures[0].barline).toBeUndefined();
+  });
+
+  it('applies across every track, since parts must agree', () => {
+    const score = twoTrackScore();
+    const marked = changeBarlineCommand(0, 'final', 'Barline').execute(score);
+    expect(marked.tracks[1].measures[0].barline).toBe('final');
+  });
+
+  it('leaves a repeat close alone rather than drawing over it', () => {
+    // The `:|` is the instruction a player acts on; a double bar written over
+    // it would silently remove a repeat from the performance.
+    const score = twinkleScore();
+    const withRepeat = changeRepeatsCommand(
+      score.tracks[0].measures[1].id,
+      { repeatEnd: true },
+      'Repeat'
+    ).execute(score);
+    const marked = changeBarlineCommand(1, 'double', 'Barline').execute(
+      withRepeat
+    );
+
+    const measures = roundTrip(marked).imported.tracks[0].measures;
+    expect(measures[1].repeatEnd).toBe(true);
+  });
+
+  it('leaves an unmarked score with no barline styles', () => {
+    const measures = roundTrip(twinkleScore()).imported.tracks[0].measures;
+    expect(measures.every(m => m.barline === undefined)).toBe(true);
+  });
+});
+
+describe('repeat navigation round-trips', () => {
+  /** Marks bar `index` of every track, the way the commands will. */
+  function mark(source: Score, index: number, patch: Partial<Measure>): Score {
+    return {
+      ...source,
+      tracks: source.tracks.map(track => ({
+        ...track,
+        measures: track.measures.map((m, i) =>
+          i === index ? { ...m, ...patch } : m
+        ),
+      })),
+    };
+  }
+
+  it('carries a D.S. al Coda and every place it names', () => {
+    let s = twinkleScore();
+    s = mark(s, 1, { segno: true });
+    s = mark(s, 2, { toCoda: true });
+    s = mark(s, 3, { jump: 'dal-segno-al-coda' });
+    s = mark(s, 4, { coda: true });
+
+    const { imported, warnings } = roundTrip(s);
+    const measures = imported.tracks[0].measures;
+
+    expect(warnings).toEqual([]);
+    expect(measures[1].segno).toBe(true);
+    expect(measures[2].toCoda).toBe(true);
+    expect(measures[3].jump).toBe('dal-segno-al-coda');
+    expect(measures[4].coda).toBe(true);
+  });
+
+  it('tells D.C. al Fine apart from a plain D.C.', () => {
+    // The target is read from the words beside the <sound>, so the two must
+    // not collapse into each other.
+    const alFine = roundTrip(
+      mark(mark(twinkleScore(), 1, { fine: true }), 3, {
+        jump: 'da-capo-al-fine',
+      })
+    ).imported.tracks[0].measures;
+    const plain = roundTrip(mark(twinkleScore(), 3, { jump: 'da-capo' }))
+      .imported.tracks[0].measures;
+
+    expect(alFine[3].jump).toBe('da-capo-al-fine');
+    expect(alFine[1].fine).toBe(true);
+    expect(plain[3].jump).toBe('da-capo');
+  });
+
+  it('tells a dal segno apart from a da capo', () => {
+    const ds = roundTrip(mark(twinkleScore(), 2, { jump: 'dal-segno' }))
+      .imported.tracks[0].measures;
+    expect(ds[2].jump).toBe('dal-segno');
+  });
+
+  it('leaves a score with no navigation unmarked', () => {
+    const measures = roundTrip(twinkleScore()).imported.tracks[0].measures;
+    expect(
+      measures.every(
+        m => !m.segno && !m.coda && !m.toCoda && !m.fine && !m.jump
+      )
+    ).toBe(true);
+  });
+
+  it('plays the imported score in the same order as the original', () => {
+    // The point of the whole round trip: an exported and re-imported score
+    // must perform identically.
+    let s = twinkleScore();
+    s = mark(s, 1, { segno: true });
+    s = mark(s, 3, { jump: 'dal-segno' });
+
+    expect(
+      repeatPlayOrder(roundTrip(s).imported).map(p => p.measureIndex)
+    ).toEqual(repeatPlayOrder(s).map(p => p.measureIndex));
+  });
+});
+
+describe('ottava, glissando and fingering round-trip', () => {
+  function firstIds(s: Score, n: number) {
+    return allNotes(s)
+      .filter(isNoteEvent)
+      .slice(0, n)
+      .map(x => x.id);
+  }
+
+  it.each(['8va', '8vb', '15ma', '15mb'] as const)(
+    'carries an octave bracket: %s',
+    kind => {
+      const score = twinkleScore();
+      const marked = toggleOttavaCommand(
+        firstIds(score, 4),
+        kind,
+        'Ottava'
+      ).execute(score);
+      const { imported, warnings } = roundTrip(marked);
+      const after = allNotes(imported).filter(isNoteEvent);
+
+      expect(warnings).toEqual([]);
+      expect(after.find(n => n.ottavaStart)?.ottavaStart).toBe(kind);
+      expect(after.filter(n => n.ottavaStop)).toHaveLength(1);
+    }
+  );
+
+  it('does not confuse an 8va with an 8vb', () => {
+    // MusicXML names the direction the *notes* move, which is the opposite of
+    // the sound — getting that backwards silently inverts every bracket.
+    const score = twinkleScore();
+    const up = roundTrip(
+      toggleOttavaCommand(firstIds(score, 3), '8va', 'o').execute(score)
+    ).imported;
+    const down = roundTrip(
+      toggleOttavaCommand(firstIds(score, 3), '8vb', 'o').execute(score)
+    ).imported;
+
+    expect(
+      allNotes(up)
+        .filter(isNoteEvent)
+        .find(n => n.ottavaStart)?.ottavaStart
+    ).toBe('8va');
+    expect(
+      allNotes(down)
+        .filter(isNoteEvent)
+        .find(n => n.ottavaStart)?.ottavaStart
+    ).toBe('8vb');
+  });
+
+  it('carries a glissando between two notes', () => {
+    const score = twinkleScore();
+    const marked = toggleGlissandoCommand(firstIds(score, 2), 'Gliss').execute(
+      score
+    );
+    const after = allNotes(roundTrip(marked).imported).filter(isNoteEvent);
+
+    expect(after.filter(n => n.glissandoStart)).toHaveLength(1);
+    expect(after.filter(n => n.glissandoStop)).toHaveLength(1);
+  });
+
+  it('carries fingering, including a non-numeric one', () => {
+    const score = twinkleScore();
+    const ids = firstIds(score, 2);
+    const marked = setFingeringCommand([ids[1]], 'T', 'F').execute(
+      setFingeringCommand([ids[0]], '3', 'F').execute(score)
+    );
+    const after = allNotes(roundTrip(marked).imported).filter(isNoteEvent);
+
+    expect(after[0].fingering).toBe('3');
+    expect(after[1].fingering).toBe('T');
+  });
+
+  it('leaves an unmarked score unmarked', () => {
+    const after = allNotes(roundTrip(twinkleScore()).imported).filter(
+      isNoteEvent
+    );
+    expect(
+      after.every(n => !n.ottavaStart && !n.glissandoStart && !n.fingering)
     ).toBe(true);
   });
 });

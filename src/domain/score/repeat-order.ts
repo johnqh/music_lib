@@ -10,7 +10,7 @@
  * and so the *plan* is the only thing that ever sees expanded time — the score
  * itself stays the canonical, written thing.
  */
-import type { Score } from '@sudobility/music_types';
+import type { Measure, Score } from '@sudobility/music_types';
 
 /** One bar as played, and which pass through the repeat it belongs to. */
 export type PlayedMeasure = {
@@ -54,6 +54,56 @@ function playedOnPass(
  * A score with no repeats returns its bars in order, once each — so playback of
  * an unrepeated score is byte-identical to what it was before repeats existed.
  */
+/**
+ * Where a jump sends the player back to, and where it releases them.
+ *
+ * `from` is the bar the instruction sits on; `back` is the bar to resume at;
+ * `stopAt` names what ends the second reading — `fine`, the `toCoda` bar, or
+ * nothing at all for a plain D.C./D.S., which simply plays to the end.
+ */
+type JumpPlan = {
+  back: number;
+  stopAt: 'fine' | 'coda' | 'end';
+};
+
+/** The bar carrying `flag`, or `null`. The first one wins: a score with two segnos is malformed, and guessing between them is worse than taking the one a reader meets first. */
+function findFlag(
+  measures: readonly Measure[],
+  flag: 'segno' | 'coda' | 'toCoda' | 'fine'
+): number | null {
+  const index = measures.findIndex(measure => measure[flag]);
+  return index === -1 ? null : index;
+}
+
+/**
+ * What `jump` means, resolved against the marks the score actually carries.
+ *
+ * A `dal segno` with no segno falls back to the start — which is what a reader
+ * does with a broken score, and is better than refusing to play it. An `al
+ * coda` with no coda plays to the end for the same reason.
+ */
+function planForJump(
+  measures: readonly Measure[],
+  jump: NonNullable<Measure['jump']>
+): JumpPlan {
+  const toSegno = jump.startsWith('dal-segno');
+  const back = toSegno ? (findFlag(measures, 'segno') ?? 0) : 0;
+
+  if (jump.endsWith('al-fine')) {
+    return {
+      back,
+      stopAt: findFlag(measures, 'fine') === null ? 'end' : 'fine',
+    };
+  }
+  if (jump.endsWith('al-coda')) {
+    const hasCoda =
+      findFlag(measures, 'coda') !== null &&
+      findFlag(measures, 'toCoda') !== null;
+    return { back, stopAt: hasCoda ? 'coda' : 'end' };
+  }
+  return { back, stopAt: 'end' };
+}
+
 export function repeatPlayOrder(score: Score): PlayedMeasure[] {
   const measures = score.tracks[0]?.measures ?? [];
   if (measures.length === 0) return [];
@@ -63,6 +113,21 @@ export function repeatPlayOrder(score: Score): PlayedMeasure[] {
 
   /** How many times each backward repeat has sent us back. */
   const takenBack = new Map<number, number>();
+  /**
+   * Which jumps have already been obeyed.
+   *
+   * A D.C. is taken once: after the jump the player reads *through* it to the
+   * end, or to the fine. Without this the piece never finishes.
+   */
+  const takenJumps = new Set<number>();
+  /**
+   * What ends the current reading, once a jump has been obeyed.
+   *
+   * `null` while reading normally. Set by a jump, and it is what makes
+   * `fine` and `To Coda` mean nothing on the *first* pass — which is correct:
+   * a player reads straight past both until sent back.
+   */
+  let stopAt: JumpPlan['stopAt'] | null = null;
   let index = 0;
   let sectionStart = 0;
   let pass = 1;
@@ -78,6 +143,32 @@ export function repeatPlayOrder(score: Score): PlayedMeasure[] {
 
     if (playedOnPass(measure.endingNumbers, pass)) {
       order.push({ measureIndex: index, pass });
+    }
+
+    // `Fine` ends the piece, but only once a jump has sent us back past it —
+    // on the way out it is read straight through.
+    if (stopAt === 'fine' && measure.fine) break;
+
+    // `To Coda` leaves for the closing section, likewise only after a jump.
+    if (stopAt === 'coda' && measure.toCoda) {
+      const coda = findFlag(measures, 'coda');
+      if (coda !== null) {
+        index = coda;
+        stopAt = null;
+        pass += 1;
+        continue;
+      }
+    }
+
+    // The jump itself, obeyed at the end of its bar and only once.
+    if (measure.jump && !takenJumps.has(index)) {
+      takenJumps.add(index);
+      const plan = planForJump(measures, measure.jump);
+      index = plan.back;
+      sectionStart = plan.back;
+      stopAt = plan.stopAt === 'end' ? null : plan.stopAt;
+      pass += 1;
+      continue;
     }
 
     if (measure.repeatEnd) {

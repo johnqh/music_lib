@@ -32,7 +32,9 @@ import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
 import {
   buildMeasureContent,
+  buildGlissandos,
   buildHairpins,
+  buildOttavas,
   buildSlurs,
   buildTies,
 } from './measure-content.js';
@@ -407,6 +409,29 @@ export class CanvasScoreRenderer {
           const stave = note.getStave();
           return !!stave && drawnStaves.has(stave);
         });
+        // Octave brackets and slides, culled and guarded on the same terms
+        // as the curves and wedges above.
+        for (const span of [
+          ...buildOttavas(channel, note => {
+            const stave = note.getStave();
+            return !!stave && drawnStaves.has(stave);
+          }),
+          ...buildGlissandos(channel, note => {
+            const stave = note.getStave();
+            return !!stave && drawnStaves.has(stave);
+          }),
+        ]) {
+          try {
+            span.setContext(vexCtx);
+            span.draw();
+          } catch (error) {
+            console.error(
+              'CanvasScoreRenderer: skipping an octave bracket or slide after draw failure',
+              error
+            );
+          }
+        }
+
         for (const hairpin of hairpins) {
           try {
             hairpin.setContext(vexCtx);

@@ -19,6 +19,7 @@ import type {
   Hairpin,
   NoteEvent,
   Ornament,
+  Ottava,
   Pitch,
   Score,
   Track,
@@ -608,6 +609,102 @@ export function toggleArpeggiateCommand(
       return { ...note, arpeggiate: true };
     });
   });
+}
+
+/**
+ * Brackets the selection at an octave, or removes the bracket it has.
+ *
+ * A span like the hairpin: endpoints by tick, two notes minimum, the same
+ * displacement twice removes it and a different one replaces it.
+ */
+export function toggleOttavaCommand(
+  eventIds: UUID[],
+  ottava: Ottava,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      )
+      .sort((a, b) => a.startTick - b.startTick);
+    if (notes.length < 2) return score;
+
+    const first = notes[0];
+    const last = notes[notes.length - 1];
+    const sameAlready =
+      first.ottavaStart === ottava && Boolean(last.ottavaStop);
+
+    return mapNotes(score, eventIds, note => {
+      const updated: NoteEvent = { ...note };
+      delete updated.ottavaStart;
+      delete updated.ottavaStop;
+      if (sameAlready) return updated;
+      if (note.id === first.id) updated.ottavaStart = ottava;
+      if (note.id === last.id) updated.ottavaStop = true;
+      return updated;
+    });
+  });
+}
+
+/**
+ * Slides between the selected notes, or removes the slide.
+ *
+ * Two notes exactly is the usual case and two is the minimum: a glissando is
+ * a line *between* noteheads, so one note has nothing to slide to. A wider
+ * selection slides from its first note to its last, which is what dragging
+ * across a run and asking for a slide means.
+ */
+export function toggleGlissandoCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      )
+      .sort((a, b) => a.startTick - b.startTick);
+    if (notes.length < 2) return score;
+
+    const first = notes[0];
+    const last = notes[notes.length - 1];
+    const already = Boolean(first.glissandoStart && last.glissandoStop);
+
+    return mapNotes(score, eventIds, note => {
+      const updated: NoteEvent = { ...note };
+      delete updated.glissandoStart;
+      delete updated.glissandoStop;
+      if (already) return updated;
+      if (note.id === first.id) updated.glissandoStart = true;
+      if (note.id === last.id) updated.glissandoStop = true;
+      return updated;
+    });
+  });
+}
+
+/**
+ * Sets or clears the finger written on the given notes.
+ *
+ * Blank clears it rather than storing an empty string, which would reserve
+ * space beside the notehead and print nothing.
+ */
+export function setFingeringCommand(
+  eventIds: UUID[],
+  fingering: string | undefined,
+  label: string
+): ScoreCommand {
+  const trimmed = fingering?.trim();
+  return transformCommand(label, score =>
+    mapNotes(score, eventIds, note => {
+      if (trimmed) return { ...note, fingering: trimmed };
+      const updated: NoteEvent = { ...note };
+      delete updated.fingering;
+      return updated;
+    })
+  );
 }
 
 /**
