@@ -22,6 +22,7 @@ import {
   performanceTimeline,
   type PerformanceTimeline,
 } from '../../domain/score/performance-timeline.js';
+import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
 import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import { beatBoundaries } from '../../domain/time/ticks.js';
 import { gmInstrument } from '../../domain/instruments/gm.js';
@@ -166,8 +167,17 @@ export function playbackPlan(score: Score): PlaybackPlan {
     notes,
     clicks,
     timeline,
-    // `TempoMap` satisfies `TempoConversion` structurally, so nothing converts twice.
-    tempo: new TempoMap(score.tempoMap, score.ppq),
+    /*
+      The tempo map with fermatas written into it as local slowings — see
+      `fermataTempoMap`. A pause is expressed as tempo rather than as longer
+      notes because the score tick has to stay the playback tick; the caret
+      builds its own map from the same function, so the two cannot disagree
+      about how long a hold lasts.
+
+      `TempoMap` satisfies `TempoConversion` structurally, so nothing converts
+      twice.
+    */
+    tempo: new TempoMap(fermataTempoMap(score), score.ppq),
     durationTicks: Math.max(
       timeline.durationTicks,
       notes.reduce((n, note) => Math.max(n, note.tick + note.durTicks), 0)

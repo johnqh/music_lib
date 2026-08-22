@@ -99,12 +99,8 @@ export type MusicXmlWarnings = {
   unsupportedKeyMode: (mode: string) => string;
   unsupportedTime: (measureNumber: number) => string;
   complexTimeSignature: string;
-  clefChangeDropped: (clef: string, measureNumber: number) => string;
   unsupportedPitchStep: (step: string) => string;
   alterRounded: (alter: string, clamped: number) => string;
-  graceNotes: string;
-  lyrics: string;
-  tuplets: string;
   unsupportedNotation: (tag: string) => string;
   unsupportedNoteElement: (tag: string) => string;
   unsupportedArticulation: (tag: string) => string;
@@ -205,13 +201,30 @@ type MeasureState = {
   timeSignature: TimeSignature;
   keySignature: KeySignature;
   /**
-   * `null` until the first `<clef>` is seen, after which it's locked: the
-   * domain model's `Track.clef` is a single track-wide value (`Measure` has
-   * no per-measure clef), so a mid-part clef *change* can't be represented
-   * at all — the first clef wins and any later, differing clef is dropped
-   * with a warning (see `applyAttributes`), never silently overwriting it.
+   * The clef currently **in force**, `null` until the first `<clef>` is seen.
+   *
+   * Follows every change, so the next one is measured against what is actually
+   * being read rather than against the clef the part opened in. It is
+   * therefore *not* what `Track.clef` takes — see `firstClef`.
    */
   clef: Clef | null;
+  /**
+   * The first clef the part stated, which is what `Track.clef` holds.
+   *
+   * Kept apart from `clef` deliberately: they were one field while a mid-part
+   * change was impossible to represent, and merging them again makes an
+   * imported part adopt whatever clef it happened to *end* in.
+   */
+  firstClef: Clef | null;
+  /**
+   * A clef change seen in this measure's `<attributes>`, to be written onto
+   * the measure being built and then cleared.
+   *
+   * Separate from `clef`, which tracks what is *in force*: the measure only
+   * carries the marking on the bar where it changes, so the two answer
+   * different questions.
+   */
+  clefChange?: Clef;
 };
 
 function applyAttributes(
@@ -243,9 +256,9 @@ function applyAttributes(
     const beatsEls = directChildren(timeEl, 'beats');
     const beatTypeEls = directChildren(timeEl, 'beat-type');
     if (beatsEls.length === 0 || beatTypeEls.length === 0) {
-      warnings.add(
-        `A senza-misura or otherwise unsupported <time> element at measure ${measureNumber} did not change the time signature; the previous value was kept (4/4 if none had been set yet).`
-      );
+      // Through the contract, not as a literal: a warning baked in English
+      // here reaches a reader in English whatever language the host is in.
+      warnings.add(warnings.text.unsupportedTime(measureNumber));
     } else {
       if (beatsEls.length > 1) {
         warnings.add(warnings.text.complexTimeSignature);
@@ -267,14 +280,16 @@ function applyAttributes(
   if (clefEl) {
     const clef = parseClef(clefEl, warnings);
     if (state.clef === null) {
-      // First clef seen for this part locks the track's clef: the domain
-      // model (`Track.clef`) has no per-measure clef, so only one clef per
-      // track can be represented at all (see `MeasureState.clef`'s doc).
+      // The first clef establishes the part's own clef.
       state.clef = clef;
+      state.firstClef = clef;
     } else if (clef !== state.clef) {
-      warnings.add(
-        `A clef change to ${clef} at measure ${measureNumber} was dropped (the domain model supports only one clef per track); the track kept its first clef, ${state.clef}.`
-      );
+      // A change. No longer dropped: `Measure.clef` records it and the bar
+      // reads in the new clef from here on. `state.clef` follows so the *next*
+      // change is measured against what is now in force rather than against
+      // the clef the part opened in.
+      state.clefChange = clef;
+      state.clef = clef;
     }
   }
 }
@@ -954,7 +969,31 @@ function parseMeasure(
   // applied to `state`) so a measure whose own <attributes> changes the
   // time signature sizes itself by the *new* signature, not whatever was
   // in effect when this measure started.
-  const durationTicks = measureDurationTicks(state.timeSignature, SCORE_PPQ);
+  const fullMeasureTicks = measureDurationTicks(state.timeSignature, SCORE_PPQ);
+  /*
+    A pickup is short by definition, and how short is decided by what is
+    written in it rather than by the time signature — MusicXML states the bar
+    is `implicit` and lets its content give the length. Sizing it by the
+    signature instead would import an anacrusis as a full bar padded with
+    rests, which is a different piece of music.
+
+    Clamped to a full bar so a malformed `implicit` measure cannot produce one
+    longer than its own signature allows.
+  */
+  const isPickup = measureEl.getAttribute('implicit') === 'yes';
+  const contentTicks = Math.max(
+    0,
+    ...[...buckets.values()].map(items =>
+      items.reduce(
+        (sum, item) => Math.max(sum, item.startTick + item.durationTicks),
+        0
+      )
+    )
+  );
+  const durationTicks =
+    isPickup && contentTicks > 0
+      ? Math.min(contentTicks, fullMeasureTicks)
+      : fullMeasureTicks;
 
   const voiceNumbers = [...buckets.keys()].sort(
     (a, b) => Number(a) - Number(b) || a.localeCompare(b)
@@ -989,7 +1028,15 @@ function parseMeasure(
     ...(repeatStart ? { repeatStart: true } : {}),
     ...(repeatEnd ? { repeatEnd: true } : {}),
     ...(endingNumbers ? { endingNumbers } : {}),
+    // Cleared as it is consumed: the marking belongs to the bar the change
+    // happens on, and leaving it set would stamp every following bar too.
+    ...(state.clefChange ? { clef: state.clefChange } : {}),
+    // MusicXML's own word for a bar that is not counted. Read rather than
+    // inferred from a short duration: a short bar mid-score is an irregular
+    // bar, which is numbered.
+    ...(isPickup ? { pickup: true } : {}),
   };
+  delete state.clefChange;
 
   return { measure, tempoEvents };
 }
@@ -1008,6 +1055,7 @@ function parsePart(
     timeSignature: DEFAULT_TIME_SIGNATURE,
     keySignature: DEFAULT_KEY_SIGNATURE,
     clef: null,
+    firstClef: null,
   };
 
   const measures: Measure[] = [];
@@ -1044,7 +1092,8 @@ function parsePart(
       15,
       Math.max(0, Math.round((meta?.midiChannel ?? 1) - 1))
     ),
-    clef: state.clef ?? 'treble',
+    // The clef the part *opened* in, not the one it ended in.
+    clef: state.firstClef ?? 'treble',
     volume: 1,
     pan: 0,
     muted: false,

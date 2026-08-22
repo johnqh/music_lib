@@ -32,6 +32,10 @@ import type {
   Track,
 } from '@sudobility/music_types';
 import {
+  clefChangesAt,
+  effectiveClef,
+} from '../../domain/score/effective-clef.js';
+import {
   buildVoiceContent,
   keySignatureToVexSpec,
   pitchToVexKey,
@@ -116,6 +120,15 @@ function sameEnding(a: Measure | undefined, b: Measure | undefined): boolean {
 export function buildMeasureContent(
   measure: Measure,
   track: Track,
+  /**
+   * This measure's position in `track.measures`.
+   *
+   * Passed in rather than read off `measure.index`: a print-only part collapses
+   * runs of rests, which shortens the array while every surviving measure keeps
+   * its original `index`, so the two stop agreeing. The caller iterates the
+   * array and knows the truth.
+   */
+  measureIndex: number,
   placement: MeasureLayout,
   prevMeasure: Measure | undefined,
   /** The bar after this one, for deriving where a volta bracket ends. */
@@ -134,12 +147,18 @@ export function buildMeasureContent(
   const { box, isFirstInSystem } = placement;
   // A percussion track's notes name drums, not pitches, which changes both
   // where they sit and whether an accidental could ever apply to them.
-  const isPercussion = track.clef === 'percussion';
+  // The clef *in force here*, which is not `track.clef` once a part changes
+  // clef mid-piece — a piano left hand crossing into treble is the usual case.
+  const clef = effectiveClef(track, measureIndex);
+  const isPercussion = clef === 'percussion';
   const stave = new Stave(box.x, box.y, box.width);
   stave.setAttribute('id', measure.id);
 
-  if (isFirstInSystem) {
-    stave.addClef(track.clef);
+  // At a system start the clef is re-stated because every system states it;
+  // mid-system it is drawn only where it actually changes — exactly the rule
+  // the key signature below already follows.
+  if (isFirstInSystem || clefChangesAt(track, measureIndex)) {
+    stave.addClef(clef);
   }
   // A drum staff has no key: its lines are instruments, not pitches, so a
   // signature there is meaningless — and the sharps were being drawn against

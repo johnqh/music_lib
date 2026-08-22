@@ -424,7 +424,7 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
     expect(warnings.some(w => /clef/i.test(w))).toBe(false);
   });
 
-  it('keeps the first clef and drops a mid-score clef change with a warning naming the measure (Track has no per-measure clef)', () => {
+  it('keeps the first clef on the track and records a mid-score change on the bar it happens', () => {
     const xml = MINIMAL_HEADER(`<measure number="1">
 <attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
 <note><pitch><step>C</step><octave>5</octave></pitch><duration>1920</duration><voice>1</voice><type>whole</type></note>
@@ -438,17 +438,18 @@ describe('importMusicXml: unsupported/decorative elements never throw, and are r
       parser,
       TEST_MUSICXML_WARNINGS
     );
-    // The track keeps the FIRST clef (treble) rather than silently
-    // flipping to whatever clef was last seen anywhere in the part.
+    // The part's own clef is still the FIRST one seen, rather than whatever
+    // clef was last seen anywhere in it.
     expect(score.tracks[0].clef).toBe('treble');
-    // Notes themselves are still imported correctly regardless of clef;
-    // only the *rendered staff* would be affected, and that's out of
-    // scope for the domain model (no per-measure clef field to hold it).
-    const notes = score.tracks[0].measures.flatMap(m => m.voices[0].events);
+    // The change is now carried on the bar it happens on, and nowhere else —
+    // it used to be dropped with a warning.
+    const measures = score.tracks[0].measures;
+    expect(measures[0].clef).toBeUndefined();
+    expect(measures[1].clef).toBe('bass');
+    expect(warnings.some(w => /clef/i.test(w))).toBe(false);
+
+    const notes = measures.flatMap(m => m.voices[0].events);
     expect(notes.map(n => n.durationTicks)).toEqual([1920, 1920]);
-    expect(warnings.some(w => /clef change.*measure 2.*dropped/i.test(w))).toBe(
-      true
-    );
   });
 
   it('keeps the previous time signature (not 4/4) on a senza-misura/malformed <time>, and says so', () => {

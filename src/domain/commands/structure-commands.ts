@@ -12,7 +12,8 @@ import { gmKitAt } from '../instruments/gm-kit.js';
 import { gmInstrument } from '../instruments/gm.js';
 import type { CreateTrackOptions } from '../score/factory.js';
 import { createId } from '../score/ids.js';
-import { measureDurationTicks } from '../time/ticks.js';
+import { clefAtMeasure } from '../score/effective-clef.js';
+import { beatDurationTicks, measureDurationTicks } from '../time/ticks.js';
 import type {
   Clef,
   KeySignature,
@@ -293,6 +294,128 @@ export function changeClefCommand(
   label: string
 ): ScoreCommand {
   return transformCommand(label, score => changeClef(score, trackId, clef));
+}
+
+/**
+ * Sets or clears a clef change at one measure of one track.
+ *
+ * Per **track**, unlike `changeRepeatsCommand`, which applies at the same index
+ * across every track: a repeat barline that differed between staves would be a
+ * score that reads differently depending on which part you play from, but a
+ * clef change is exactly the opposite — a piano left hand crossing into treble
+ * says nothing about what the right hand is doing.
+ *
+ * `undefined` removes the change, so the bar goes back to inheriting. Setting
+ * the clef already in force at that bar removes it too, rather than storing a
+ * marking that would print nothing: `clefChangesAt` treats a redundant one as
+ * no change, and leaving it behind would make "clear" and "set to the current
+ * clef" produce different scores that look identical.
+ *
+ * Measure 0 is where a clef is *established* rather than changed, so it writes
+ * the **track** clef instead — which is what keeps one clef per track true for
+ * a part that never changes, and stops bar 1 printing a change against nothing.
+ */
+export function changeMeasureClefCommand(
+  trackId: UUID,
+  measureIndex: number,
+  clef: Clef | undefined,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const track = score.tracks.find(t => t.id === trackId);
+    if (!track || measureIndex < 0 || measureIndex >= track.measures.length) {
+      return score;
+    }
+
+    // Bar 0 sets the part's clef, and goes through `changeClef` so a crossing
+    // into or out of percussion still reinterprets the program.
+    if (measureIndex === 0) {
+      return clef ? changeClef(score, trackId, clef) : score;
+    }
+
+    const inherited = clefAtMeasure(
+      track.measures,
+      measureIndex - 1,
+      track.clef
+    );
+    const measures = track.measures.map((measure, i) => {
+      if (i !== measureIndex) return measure;
+      if (!clef || clef === inherited) {
+        if (measure.clef === undefined) return measure;
+        const next = { ...measure };
+        delete next.clef;
+        return next;
+      }
+      return { ...measure, clef };
+    });
+
+    return {
+      ...score,
+      tracks: score.tracks.map(t =>
+        t.id === trackId ? { ...t, measures } : t
+      ),
+    };
+  });
+}
+
+/**
+ * Turns the score's first bar into a pickup of `beats` beats, or removes the
+ * pickup and restores a full bar.
+ *
+ * Only the first bar, because that is what an anacrusis is — the run-up to bar
+ * 1. A short bar anywhere else is an irregular bar, which keeps its number and
+ * is a different thing entirely.
+ *
+ * Applies to **every track**, like `changeRepeatsCommand` and unlike the clef:
+ * the measure grid is shared, and a pickup on one stave and not the others is
+ * a score whose parts disagree about where bar 1 starts.
+ *
+ * Notes that no longer fit are dropped rather than the bar refusing to shrink:
+ * a pickup is normally set before anything is written, and silently keeping a
+ * note past the barline would leave the bar failing validation.
+ */
+export function setPickupCommand(
+  beats: number | null,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const first = score.tracks[0]?.measures[0];
+    if (!first) return score;
+
+    const beatTicks = beatDurationTicks(first.timeSignature, score.ppq);
+    const full = measureDurationTicks(first.timeSignature, score.ppq);
+    const wanted =
+      beats === null
+        ? full
+        : Math.max(1, Math.min(Math.round(beats) * beatTicks, full - 1));
+
+    const tracks = score.tracks.map(track => {
+      const measure = track.measures[0];
+      if (!measure) return track;
+      const trimmed: Measure = {
+        ...measure,
+        durationTicks: wanted,
+        voices: measure.voices.map(voice => ({
+          ...voice,
+          events: voice.events
+            .filter(e => e.startTick - measure.startTick < wanted)
+            .map(e => ({
+              ...e,
+              durationTicks: Math.min(
+                e.durationTicks,
+                measure.startTick + wanted - e.startTick
+              ),
+            })),
+        })),
+      };
+      if (beats === null) delete trimmed.pickup;
+      else trimmed.pickup = true;
+      return { ...track, measures: [trimmed, ...track.measures.slice(1)] };
+    });
+
+    // Every following bar shifts, since bar 0 changed length.
+    return rebuildMeasureTicks({ ...score, tracks });
+  });
 }
 
 // ---- changeTempoCommand -----------------------------------------------------------

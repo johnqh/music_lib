@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { twoTrackScore, twinkleScore } from '../../test/fixtures.js';
 import type { Measure, NoteEvent, Score } from '@sudobility/music_types';
 import { playbackPlan, playbackTracks } from './plan.js';
+import { isNoteEvent } from '@sudobility/music_types';
+import { TempoMap } from '../../domain/time/tempo-map.js';
 
 describe('playbackPlan', () => {
   it('emits every sounding note with its id and track', () => {
@@ -177,5 +179,61 @@ describe('playbackPlan: behaviours moved from music_io schedule.ts', () => {
     expect(plan.notes).toEqual([]);
     expect(plan.clicks).toEqual([]);
     expect(plan.tracks).toEqual([]);
+  });
+});
+
+describe('fermatas in the plan', () => {
+  function held(score: Score): Score {
+    let done = false;
+    return {
+      ...score,
+      tracks: score.tracks.map((track, i) =>
+        i !== 0
+          ? track
+          : {
+              ...track,
+              measures: track.measures.map(m => ({
+                ...m,
+                voices: m.voices.map(v => ({
+                  ...v,
+                  events: v.events.map(e => {
+                    if (done || !isNoteEvent(e)) return e;
+                    done = true;
+                    return { ...e, fermata: true };
+                  }),
+                })),
+              })),
+            }
+      ),
+    };
+  }
+
+  it('hands the engine a tempo that slows across the pause', () => {
+    // The engine schedules from `plan.tempo`, so this is what actually makes a
+    // fermata audible.
+    const score = twinkleScore();
+    const plan = playbackPlan(held(score));
+    const plain = playbackPlan(score);
+    const tick = plan.notes[0].tick;
+
+    expect(plan.tempo.ticksToSeconds(tick + 480)).toBeGreaterThan(
+      plain.tempo.ticksToSeconds(tick + 480)
+    );
+  });
+
+  it('leaves every note on its written tick', () => {
+    const score = twinkleScore();
+    expect(playbackPlan(held(score)).notes.map(n => n.tick)).toEqual(
+      playbackPlan(score).notes.map(n => n.tick)
+    );
+  });
+
+  it('changes nothing for a score with no fermata', () => {
+    const score = twinkleScore();
+    const plan = playbackPlan(score);
+    expect(plan.tempo.ticksToSeconds(1920)).toBeCloseTo(
+      new TempoMap(score.tempoMap, score.ppq).ticksToSeconds(1920),
+      6
+    );
   });
 });

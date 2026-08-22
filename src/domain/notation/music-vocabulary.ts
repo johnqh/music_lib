@@ -23,6 +23,7 @@ import type {
   TimeSignature,
 } from '@sudobility/music_types';
 import { DURATIONS, beatDurationTicks } from '../time/ticks.js';
+import { barNumberAt, indexOfBarNumber } from '../score/bar-numbers.js';
 import { shiftDiatonic } from '../pitch/transpose.js';
 
 // ---- durations -------------------------------------------------------------
@@ -150,8 +151,18 @@ export function barBeatForTick(score: Score, tick: number): BarBeat | null {
     measure.timeSignature as TimeSignature,
     score.ppq
   );
+  /*
+    Through `barNumberAt`, not `index + 1`: a pickup is not counted, so every
+    bar after one is a bar lower than its position. The readout has to say the
+    number the player's part says, or "go to bar 33" and the bar shown in the
+    inspector mean two different places.
+
+    A pickup itself has no number; it reports bar 0, which is what a player
+    calls it when they have to call it something.
+  */
+  const index = track.measures.indexOf(measure);
   return {
-    bar: measure.index + 1,
+    bar: barNumberAt(track.measures, index) ?? 0,
     beat: (tick - measure.startTick) / beatTicks + 1,
   };
 }
@@ -167,7 +178,11 @@ export function tickForBarBeat(
   beat: number
 ): number | null {
   const track = score.tracks[0];
-  const measure = track?.measures[Math.round(bar) - 1];
+  if (!track) return null;
+  // The inverse of the numbering above, so a typed bar number and a displayed
+  // one always name the same bar.
+  const index = indexOfBarNumber(track.measures, Math.round(bar));
+  const measure = index === null ? undefined : track.measures[index];
   if (!measure) return null;
 
   const beatTicks = beatDurationTicks(

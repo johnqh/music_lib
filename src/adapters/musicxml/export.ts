@@ -28,6 +28,7 @@ import type { NotatedDuration } from './duration-map.js';
 import { tupletGroups } from '../../domain/time/tuplets.js';
 import { parseChordSymbol } from '../../domain/notation/chord-symbol.js';
 import { notateDuration } from './duration-map.js';
+import { barNumberAt } from '../../domain/score/bar-numbers.js';
 
 /** Escapes the five characters not otherwise safe inside MusicXML element text/attribute values. */
 export function escapeXml(text: string): string {
@@ -484,6 +485,12 @@ function buildVoiceEventsXml(
 
 function buildMeasureXml(
   measure: Measure,
+  /**
+   * The number a player calls this bar, or `null` for a pickup, which has
+   * none. Resolved by the caller so this builder needs no notion of how the
+   * numbering works.
+   */
+  printedNumber: number | null,
   isFirstMeasure: boolean,
   prevTimeSignature: TimeSignature | null,
   prevKeySignature: KeySignature | null,
@@ -509,9 +516,24 @@ function buildMeasureXml(
   ) {
     attrs.push(buildTimeXml(measure.timeSignature));
   }
-  if (isFirstMeasure) attrs.push(buildClefXml(clef));
+  if (isFirstMeasure) {
+    attrs.push(buildClefXml(clef));
+  } else if (measure.clef) {
+    // A clef change. `measure.clef` is set only on the bar where the clef
+    // actually changes — the command drops a redundant marking rather than
+    // storing it — so this needs no comparison with the previous bar.
+    attrs.push(buildClefXml(measure.clef));
+  }
 
-  let xml = `<measure number="${measure.index + 1}">\n`;
+  /*
+    A pickup is `implicit="yes"` and carries no number a player counts — which
+    is exactly what `barNumberAt` answers `null` for. Every other bar prints
+    the number the part shows, so an exported score numbers its bars the same
+    way the editor does.
+  */
+  let xml = `<measure number="${printedNumber ?? 0}"${
+    measure.pickup ? ' implicit="yes"' : ''
+  }>\n`;
   if (attrs.length > 0) xml += `<attributes>${attrs.join('')}</attributes>\n`;
 
   /*
@@ -590,6 +612,7 @@ function buildPartXml(
   track.measures.forEach((measure, index) => {
     xml += buildMeasureXml(
       measure,
+      barNumberAt(track.measures, index),
       index === 0,
       prevTimeSignature,
       prevKeySignature,

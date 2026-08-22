@@ -14,19 +14,13 @@ export const TEST_MUSICXML_WARNINGS: MusicXmlWarnings = {
   unsupportedKeyMode: mode =>
     `Unsupported key mode "${mode}" was defaulted to major.`,
   unsupportedTime: measureNumber =>
-    `A senza-misura or otherwise unsupported <time> element at measure ${measureNumber} did not change the time signature.`,
+    `A senza-misura or otherwise unsupported <time> element at measure ${measureNumber} did not change the time signature; the previous value was kept (4/4 if none had been set yet).`,
   complexTimeSignature:
     'A complex (multi-pair) time signature was simplified to its first beats/beat-type pair.',
-  clefChangeDropped: (clef, measureNumber) =>
-    `A clef change to ${clef} at measure ${measureNumber} was dropped (the domain model supports only one clef per track).`,
   unsupportedPitchStep: step =>
     `Unsupported pitch step "${step}" was defaulted to C.`,
   alterRounded: (alter, clamped) =>
     `A microtonal or out-of-range <alter> value (${alter}) was rounded/clamped to ${clamped}.`,
-  graceNotes: 'Grace notes are not supported and were skipped.',
-  lyrics: 'Lyrics are not supported and were ignored.',
-  tuplets:
-    'Tuplets (<time-modification>) are imported using their written duration in ticks, which may not reproduce the exact tuplet grouping.',
   unsupportedNotation: tag => `Unsupported notation <${tag}> was ignored.`,
   unsupportedNoteElement: tag =>
     `Unsupported note element <${tag}> was ignored.`,

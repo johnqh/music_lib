@@ -45,6 +45,7 @@ import {
   resolveZoom,
 } from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
+import { barNumberAt } from '../../domain/score/bar-numbers.js';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
 
@@ -752,6 +753,7 @@ export class CanvasScoreRenderer {
           buildMeasureContent(
             measure,
             track,
+            measureIndex,
             placement,
             prevMeasure,
             nextMeasure,
@@ -1079,12 +1081,16 @@ export class CanvasScoreRenderer {
         ? options.theme.noteSelected
         : options.theme.foreground;
       ctx.font = selected ? GUTTER_FONT_SELECTED : GUTTER_FONT;
-      // `measure.index` is 0-based; measure numbers are 1-based.
-      ctx.fillText(
-        String(measure.index + 1),
-        box.x + GUTTER_TEXT_INSET,
-        baselineY
-      );
+      /*
+        Not `index + 1`: a pickup is not counted, so the bar after one is bar
+        1 and the pickup itself has no number at all. `barNumberAt` answers
+        `null` there and nothing is drawn, which is what an engraver does —
+        printing "1" over an anacrusis claims it is a bar the player counts.
+      */
+      const barNumber = barNumberAt(track.measures, measureIndex);
+      if (barNumber !== null) {
+        ctx.fillText(String(barNumber), box.x + GUTTER_TEXT_INSET, baselineY);
+      }
     }
 
     ctx.fillStyle = previousFill;

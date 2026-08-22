@@ -374,6 +374,7 @@ describe('cue notes', () => {
     return buildMeasureContent(
       measure,
       track,
+      0,
       placement,
       undefined,
       undefined,
@@ -415,6 +416,7 @@ describe('cue notes', () => {
     buildMeasureContent(
       measureWith({ label: 'Flute', events: cueEvents }),
       track,
+      0,
       placement,
       undefined,
       undefined,
@@ -483,6 +485,7 @@ describe('two voices on one stave', () => {
     const { voices } = buildMeasureContent(
       measure,
       stemTrack,
+      0,
       stemPlacement,
       undefined,
       undefined,
@@ -551,6 +554,7 @@ describe('repeat barlines and voltas', () => {
     return buildMeasureContent(
       measure,
       repTrack,
+      0,
       repPlacement,
       prev,
       next,
@@ -623,5 +627,96 @@ describe('repeat barlines and voltas', () => {
       .find(m => m.getCategory() === 'Volta') as unknown as { volta: number };
 
     expect(volta.volta).toBe(Volta.type.BEGIN_END);
+  });
+});
+
+describe('clef changes', () => {
+  function clefTrack(clefs: Array<'treble' | 'bass' | undefined>): Track {
+    return {
+      id: 't1',
+      name: 'Piano',
+      instrumentName: 'Piano',
+      midiProgram: 0,
+      midiChannel: 0,
+      clef: 'treble' as const,
+      volume: 1,
+      pan: 0,
+      measures: clefs.map(
+        (clef, index) =>
+          ({
+            id: `m${index}`,
+            index,
+            startTick: index * 1920,
+            durationTicks: 1920,
+            timeSignature: { numerator: 4, denominator: 4 },
+            keySignature: { fifths: 0, mode: 'major' },
+            voices: [{ id: `v${index}`, name: 'Voice 1', events: [] }],
+            ...(clef ? { clef } : {}),
+          }) as unknown as Measure
+      ),
+    } as unknown as Track;
+  }
+
+  function placement(isFirstInSystem: boolean): MeasureLayout {
+    return {
+      box: { x: 0, y: 0, width: 300, height: 100 },
+      isFirstInSystem,
+    } as unknown as MeasureLayout;
+  }
+
+  /**
+   * The clef glyphs the stave will draw.
+   *
+   * Read as SMuFL codes (`gClef`, `fClef`) rather than as the domain name: the
+   * modifier holds `{ code, line }`, and asserting on the code checks what is
+   * actually drawn rather than what was asked for.
+   */
+  function clefsOn(stave: {
+    getModifiers: () => { getCategory: () => string }[];
+  }) {
+    return stave
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Clef')
+      .map(
+        m => (m as unknown as { clef?: { code?: string } }).clef?.code ?? ''
+      );
+  }
+
+  function build(track: Track, index: number, isFirstInSystem: boolean) {
+    return buildMeasureContent(
+      track.measures[index],
+      track,
+      index,
+      placement(isFirstInSystem),
+      track.measures[index - 1],
+      track.measures[index + 1],
+      480,
+      new Map(),
+      []
+    ).stave;
+  }
+
+  it('draws the new clef on the bar it changes at, mid-system', () => {
+    // The whole point of the feature: without this the bar reads in the old
+    // clef and every note in it is a third off the page.
+    const track = clefTrack([undefined, 'bass', undefined]);
+    expect(clefsOn(build(track, 1, false))).toEqual(['fClef']);
+  });
+
+  it('draws no clef on an ordinary mid-system bar', () => {
+    const track = clefTrack([undefined, 'bass', undefined]);
+    expect(clefsOn(build(track, 2, false))).toHaveLength(0);
+  });
+
+  it('restates the clef in force at a system start, not the track clef', () => {
+    // A system beginning after a change must open in the clef being read,
+    // otherwise the reader is told the wrong clef at every wrap.
+    const track = clefTrack([undefined, 'bass', undefined]);
+    expect(clefsOn(build(track, 2, true))).toEqual(['fClef']);
+  });
+
+  it('still opens an unchanged part in the track clef', () => {
+    const track = clefTrack([undefined, undefined]);
+    expect(clefsOn(build(track, 0, true))).toEqual(['gClef']);
   });
 });

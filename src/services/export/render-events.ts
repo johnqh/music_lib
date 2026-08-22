@@ -7,6 +7,7 @@
  * is decided here, where it can be tested without a browser.
  */
 import { TempoMap } from '../../domain/time/tempo-map.js';
+import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
 import { flattenScoreNotes } from '../../domain/score/flatten.js';
 import { resolveVoice } from '../playback/plan.js';
 import type { Score } from '@sudobility/music_types';
@@ -46,7 +47,9 @@ const TAIL_SEC = 1;
  * the two drift over ties.
  */
 export function renderEvents(score: Score): RenderPlan {
-  const tempoMap = new TempoMap(score.tempoMap, score.ppq);
+  // The same derived map live playback uses, so an exported file holds its
+  // pauses for exactly as long as the transport just did.
+  const tempoMap = new TempoMap(fermataTempoMap(score), score.ppq);
   const anySolo = score.tracks.some(t => t.solo);
 
   const tracks: RenderTrack[] = score.tracks.map(track => {

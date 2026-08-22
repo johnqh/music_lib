@@ -26,7 +26,12 @@ import {
   toggleFermataCommand,
   toggleSlurCommand,
 } from '../../domain/commands/note-commands.js';
-import { changeRepeatsCommand } from '../../domain/commands/structure-commands.js';
+import {
+  changeMeasureClefCommand,
+  changeRepeatsCommand,
+  setPickupCommand,
+} from '../../domain/commands/structure-commands.js';
+import { barNumberAt } from '../../domain/score/bar-numbers.js';
 import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
 import { validateScore } from '../../domain/validation/validator.js';
 import {
@@ -915,5 +920,92 @@ describe('ornaments round-trip', () => {
     expect(warnings).toEqual([]);
     expect(after.ornament).toBe('trill');
     expect(after.fermata).toBe(true);
+  });
+});
+
+describe('clef changes round-trip', () => {
+  it('survives export and import on the bar that carries it', () => {
+    // Before this the change was dropped with a warning and the whole part
+    // kept one clef — which makes a piano left hand unreadable.
+    const score = twinkleScore();
+    const trackId = score.tracks[0].id;
+    const changed = changeMeasureClefCommand(
+      trackId,
+      2,
+      'bass',
+      'Clef'
+    ).execute(score);
+
+    const { imported, warnings } = roundTrip(changed);
+    const measures = imported.tracks[0].measures;
+
+    expect(warnings).toEqual([]);
+    expect(imported.tracks[0].clef).toBe('treble');
+    expect(measures[2].clef).toBe('bass');
+    expect(measures[1].clef).toBeUndefined();
+  });
+
+  it('keeps the part opening in its original clef', () => {
+    // `Track.clef` is the clef the part *opened* in. Letting it follow the
+    // last change made an imported part adopt whatever clef it ended in.
+    const score = twinkleScore();
+    const changed = changeMeasureClefCommand(
+      score.tracks[0].id,
+      1,
+      'bass',
+      'Clef'
+    ).execute(score);
+
+    expect(roundTrip(changed).imported.tracks[0].clef).toBe('treble');
+  });
+
+  it('round-trips two changes, not just the first', () => {
+    const score = twinkleScore();
+    const trackId = score.tracks[0].id;
+    const changed = changeMeasureClefCommand(
+      trackId,
+      3,
+      'treble',
+      'Clef'
+    ).execute(
+      changeMeasureClefCommand(trackId, 1, 'bass', 'Clef').execute(score)
+    );
+
+    const measures = roundTrip(changed).imported.tracks[0].measures;
+    expect(measures[1].clef).toBe('bass');
+    expect(measures[3].clef).toBe('treble');
+  });
+
+  it('leaves a score with no clef change unmarked', () => {
+    const { imported } = roundTrip(twinkleScore());
+    expect(imported.tracks[0].measures.every(m => m.clef === undefined)).toBe(
+      true
+    );
+  });
+});
+
+describe('pickup bars round-trip', () => {
+  it('survives export and import, and does not become bar 1', () => {
+    const score = setPickupCommand(1, 'Pickup').execute(twinkleScore());
+    const { imported, warnings } = roundTrip(score);
+    const measures = imported.tracks[0].measures;
+
+    expect(warnings).toEqual([]);
+    expect(measures[0].pickup).toBe(true);
+    expect(measures[1].pickup).toBeUndefined();
+    expect(barNumberAt(measures, 0)).toBeNull();
+    expect(barNumberAt(measures, 1)).toBe(1);
+  });
+
+  it('keeps the pickup short', () => {
+    const score = setPickupCommand(1, 'Pickup').execute(twinkleScore());
+    const measures = roundTrip(score).imported.tracks[0].measures;
+    expect(measures[0].durationTicks).toBeLessThan(measures[1].durationTicks);
+  });
+
+  it('leaves an ordinary score with no implicit bar', () => {
+    const measures = roundTrip(twinkleScore()).imported.tracks[0].measures;
+    expect(measures.every(m => m.pickup === undefined)).toBe(true);
+    expect(barNumberAt(measures, 0)).toBe(1);
   });
 });
