@@ -131,6 +131,9 @@ export * from './services/playback/types.js';
 export * from './services/playback/plan.js';
 export * from './services/playback/controller.js';
 export * from './services/playback/bus.js';
+export * from './services/position/music-position.js';
+export * from './services/position/singleton.js';
+export * from './services/selection/singleton.js';
 
 // store
 export * from './store/context.js';

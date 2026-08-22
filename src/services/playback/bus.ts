@@ -25,6 +25,8 @@ import type {
 
 export type Unsubscribe = () => void;
 
+import { getMusicPositionSource } from '../position/singleton.js';
+
 export class PlaybackBus {
   private readonly positionListeners = new Set<(tick: number) => void>();
   private readonly soundingListeners = new Set<
@@ -54,8 +56,23 @@ export class PlaybackBus {
     return () => this.transportListeners.delete(listener);
   }
 
+  /**
+   * Every caret move in the app arrives here — the engine's position reports,
+   * a seek, a click on the staff, an arrow key — which is what makes this the
+   * one place that has to tell `IMusicPosition` about it. Reporting from the
+   * controller's report handler instead would have covered playback only, and
+   * left the shared position stale the moment somebody moved the caret by
+   * hand.
+   *
+   * The anchor is stamped **here**, inside the engine's own callback, rather
+   * than wherever a React subscriber eventually runs: that is the difference
+   * between measuring from the audio clock and measuring from event-loop
+   * latency, and it is why the caret used to drift away from the highlights
+   * and the keyboard under load.
+   */
   publishPosition(tick: number): void {
     this.lastPosition = tick;
+    getMusicPositionSource().report(tick);
     for (const listener of this.positionListeners) listener(tick);
   }
 

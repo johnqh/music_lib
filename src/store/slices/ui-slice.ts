@@ -11,6 +11,7 @@ import type { StateCreator } from 'zustand';
 import { createId } from '@sudobility/music_types';
 import type { DurationName, UUID } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
+import { getMusicSelectionSource } from '../../services/selection/singleton.js';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -219,6 +220,11 @@ export const createUiSlice: StateCreator<
         revealed = true;
       }
     });
+    // The one place the active track is written, so the one place the shared
+    // selection has to hear about it. Read through `selectActiveTrackId`
+    // rather than here when the fallback-to-first-track rule matters — this
+    // reports the raw value, which is what was actually set.
+    getMusicSelectionSource().setActiveTrackId(trackId);
     if (revealed) get().markDirty();
   },
 

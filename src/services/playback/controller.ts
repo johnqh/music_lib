@@ -20,6 +20,8 @@ import { scoreEndTick } from '@sudobility/music_types';
 import { selectionToRange } from '@sudobility/music_types';
 import type { ScoreRange } from '@sudobility/music_types';
 import type { Score } from '@sudobility/music_types';
+import type { PlaybackPlan } from '@sudobility/music_types';
+import { getMusicPositionSource } from '../position/singleton.js';
 import { getMusicPlatform } from '../../platform/registry.js';
 import { selectVisibleTrackIds } from '../../store/selectors.js';
 import { useAppStore } from '../../store/useAppStore.js';
@@ -66,6 +68,11 @@ export class PlaybackController {
    * means a controller with nothing loaded translates nothing.
    */
   private timeline: PerformanceTimeline = { segments: [], durationTicks: 0 };
+  /**
+   * The loaded plan's tempo conversion, kept so the playhead can be told how
+   * fast ticks pass — which is what lets it smooth between engine reports.
+   */
+  private tempo: PlaybackPlan['tempo'] | null = null;
 
   constructor(
     private readonly engine: PlaybackEngine,
@@ -82,10 +89,25 @@ export class PlaybackController {
         repeats exist. Without repeats the timeline is the identity and this
         costs a single comparison.
       */
-      onPositionTick: tick =>
-        this.bus.publishPosition(sourceTickFor(this.timeline, tick)),
+      // `publishPosition` is what tells `IMusicPosition` about it — every
+      // caret move goes through the bus, including the ones that are nothing
+      // to do with playback, so the report belongs there rather than here.
+      onPositionTick: tick => {
+        const scoreTick = sourceTickFor(this.timeline, tick);
+        // Refreshed every report rather than once at play, so a fermata or a
+        // tempo change mid-piece projects at the speed actually in force.
+        getMusicPositionSource().setRate(this.ticksPerSecond(scoreTick));
+        this.bus.publishPosition(scoreTick);
+      },
       onActiveNotes: notes => this.bus.publishSounding(notes),
       onStateChange: state => {
+        // Smoothing only applies while the transport advances, and the
+        // playhead re-anchors on the transition so a pause does not leave it
+        // projecting forward across the time spent stopped.
+        getMusicPositionSource().setPlaying(
+          state === 'playing',
+          this.ticksPerSecond(this.bus.positionTick)
+        );
         this.bus.publishTransport(state);
         this.store.getState().setPlaybackState(state);
         // Stopping or pausing commits the engine's final position to the edit
@@ -203,6 +225,26 @@ export class PlaybackController {
 
   // ---- loop ---------------------------------------------------------------
 
+  /**
+   * How many score ticks pass per real second at the current position.
+   *
+   * Read off the plan's own tempo conversion — the same one the engine
+   * schedules against, so the playhead's smoothing and the audio agree about
+   * how fast the music is going. `tempoMultiplier` is the transport's
+   * half/double-speed control: the engine divides logical seconds by it, so
+   * one real second is that many logical seconds of music.
+   */
+  private ticksPerSecond(tick: number): number {
+    if (!this.tempo) return 0;
+    // A second of music, measured at the playhead: how many ticks fit between
+    // now and one second from now, which handles a tempo change mid-piece
+    // without needing to know the tempo map's shape.
+    const perSecond =
+      this.tempo.secondsToTicks(this.tempo.ticksToSeconds(tick) + 1) - tick;
+    const multiplier = this.store.getState().tempoMultiplier ?? 1;
+    return Math.max(0, perSecond * multiplier);
+  }
+
   private setLoop(range: ScoreRange | null): void {
     this.store.getState().setLoopRange(range);
     this.engine.setLoop(range);
@@ -311,6 +353,7 @@ export class PlaybackController {
       // changes the mapping, and a stale one would put the caret in the wrong
       // bar for every frame until the next load.
       this.timeline = plan.timeline;
+      this.tempo = plan.tempo;
       await this.engine.load(plan);
       // loadScore reseeds every channel's mute from `Track.muted`, so hidden
       // tracks would sound again on the next load without this.

@@ -18,6 +18,7 @@ import { deleteEventsCommand } from '@sudobility/music_types';
 import { closeGap, makeRoom } from '@sudobility/music_types';
 import { transformCommand } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
+import { getMusicSelectionSource } from '../../services/selection/singleton.js';
 
 export type ClipboardData = { events: NoteEvent[]; anchorTick: number };
 
@@ -125,6 +126,11 @@ export const createSelectionSlice: StateCreator<
       state.selection = selection;
       state.selectionRegenerated = false;
     });
+    // The one write path, so this is where `IMusicSelection` is told. Every
+    // other selection action in this slice routes through here — toggling a
+    // note, selecting measures, clicking a track, clearing — which is what
+    // makes a single report enough to keep the shared selection exact.
+    getMusicSelectionSource().setSelection(selection);
     // Routed through generation-slice's own action (rather than this slice
     // writing `state.mode` itself) so generation-slice stays the only code
     // that ever touches its own field.
