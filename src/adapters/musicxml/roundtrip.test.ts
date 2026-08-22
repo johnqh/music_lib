@@ -23,7 +23,9 @@ import {
   setChordSymbolCommand,
   setLyricCommand,
   toGraceNoteCommand,
+  toggleArpeggiateCommand,
   toggleFermataCommand,
+  toggleHairpinCommand,
   toggleSlurCommand,
 } from '../../domain/commands/note-commands.js';
 import {
@@ -1007,5 +1009,72 @@ describe('pickup bars round-trip', () => {
     const measures = roundTrip(twinkleScore()).imported.tracks[0].measures;
     expect(measures.every(m => m.pickup === undefined)).toBe(true);
     expect(barNumberAt(measures, 0)).toBe(1);
+  });
+});
+
+describe('hairpins and arpeggios round-trip', () => {
+  /** Twinkle with a crescendo across its first four notes. */
+  function withHairpin(kind: 'crescendo' | 'diminuendo' = 'crescendo') {
+    const score = twinkleScore();
+    const ids = allNotes(score)
+      .filter(isNoteEvent)
+      .slice(0, 4)
+      .map(n => n.id);
+    return toggleHairpinCommand(ids, kind, 'Hairpin').execute(score);
+  }
+
+  it('survives export and import on the notes that carried it', () => {
+    const { imported, warnings } = roundTrip(withHairpin());
+    const after = allNotes(imported).filter(isNoteEvent);
+
+    expect(warnings).toEqual([]);
+    expect(after.filter(n => n.hairpinStart).length).toBe(1);
+    expect(after.filter(n => n.hairpinStop).length).toBe(1);
+    expect(after.find(n => n.hairpinStart)?.hairpinStart).toBe('crescendo');
+  });
+
+  it('keeps the direction it was written in', () => {
+    const after = allNotes(
+      roundTrip(withHairpin('diminuendo')).imported
+    ).filter(isNoteEvent);
+    expect(after.find(n => n.hairpinStart)?.hairpinStart).toBe('diminuendo');
+  });
+
+  it('closes the wedge after the note it covers, not before it', () => {
+    // A <direction> sits at a point in the bar, so a stop written ahead of the
+    // closing note would end the wedge at that note's onset and leave it
+    // outside. The open must come before the close in the note order.
+    const after = allNotes(roundTrip(withHairpin()).imported).filter(
+      isNoteEvent
+    );
+    expect(after.findIndex(n => n.hairpinStart)).toBeLessThan(
+      after.findIndex(n => n.hairpinStop)
+    );
+  });
+
+  it('round-trips a rolled chord', () => {
+    const score = chordScore();
+    const ids = allNotes(score)
+      .filter(isNoteEvent)
+      .slice(0, 3)
+      .map(n => n.id);
+    const rolled = toggleArpeggiateCommand(ids, 'Arpeggiate').execute(score);
+
+    const { imported, warnings } = roundTrip(rolled);
+    expect(warnings).toEqual([]);
+    expect(
+      allNotes(imported)
+        .filter(isNoteEvent)
+        .filter(n => n.arpeggiate).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('leaves an unmarked score unmarked', () => {
+    const after = allNotes(roundTrip(twinkleScore()).imported).filter(
+      isNoteEvent
+    );
+    expect(
+      after.every(n => !n.hairpinStart && !n.hairpinStop && !n.arpeggiate)
+    ).toBe(true);
   });
 });

@@ -16,6 +16,7 @@ import type {
   Accidental,
   Articulation,
   DurationName,
+  Hairpin,
   NoteEvent,
   Ornament,
   Pitch,
@@ -519,6 +520,92 @@ export function toggleSlurCommand(
       if (note.id === first.id) updated.slurStart = true;
       if (note.id === last.id) updated.slurStop = true;
       return updated;
+    });
+  });
+}
+
+/**
+ * Writes a hairpin across the selection, or removes the one it already has.
+ *
+ * Shaped like `toggleSlurCommand`, because a hairpin is the same kind of thing
+ * — one mark over a run of notes. The caller says "crescendo these" and this
+ * decides which of them opens it and which closes it; marking them one at a
+ * time would let a user create an opening with no close, which draws nothing
+ * and is invisible to fix.
+ *
+ * Endpoints are the earliest and latest note **by tick**, not the order the
+ * ids arrived in, so a selection built by shift-clicking around a phrase is
+ * still that phrase.
+ *
+ * Fewer than two notes is refused: a wedge over one note has nowhere to open
+ * to. Re-applying the **same** direction to a span that already carries it
+ * removes it, so one control undoes what it made; applying the **other**
+ * direction flips it, which is what reaching for the other button means.
+ */
+export function toggleHairpinCommand(
+  eventIds: UUID[],
+  hairpin: Hairpin,
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      )
+      .sort((a, b) => a.startTick - b.startTick);
+    if (notes.length < 2) return score;
+
+    const first = notes[0];
+    const last = notes[notes.length - 1];
+    const sameAlready =
+      first.hairpinStart === hairpin && Boolean(last.hairpinStop);
+
+    return mapNotes(score, eventIds, note => {
+      const updated: NoteEvent = { ...note };
+      delete updated.hairpinStart;
+      delete updated.hairpinStop;
+      if (sameAlready) return updated;
+      if (note.id === first.id) updated.hairpinStart = hairpin;
+      if (note.id === last.id) updated.hairpinStop = true;
+      return updated;
+    });
+  });
+}
+
+/**
+ * Rolls the selected chords, or stops rolling them.
+ *
+ * Toggles the whole selection together, like the fermata: the state is read
+ * from whether *every* selected note already carries the flag, so a partly
+ * marked selection becomes fully marked rather than inverting note by note.
+ *
+ * The mark belongs to a chord, but the selection is notes — so this simply
+ * sets the flag on what was selected and lets the renderer decide. A lone note
+ * keeps the flag harmlessly and draws nothing, which is better than refusing:
+ * selecting a bar and rolling its chords should not fail because one beat
+ * happens to be a single note.
+ */
+export function toggleArpeggiateCommand(
+  eventIds: UUID[],
+  label: string
+): ScoreCommand {
+  return transformCommand(label, score => {
+    const notes = eventIds
+      .map(id => findEvent(score, id))
+      .filter(
+        (event): event is NoteEvent => event !== null && isNoteEvent(event)
+      );
+    if (notes.length === 0) return score;
+
+    const allMarked = notes.every(note => note.arpeggiate);
+    return mapNotes(score, eventIds, note => {
+      if (allMarked) {
+        const updated: NoteEvent = { ...note };
+        delete updated.arpeggiate;
+        return updated;
+      }
+      return { ...note, arpeggiate: true };
     });
   });
 }

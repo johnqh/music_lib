@@ -15,6 +15,8 @@ import {
   StaveModifierPosition,
   Barline,
   Curve,
+  Modifier,
+  StaveHairpin,
   StaveTie,
   Tuplet,
   Volta,
@@ -495,6 +497,53 @@ export function buildTies(
  * two notes' Y values, which only exist once they have been drawn, so one
  * reaching a culled off-screen stave would throw inside VexFlow.
  */
+/**
+ * Draws each hairpin in a channel as one wedge, opening note to closing note.
+ *
+ * `buildSlurs`' structure exactly, because a hairpin is the same kind of span:
+ * opened by one note, closed by a later one, matched in order rather than by
+ * pitch. It carries the same culling hazard too — a wedge is positioned from
+ * its two notes' Y values, which only exist once they have been drawn, so one
+ * reaching a culled off-screen stave throws inside VexFlow.
+ *
+ * Below the stave, where the dynamics already sit, so a level and the change
+ * between two levels read as one system rather than two.
+ */
+export function buildHairpins(
+  channel: Channel,
+  isDrawn: (note: StaveNote) => boolean = () => true
+): StaveHairpin[] {
+  const hairpins: StaveHairpin[] = [];
+  let open: {
+    note: StaveNote;
+    kind: NonNullable<NoteMeta['hairpinStart']>;
+  } | null = null;
+
+  for (const entry of channel) {
+    if (entry.meta.isRest) continue;
+    if (!open && entry.meta.hairpinStart) {
+      open = { note: entry.note, kind: entry.meta.hairpinStart };
+      continue;
+    }
+    if (open && entry.meta.hairpinStop) {
+      if (isDrawn(open.note) && isDrawn(entry.note)) {
+        const wedge = new StaveHairpin(
+          { first_note: open.note, last_note: entry.note },
+          open.kind === 'crescendo'
+            ? StaveHairpin.type.CRESC
+            : StaveHairpin.type.DECRESC
+        );
+        wedge.setPosition(Modifier.Position.BELOW);
+        hairpins.push(wedge);
+      }
+      open = null;
+    }
+  }
+  // An unclosed opening draws nothing: half a wedge is not a wedge, and the
+  // command that writes these never produces one.
+  return hairpins;
+}
+
 export function buildSlurs(
   channel: Channel,
   isDrawn: (note: StaveNote) => boolean = () => true

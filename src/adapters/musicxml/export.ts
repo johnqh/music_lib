@@ -235,6 +235,13 @@ function buildPitchedNoteXml(
     an ornament is played into the note, so a tied note carries one sign at
     its start rather than one per written segment.
   */
+  /*
+    A rolled chord. A `<notations>` child rather than a `<direction>`: unlike a
+    dynamic it belongs to the notehead, and MusicXML puts it on every note of
+    the chord — which is what the model stores too.
+  */
+  const arpeggiateXml =
+    note.arpeggiate && opts.tieStop === false ? '<arpeggiate/>' : '';
   const ornamentsXml =
     note.ornament && opts.tieStop === false
       ? `<ornaments><${ORNAMENT_ELEMENT[note.ornament]}/></ornaments>`
@@ -245,8 +252,9 @@ function buildPitchedNoteXml(
     slurXml ||
     tupletNotation ||
     fermataXml ||
-    ornamentsXml
-      ? `<notations>${tiedNotations}${articulationsXml}${ornamentsXml}${slurXml}${tupletNotation}${fermataXml}</notations>`
+    ornamentsXml ||
+    arpeggiateXml
+      ? `<notations>${tiedNotations}${articulationsXml}${ornamentsXml}${slurXml}${tupletNotation}${fermataXml}${arpeggiateXml}</notations>`
       : '';
   /*
     The sung syllable. A `<lyric>` is a child of `<note>`, not of
@@ -413,6 +421,22 @@ function buildVoiceEventsXml(
         `</direction-type></direction>\n`;
     }
     /*
+      The hairpin's opening, as a `<direction>` before the note it starts on —
+      a wedge is an instruction at a point in the measure, like a dynamic and
+      unlike a slur. Its close is written *after* the closing note, further
+      down, so the wedge actually spans that note rather than stopping at its
+      onset.
+    */
+    const chordHairpin = group.find(
+      e => isNoteEvent(e) && (e as NoteEvent).hairpinStart
+    ) as NoteEvent | undefined;
+    if (chordHairpin?.hairpinStart) {
+      xml +=
+        `<direction placement="below"><direction-type>` +
+        `<wedge type="${chordHairpin.hairpinStart}"/>` +
+        `</direction-type></direction>\n`;
+    }
+    /*
       The chord symbol, as a `<harmony>` before the note it sits over — a
       measure-level element like `<direction>`, because a chord change happens
       at a point in the bar rather than belonging to a notehead.
@@ -477,6 +501,22 @@ function buildVoiceEventsXml(
         });
       });
     });
+
+    /*
+      The hairpin's close, *after* the notes it ends on rather than before
+      them. A `<direction>` sits at a point in the measure, so a stop emitted
+      ahead of the closing note would end the wedge at that note's onset and
+      leave it uncovered — the one asymmetry with the opening above.
+    */
+    const chordHairpinStop = group.find(
+      e => isNoteEvent(e) && (e as NoteEvent).hairpinStop
+    );
+    if (chordHairpinStop) {
+      xml +=
+        `<direction placement="below"><direction-type>` +
+        `<wedge type="stop"/>` +
+        `</direction-type></direction>\n`;
+    }
   }
   return xml;
 }

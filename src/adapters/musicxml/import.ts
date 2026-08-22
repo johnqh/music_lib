@@ -23,6 +23,7 @@ import type {
   Clef,
   Dynamic,
   GraceNote,
+  Hairpin,
   Lyric,
   KeySignature,
   Measure,
@@ -304,6 +305,9 @@ type RawEvent = {
   articulation?: NoteEvent['articulation'];
   fermata?: boolean;
   ornament?: NoteEvent['ornament'];
+  hairpinStart?: Hairpin;
+  hairpinStop?: boolean;
+  arpeggiate?: boolean;
   dynamic?: Dynamic;
   slurStart?: boolean;
   slurStop?: boolean;
@@ -416,6 +420,8 @@ function warnUnsupportedNoteChildren(
           // Read in `parseFermata`, so no longer dropped and no longer warned
           // about.
           notationChild.tagName === 'fermata' ||
+          // Read just below, onto the note.
+          notationChild.tagName === 'arpeggiate' ||
           // The bracket. Its scaling rides on `<time-modification>` and the
           // tick length, so there is nothing more to read here — but it is
           // understood, not ignored, and must not be reported as unsupported.
@@ -648,6 +654,11 @@ function parseNote(
     Only on notes: the model carries a fermata on a `NoteEvent`, so one written
     over a rest is dropped rather than misfiled onto the following note.
   */
+  const arpeggiate =
+    !restEl &&
+    notationsEl !== null &&
+    directChildren(notationsEl, 'arpeggiate').length > 0;
+
   const fermata = restEl
     ? false
     : notationsEl !== null && directChildren(notationsEl, 'fermata').length > 0;
@@ -668,6 +679,7 @@ function parseNote(
     ...(slurStart ? { slurStart: true } : {}),
     ...(slurStop ? { slurStop: true } : {}),
     ...(fermata ? { fermata: true } : {}),
+    ...(arpeggiate ? { arpeggiate: true } : {}),
     ...(ornament ? { ornament } : {}),
   };
   return { raw, cursorAdvance: durationTicks };
@@ -728,6 +740,9 @@ function fillAndClip(
         ...(item.articulation ? { articulation: item.articulation } : {}),
         ...(item.fermata ? { fermata: true } : {}),
         ...(item.ornament ? { ornament: item.ornament } : {}),
+        ...(item.hairpinStart ? { hairpinStart: item.hairpinStart } : {}),
+        ...(item.hairpinStop ? { hairpinStop: true } : {}),
+        ...(item.arpeggiate ? { arpeggiate: true } : {}),
         ...(item.dynamic ? { dynamic: item.dynamic } : {}),
         ...(item.slurStart ? { slurStart: true } : {}),
         ...(item.slurStop ? { slurStop: true } : {}),
@@ -781,6 +796,9 @@ function parseMeasure(
   let lastNoteStart = 0;
   /** Set by a `<direction>`, consumed by the next `<note>` it applies from. */
   let pendingDynamic: Dynamic | undefined;
+  let pendingHairpin: Hairpin | undefined;
+  /** The last pitched note parsed, for a hairpin close that follows it. */
+  let lastNoteRaw: RawEvent | undefined;
   /** Set by a `<harmony>`, consumed by the note it sits over — same shape. */
   let pendingChordSymbol: string | undefined;
   /** Repeat structure, collected from this measure's `<barline>` elements. */
@@ -825,6 +843,24 @@ function parseMeasure(
         const markName = dynamicsEl?.children[0]?.tagName;
         if (markName && (DYNAMICS as readonly string[]).includes(markName)) {
           pendingDynamic = markName as Dynamic;
+        }
+
+        /*
+          A hairpin. Its opening applies to the *next* note, like a dynamic —
+          MusicXML places the direction before it. Its close applies to the
+          note most recently parsed, because the exporter writes the stop
+          after the note it covers, which is the only way a wedge can actually
+          span that note.
+        */
+        const wedgeEl = directChild(
+          directChild(child, 'direction-type') ?? child,
+          'wedge'
+        );
+        const wedgeType = wedgeEl?.getAttribute('type');
+        if (wedgeType === 'crescendo' || wedgeType === 'diminuendo') {
+          pendingHairpin = wedgeType;
+        } else if (wedgeType === 'stop' && lastNoteRaw) {
+          lastNoteRaw.hairpinStop = true;
         }
 
         const soundEl = directChild(child, 'sound');
@@ -903,6 +939,13 @@ function parseMeasure(
             raw.dynamic = pendingDynamic;
             pendingDynamic = undefined;
           }
+          if (pendingHairpin && raw.pitch !== null) {
+            raw.hairpinStart = pendingHairpin;
+            pendingHairpin = undefined;
+          }
+          // Remembered so a `<wedge type="stop"/>` arriving after this note
+          // can close its hairpin on it.
+          if (raw.pitch !== null) lastNoteRaw = raw;
           const bucket = buckets.get(raw.voiceNumber) ?? [];
           buckets.set(raw.voiceNumber, bucket);
           bucket.push(raw);

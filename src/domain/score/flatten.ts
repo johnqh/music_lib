@@ -18,7 +18,12 @@
  */
 import { isNoteEvent } from '@sudobility/music_types';
 import { articulatedDuration, articulatedVelocity } from './articulation.js';
-import { dynamicsInForce, effectiveVelocity } from './dynamics.js';
+import {
+  DEFAULT_VELOCITY,
+  dynamicsInForce,
+  effectiveVelocity,
+  hairpinVelocities,
+} from './dynamics.js';
 import type { MusicalEvent, Score, Track } from '@sudobility/music_types';
 import { pitchToMidi } from '../pitch/pitch.js';
 import { joinTiedNotes } from './ties.js';
@@ -79,16 +84,30 @@ export function flattenScoreNotes(score: Score): FlatNote[] {
       // means anything in tick order, and a tie join can merge the note a
       // marking sits on into the one before it.
       const inForce = dynamicsInForce(joined);
+      // The gradual half of the dynamics. Resolved over the same joined,
+      // ordered channel, so a wedge's endpoints are found in the order a
+      // player reads them.
+      const ramped = hairpinVelocities(joined, inForce);
       for (const event of joined) {
         if (!isNoteEvent(event)) continue;
         // Two steps, and the order matters: the dynamic sets the level, then
         // the articulation is an offset on top of it — so an accent inside a
         // quiet passage stays an accent rather than being flattened to a fixed
         // loud velocity.
-        const dynamicVelocity = effectiveVelocity(
-          event,
-          inForce.get(event.id) ?? null
-        );
+        /*
+          A hairpin overrides the level for the notes it spans — that is what
+          the wedge means, that the level is *changing* across them — while the
+          note's own written velocity survives as a deviation on top either
+          way, exactly as it does under a plain dynamic.
+        */
+        const ramp = ramped.get(event.id);
+        const dynamicVelocity =
+          ramp === undefined
+            ? effectiveVelocity(event, inForce.get(event.id) ?? null)
+            : Math.max(
+                1,
+                Math.min(127, ramp + (event.velocity - DEFAULT_VELOCITY))
+              );
         const velocity = articulatedVelocity(
           dynamicVelocity,
           event.articulation

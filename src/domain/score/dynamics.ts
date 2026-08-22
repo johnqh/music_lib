@@ -80,3 +80,105 @@ export function dynamicsInForce(
   }
   return inForce;
 }
+
+/**
+ * The velocity each note in a hairpin ramps to.
+ *
+ * A dynamic sets a level; a hairpin is the *change* between two of them, so
+ * the only honest way to sound one is to ramp. The span runs from the note
+ * carrying `hairpinStart` to the one carrying `hairpinStop`, and velocity
+ * moves linearly from the level in force at the opening to the level in force
+ * just **after** the close — which is how a player reads it: the wedge takes
+ * you to the next marking.
+ *
+ * **Where there is no next marking**, the wedge still has to arrive somewhere.
+ * A crescendo with nothing after it goes one dynamic step up from where it
+ * started, and a diminuendo one step down. That is what a player does with an
+ * unresolved hairpin, and it beats the alternatives: leaving it flat makes the
+ * marking silent, and ramping to full or to nothing turns an unmarked detail
+ * into the loudest or quietest thing in the piece.
+ *
+ * Returns an empty map for a score with no hairpin, so an unmarked passage
+ * costs one allocation and no arithmetic.
+ */
+export function hairpinVelocities(
+  events: readonly MusicalEvent[],
+  inForce: Map<string, Dynamic>
+): Map<string, number> {
+  const ramped = new Map<string, number>();
+  const notes = events.filter(isNoteEvent);
+
+  /** The velocity a note would sound at from its dynamic alone. */
+  const levelOf = (index: number): number => {
+    const note = notes[index];
+    if (!note) return DEFAULT_VELOCITY;
+    const dynamic = inForce.get(note.id);
+    return dynamic ? velocityForDynamic(dynamic) : DEFAULT_VELOCITY;
+  };
+
+  for (let i = 0; i < notes.length; i += 1) {
+    if (!notes[i].hairpinStart) continue;
+    const kind = notes[i].hairpinStart;
+
+    let stop = -1;
+    for (let j = i; j < notes.length; j += 1) {
+      if (notes[j].hairpinStop) {
+        stop = j;
+        break;
+      }
+    }
+    // An unclosed opening ramps nowhere, matching what the renderer draws.
+    if (stop < 0) break;
+
+    const from = levelOf(i);
+    const afterIndex = stop + 1;
+    const next =
+      afterIndex < notes.length ? inForce.get(notes[afterIndex].id) : undefined;
+    const startDynamic = inForce.get(notes[i].id);
+    const to =
+      next && next !== startDynamic
+        ? velocityForDynamic(next)
+        : stepFrom(from, kind === 'crescendo' ? 1 : -1);
+
+    const span = stop - i;
+    for (let k = 0; k <= span; k += 1) {
+      const t = span === 0 ? 1 : k / span;
+      ramped.set(notes[i + k].id, Math.round(from + (to - from) * t));
+    }
+    i = stop;
+  }
+  return ramped;
+}
+
+/**
+ * One dynamic step from `velocity`, in `direction`.
+ *
+ * Used only where a hairpin has nothing to resolve to. Walks the ladder rather
+ * than adding a fixed number so the step is the same size a written marking
+ * would have been.
+ */
+function stepFrom(velocity: number, direction: 1 | -1): number {
+  const ladder = DYNAMIC_LADDER.map(velocityForDynamic);
+  const nearest = ladder.reduce((best, v) =>
+    Math.abs(v - velocity) < Math.abs(best - velocity) ? v : best
+  );
+  const index = ladder.indexOf(nearest);
+  const target =
+    ladder[Math.max(0, Math.min(ladder.length - 1, index + direction))];
+  // At the top of the ladder a crescendo still has to go somewhere.
+  return target === nearest
+    ? Math.max(1, Math.min(127, velocity + direction * 16))
+    : target;
+}
+
+/** Softest to loudest, for stepping one marking at a time. */
+const DYNAMIC_LADDER: readonly Dynamic[] = [
+  'ppp',
+  'pp',
+  'p',
+  'mp',
+  'mf',
+  'f',
+  'ff',
+  'fff',
+];

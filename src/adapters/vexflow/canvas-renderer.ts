@@ -32,6 +32,7 @@ import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
 import {
   buildMeasureContent,
+  buildHairpins,
   buildSlurs,
   buildTies,
 } from './measure-content.js';
@@ -394,6 +395,25 @@ export class CanvasScoreRenderer {
           } catch (error) {
             console.error(
               'CanvasScoreRenderer: skipping a slur after draw failure',
+              error
+            );
+          }
+        }
+
+        // Hairpins, on the same terms: culled to drawn staves and guarded one
+        // at a time, so a wedge that cannot be positioned does not take the
+        // rest of the channel's dynamics with it.
+        const hairpins = buildHairpins(channel, note => {
+          const stave = note.getStave();
+          return !!stave && drawnStaves.has(stave);
+        });
+        for (const hairpin of hairpins) {
+          try {
+            hairpin.setContext(vexCtx);
+            hairpin.draw();
+          } catch (error) {
+            console.error(
+              'CanvasScoreRenderer: skipping a hairpin after draw failure',
               error
             );
           }

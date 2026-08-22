@@ -470,3 +470,87 @@ describe('ornaments', () => {
     expect(ornamentGlyphs(built(undefined))).toHaveLength(0);
   });
 });
+
+describe('hairpin metadata and arpeggios', () => {
+  it('carries the hairpin direction on the opening note', () => {
+    // The renderer needs the direction, not just "a hairpin starts here" —
+    // it decides which way the wedge opens.
+    const { metas } = buildVoiceContent(
+      recorded([
+        note({
+          id: 'open',
+          startTick: 0,
+          durationTicks: ticksFor('quarter', PPQ),
+          pitch: pitch('C', 0, 4),
+          hairpinStart: 'diminuendo',
+        }),
+        note({
+          id: 'close',
+          startTick: ticksFor('quarter', PPQ),
+          durationTicks: ticksFor('quarter', PPQ),
+          pitch: pitch('E', 0, 4),
+          hairpinStop: true,
+        }),
+      ]),
+      PPQ
+    );
+
+    expect(metas[0].hairpinStart).toBe('diminuendo');
+    expect(metas[0].hairpinStop).toBe(false);
+    expect(metas[1].hairpinStart).toBeNull();
+    expect(metas[1].hairpinStop).toBe(true);
+  });
+
+  it('leaves an unmarked note with no hairpin metadata', () => {
+    const { metas } = buildVoiceContent(
+      recorded([
+        note({
+          id: 'p',
+          startTick: 0,
+          durationTicks: ticksFor('quarter', PPQ),
+          pitch: pitch('C', 0, 4),
+        }),
+      ]),
+      PPQ
+    );
+    expect(metas[0].hairpinStart).toBeNull();
+    expect(metas[0].hairpinStop).toBe(false);
+  });
+
+  it('strokes a rolled chord once, not once per notehead', () => {
+    const half = ticksFor('half', PPQ);
+    const chord = ['C', 'E', 'G'].map((step, i) =>
+      note({
+        id: `c${i}`,
+        startTick: 0,
+        durationTicks: half,
+        pitch: pitch(step as 'C', 0, 4),
+        arpeggiate: true,
+      })
+    );
+    const { notes } = buildVoiceContent(recorded(chord), PPQ);
+    const strokes = notes[0]
+      .getModifiers()
+      .filter(m => m.getCategory() === 'Stroke');
+    expect(strokes).toHaveLength(1);
+  });
+
+  it('draws no stroke on a single note', () => {
+    // There is only one notehead to roll through.
+    const { notes } = buildVoiceContent(
+      recorded([
+        note({
+          id: 'solo',
+          startTick: 0,
+          durationTicks: ticksFor('quarter', PPQ),
+          pitch: pitch('C', 0, 4),
+          arpeggiate: true,
+        }),
+      ]),
+      PPQ
+    );
+    expect(
+      notes[0].getModifiers().filter(m => m.getCategory() === 'Stroke')
+    ).toHaveLength(0);
+  });
+});

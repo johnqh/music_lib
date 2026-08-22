@@ -21,11 +21,13 @@ import {
   GraceNoteGroup,
   Ornament,
   StaveNote,
+  Stroke,
 } from 'vexflow';
 import type { StemmableNote } from 'vexflow';
 import type {
   Accidental as DomainAccidental,
   Articulation as DomainArticulation,
+  Hairpin as DomainHairpin,
   Ornament as DomainOrnament,
   DurationName,
   KeySignature,
@@ -237,6 +239,16 @@ export type NoteMeta = {
    */
   slurStart: boolean;
   slurStop: boolean;
+  /**
+   * The ends of a hairpin, carried for the same reason and with the same rule
+   * as the slur above: one wedge over a run of notes, so a chord under one
+   * carries it whole rather than per notehead.
+   *
+   * The start keeps its direction rather than being a boolean, because that is
+   * what decides which way the wedge opens.
+   */
+  hairpinStart: DomainHairpin | null;
+  hairpinStop: boolean;
 };
 
 export type VoiceContent = {
@@ -372,6 +384,17 @@ export function buildVoiceContent(
             );
           }
           /*
+            A rolled chord. Added once, on the first key, because the stroke is
+            drawn beside the whole chord rather than beside a notehead — adding
+            it per member would stack one wavy line per note.
+
+            Meaningless on a single note and skipped there: there is only one
+            notehead to roll through.
+          */
+          if (noteEvent.arpeggiate && keyIndex === 0 && group.length > 1) {
+            staveNote.addStroke(0, new Stroke(Stroke.Type.ROLL_UP));
+          }
+          /*
             The dynamic marking, under the stave where it is read.
             `Annotation` rather than VexFlow's `TextDynamics`, which is a
             tickable and would need a voice of its own aligned to this one —
@@ -502,6 +525,20 @@ export function buildVoiceContent(
         slurStop:
           isLastSegment &&
           group.some(e => isNoteEvent(e) && Boolean((e as NoteEvent).slurStop)),
+        // Same first/last-segment rule: a note decomposed across a barline
+        // must open its wedge once, not at every tied join.
+        hairpinStart: isFirstSegment
+          ? ((
+              group.find(
+                e => isNoteEvent(e) && (e as NoteEvent).hairpinStart
+              ) as NoteEvent | undefined
+            )?.hairpinStart ?? null)
+          : null,
+        hairpinStop:
+          isLastSegment &&
+          group.some(
+            e => isNoteEvent(e) && Boolean((e as NoteEvent).hairpinStop)
+          ),
       });
     });
   }
