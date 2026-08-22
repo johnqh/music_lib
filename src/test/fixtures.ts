@@ -15,7 +15,7 @@ import type {
   TimeSignature,
   Track,
 } from '@sudobility/music_types';
-import { measureDurationTicks, ticksFor } from '../domain/time/ticks.js';
+import { measureDurationTicks, ticksFor } from '@sudobility/music_types';
 import type { RenderTheme } from '../adapters/vexflow/types.js';
 import type { DurationName } from '@sudobility/music_types';
 

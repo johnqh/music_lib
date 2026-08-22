@@ -27,7 +27,7 @@ import {
   noteEmphasisFor,
   resolveNoteColorRole,
 } from './note-color.js';
-import { trackInstrumentIcon } from '../../domain/instruments/track-instrument.js';
+import { trackInstrumentIcon } from '@sudobility/music_types';
 import { strokeInstrumentIcon } from './icon-canvas.js';
 import type { Score } from '@sudobility/music_types';
 import {
@@ -48,7 +48,7 @@ import {
   resolveZoom,
 } from './layout.js';
 import type { LayoutPlan, SystemLayout } from './layout.js';
-import { barNumberAt } from '../../domain/score/bar-numbers.js';
+import { barNumberAt } from '@sudobility/music_types';
 import type { BBox, RenderOptions, RenderTheme } from './types.js';
 import type { NoteMeta } from './convert.js';
 

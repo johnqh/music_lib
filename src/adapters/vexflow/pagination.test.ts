@@ -10,9 +10,9 @@ import {
 import type { LayoutPlan, SystemLayout } from './layout.js';
 import type { Measure, Score, Track } from '@sudobility/music_types';
 import { computeLayout } from './layout.js';
-import { createEmptyScore } from '../../domain/score/factory.js';
-import { extractPart } from '../../domain/score/extract-part.js';
-import { addNoteCommand } from '../../domain/commands/note-commands.js';
+import { createEmptyScore } from '@sudobility/music_types';
+import { extractPart } from '@sudobility/music_types';
+import { addNoteCommand } from '@sudobility/music_types';
 import { testRenderTheme } from '../../test/fixtures.js';
 describe('usablePageHeight', () => {
   it('is the logical width scaled by the printable aspect ratio', () => {

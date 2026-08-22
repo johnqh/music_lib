@@ -17,12 +17,12 @@
  * store update (even ones that didn't touch selection/score) and
  * re-render every time.
  */
-import { findEvent, findTrack } from '../domain/score/queries.js';
-import { selectionToRange } from '../domain/selection/selection.js';
-import type { ScoreRange } from '../domain/selection/types.js';
+import { findEvent, findTrack } from '@sudobility/music_types';
+import { selectionToRange } from '@sudobility/music_types';
+import type { ScoreRange } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Track } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { beatDurationTicks } from '../domain/time/ticks.js';
+import { beatDurationTicks } from '@sudobility/music_types';
 import type { AppState } from './useAppStore.js';
 
 /**

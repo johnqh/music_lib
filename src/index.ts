@@ -1,3 +1,15 @@
+/*
+  The model and its primitives live in `@sudobility/music_types` and are
+  re-exported here.
+
+  They used to exist in both packages — 128 modules, most differing only by an
+  import path, and three that had genuinely diverged because new commands were
+  added on this side only. That is what a copy does: it works until somebody
+  fixes a bug in one of them. `music_types` is now the single home, and this
+  line is what keeps every existing `@sudobility/music_lib` import working.
+*/
+export * from '@sudobility/music_types';
+
 /**
  * @sudobility/music_lib — Moosiac business logic.
  *
@@ -10,76 +22,76 @@
  */
 
 // domain/score
-export * from './domain/score/factory.js';
-export * from './domain/score/queries.js';
-export * from './domain/score/extract-part.js';
-export * from './domain/score/rehearsal-marks.js';
-export * from './domain/score/cue-notes.js';
-export * from './domain/score/effective-clef.js';
-export * from './domain/score/fermata-tempo.js';
-export * from './domain/score/bar-numbers.js';
-export * from './domain/score/repeat-order.js';
-export * from './domain/score/ottava.js';
-export * from './domain/score/written-pitch.js';
-export * from './domain/generation/replacement-region.js';
-export * from './domain/score/ties.js';
-export * from './domain/score/fragment.js';
-export * from './domain/score/ids.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/selection
-export * from './domain/selection/types.js';
-export * from './domain/selection/selection.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/commands
-export * from './domain/commands/types.js';
-export * from './domain/commands/history.js';
-export * from './domain/commands/snapshot.js';
-export * from './domain/commands/reflow.js';
-export * from './domain/commands/note-commands.js';
-export * from './domain/commands/ripple-commands.js';
-export * from './domain/commands/relocate-commands.js';
-export * from './domain/commands/track-commands.js';
-export * from './domain/commands/structure-commands.js';
-export * from './domain/commands/edit-commands.js';
-export * from './domain/commands/region-commands.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/validation
-export * from './domain/validation/issues.js';
-export * from './domain/validation/validator.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/quantization
-export * from './domain/quantization/options.js';
-export * from './domain/quantization/quantize.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/voicing
-export * from './domain/voicing/allocate.js';
+export * from '@sudobility/music_types';
 
 // domain/time
-export * from './domain/time/fraction.js';
-export * from './domain/time/ticks.js';
-export * from './domain/time/tempo-map.js';
-export * from './domain/time/durations.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/instruments
-export * from './domain/instruments/gm.js';
-export * from './domain/instruments/gm-icon.js';
-export * from './domain/instruments/gm-kit.js';
-export * from './domain/instruments/gm-percussion.js';
-export * from './domain/instruments/track-instrument.js';
-export * from './domain/instruments/gm-range.js';
-export * from './domain/instruments/gm-polyphony.js';
-export * from './domain/instruments/gm-transposition.js';
-export * from './domain/instruments/icon-art.js';
-export * from './domain/time/tuplets.js';
-export * from './domain/score/dynamics.js';
-export * from './domain/notation/music-vocabulary.js';
-export * from './domain/notation/chord-symbol.js';
-export * from './domain/instruments/instrument-options.js';
-export * from './domain/instruments/instrument-fit.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // domain/pitch
-export * from './domain/pitch/pitch.js';
-export * from './domain/pitch/transpose.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
 
 // test fixtures (deterministic score builders — used by downstream test suites)
 export * from './test/fixtures.js';
@@ -128,7 +140,6 @@ export * from './services/playback/types.js';
 export * from './services/playback/plan.js';
 export * from './services/playback/controller.js';
 export * from './services/playback/bus.js';
-export * from './services/regeneration/controller.js';
 
 // store
 export * from './store/context.js';
@@ -144,12 +155,12 @@ export * from './platform/registry.js';
 
 // Pure editing logic, moved out of music_app: none of it touches React, the
 // DOM or layout geometry, so it belongs with the model rather than the UI.
-export * from './domain/notation/lyric-syllables.js';
+export * from '@sudobility/music_types';
 export * from './domain/notation/note-entry.js';
 export * from './domain/notation/pitch-drag.js';
-export * from './domain/time/duration-modifiers.js';
-export * from './domain/time/duration-selection.js';
-export * from './domain/selection/range-select.js';
-export * from './domain/score/snapshot-tree.js';
-export * from './domain/selection/selection-editing.js';
-export * from './domain/time/tap-to-note.js';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';
+export * from '@sudobility/music_types';

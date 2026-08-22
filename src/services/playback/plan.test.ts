@@ -3,7 +3,7 @@ import { twoTrackScore, twinkleScore } from '../../test/fixtures.js';
 import type { Measure, NoteEvent, Score } from '@sudobility/music_types';
 import { playbackPlan, playbackTracks } from './plan.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import { TempoMap } from '../../domain/time/tempo-map.js';
+import { TempoMap } from '@sudobility/music_types';
 
 describe('playbackPlan', () => {
   it('emits every sounding note with its id and track', () => {

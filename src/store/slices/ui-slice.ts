@@ -8,7 +8,7 @@
  * time, so nothing switches between them.
  */
 import type { StateCreator } from 'zustand';
-import { createId } from '../../domain/score/ids.js';
+import { createId } from '@sudobility/music_types';
 import type { DurationName, UUID } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 

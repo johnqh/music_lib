@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createMock2DContext } from '../../test/canvas-stub.js';
 import { strokeInstrumentIcon } from './icon-canvas.js';
-import { ICON_VIEWBOX } from '../../domain/instruments/icon-art.js';
-import type { InstrumentIconArt } from '../../domain/instruments/icon-art.js';
+import { ICON_VIEWBOX } from '@sudobility/music_types';
+import type { InstrumentIconArt } from '@sudobility/music_types';
 
 const ART: InstrumentIconArt = {
   name: 'test',

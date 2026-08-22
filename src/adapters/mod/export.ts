@@ -21,7 +21,7 @@ import type {
   TrackerModule,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 import { TRACKER_LIMITS, type WritableTrackerFormat } from './limits.js';
 
 const DEFAULT_ROWS_PER_BEAT = 4;

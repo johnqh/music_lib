@@ -36,19 +36,16 @@ import type {
   TimeSignature,
   Track,
 } from '@sudobility/music_types';
-import {
-  clefChangesAt,
-  effectiveClef,
-} from '../../domain/score/effective-clef.js';
+import { clefChangesAt, effectiveClef } from '@sudobility/music_types';
 import {
   buildVoiceContent,
   keySignatureToVexSpec,
   pitchToVexKey,
 } from './convert.js';
 import { displayGroups, drumDisplayGroups } from './display-timing.js';
-import { tupletGroups } from '../../domain/time/tuplets.js';
+import { tupletGroups } from '@sudobility/music_types';
 import { isFootDrum } from './percussion.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 import type { NoteMeta } from './convert.js';
 import type { MeasureLayout } from './layout.js';
 

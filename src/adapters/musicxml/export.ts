@@ -25,10 +25,10 @@ import type {
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NotatedDuration } from './duration-map.js';
-import { tupletGroups } from '../../domain/time/tuplets.js';
-import { parseChordSymbol } from '../../domain/notation/chord-symbol.js';
+import { tupletGroups } from '@sudobility/music_types';
+import { parseChordSymbol } from '@sudobility/music_types';
 import { notateDuration } from './duration-map.js';
-import { barNumberAt } from '../../domain/score/bar-numbers.js';
+import { barNumberAt } from '@sudobility/music_types';
 
 /** Escapes the five characters not otherwise safe inside MusicXML element text/attribute values. */
 export function escapeXml(text: string): string {

@@ -34,8 +34,8 @@ import type { createAppStore } from '../../store/useAppStore.js';
  * trade to leave a type dependency pointing back the other way.
  */
 type EditorStoreApi = ReturnType<typeof createAppStore>;
-import { withBase } from '../time/duration-modifiers.js';
-import type { BaseDuration } from '../time/duration-modifiers.js';
+import { withBase } from '@sudobility/music_types';
+import type { BaseDuration } from '@sudobility/music_types';
 
 /** Digit to note value, the numbering every notation editor uses. */
 export const DURATION_DIGITS: Record<string, BaseDuration> = {

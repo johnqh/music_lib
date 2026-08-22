@@ -7,7 +7,7 @@ import {
 } from './fixtures.js';
 import { parseScore } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { allNotes } from '../domain/score/queries.js';
+import { allNotes } from '@sudobility/music_types';
 
 describe('twinkleScore', () => {
   it('is a valid Score with 8 measures on a single piano track', () => {

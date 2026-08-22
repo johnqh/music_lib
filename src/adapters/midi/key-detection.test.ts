@@ -6,7 +6,7 @@ import type {
   Pitch,
   PitchStep,
 } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 
 let counter = 0;
 function noteAt(

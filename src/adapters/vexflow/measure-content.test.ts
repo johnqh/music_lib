@@ -23,7 +23,7 @@ import type {
   Pitch,
   Track,
 } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks.js';
+import { ticksFor } from '@sudobility/music_types';
 
 /**
  * The recorded timing of `events`, as display groups. These tests are about

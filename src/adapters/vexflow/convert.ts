@@ -38,11 +38,11 @@ import type {
   Pitch,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks.js';
-import { decomposeDuration } from '../../domain/time/durations.js';
+import { ticksFor } from '@sudobility/music_types';
+import { decomposeDuration } from '@sudobility/music_types';
 import type { DisplayGroup } from './display-timing.js';
 import { crossHeadStemOffsets, percussionVexKey } from './percussion.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 
 /** `Pitch.accidental` (-2..2) -> VexFlow accidental suffix/code (`''` for natural, no glyph drawn). */
 const ACCIDENTAL_SUFFIX: Record<DomainAccidental, string> = {

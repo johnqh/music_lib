@@ -9,7 +9,7 @@
 import type { StateCreator } from 'zustand';
 import { ApiGenerationProvider, type StoreContext } from '../context.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
-import type { ScoreSelection } from '../../domain/selection/types.js';
+import type { ScoreSelection } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
 export type GenerationMode = 'generate' | 'regenerate';

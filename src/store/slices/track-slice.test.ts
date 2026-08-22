@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testStoreContext } from '../../test/store-context.js';
 import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import { createAppStore } from '../useAppStore.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Score, Track } from '@sudobility/music_types';
 

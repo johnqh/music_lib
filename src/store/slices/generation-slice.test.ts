@@ -25,7 +25,7 @@ const delegatingProvider: MusicGenerationProvider = {
     (injectedProvider ?? defaultFake).regenerateRegion(req, signal),
 };
 import { twinkleScore } from '../../test/fixtures.js';
-import { allNotes } from '../../domain/score/queries.js';
+import { allNotes } from '@sudobility/music_types';
 import type {
   GenerateScoreRequest,
   GenerateScoreResult,

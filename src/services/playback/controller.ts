@@ -16,9 +16,9 @@
  */
 import { libraryMessage } from '../messages.js';
 import type { PlaybackEngine } from './types.js';
-import { scoreEndTick } from '../../domain/score/queries.js';
-import { selectionToRange } from '../../domain/selection/selection.js';
-import type { ScoreRange } from '../../domain/selection/types.js';
+import { scoreEndTick } from '@sudobility/music_types';
+import { selectionToRange } from '@sudobility/music_types';
+import type { ScoreRange } from '@sudobility/music_types';
 import type { Score } from '@sudobility/music_types';
 import { getMusicPlatform } from '../../platform/registry.js';
 import { selectVisibleTrackIds } from '../../store/selectors.js';
@@ -29,7 +29,7 @@ import {
   performanceTickFor,
   sourceTickFor,
   type PerformanceTimeline,
-} from '../../domain/score/performance-timeline.js';
+} from '@sudobility/music_types';
 import { playbackPlan, playbackTracks, resolveVoice } from './plan.js';
 
 /** The store shape this module operates on: same type `useAppStore`/`createAppStore()` produce (matches `features/score-editor/editing.ts`'s `EditorStoreApi`). */

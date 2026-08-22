@@ -4,7 +4,7 @@ import {
   ticksForNotatedType,
   isMusicXmlNoteType,
 } from './duration-map.js';
-import { ticksFor } from '../../domain/time/ticks.js';
+import { ticksFor } from '@sudobility/music_types';
 
 const PPQ = 480;
 

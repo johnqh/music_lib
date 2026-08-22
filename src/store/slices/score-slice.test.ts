@@ -5,9 +5,9 @@ import {
   addMeasureCommand,
   changeMetadataCommand,
   changeTrackPropsCommand,
-} from '../../domain/commands/structure-commands.js';
-import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
-import { validateScore } from '../../domain/validation/validator.js';
+} from '@sudobility/music_types';
+import { deleteEventsCommand } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
 import { twinkleScore } from '../../test/fixtures.js';
 
 describe('score-slice', () => {

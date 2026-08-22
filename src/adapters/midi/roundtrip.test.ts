@@ -10,9 +10,9 @@ import { exportMidi } from './export.js';
 import { importMidi } from './import.js';
 import { analyzeMidi } from './analyze.js';
 import { defaultMidiImportOptions } from './import-options.js';
-import { allNotes } from '../../domain/score/queries.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { validateScore } from '../../domain/validation/validator.js';
+import { allNotes } from '@sudobility/music_types';
+import { pitchToMidi } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
 import type { Score } from '@sudobility/music_types';
 import {
   chordScore,

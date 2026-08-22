@@ -4,8 +4,8 @@
  * and its use here is an explicitly sanctioned exception to the
  * adapters/services "no non-domain library" purity rule.
  */
-import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
-import { flattenScoreNotes } from '../../domain/score/flatten.js';
+import { fermataTempoMap } from '@sudobility/music_types';
+import { flattenScoreNotes } from '@sudobility/music_types';
 import type {
   MidiCodec,
   MidiFile,

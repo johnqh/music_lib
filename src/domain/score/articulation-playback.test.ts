@@ -11,7 +11,7 @@ import type { Articulation, Score } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { twinkleScore } from '../../test/fixtures.js';
 import { playbackPlan } from '../../services/playback/plan.js';
-import { flattenScoreNotes } from './flatten.js';
+import { flattenScoreNotes } from '@sudobility/music_types';
 
 /** Marks every note of the first track, so a whole part plays articulated. */
 function scoreMarked(articulation: Articulation): Score {

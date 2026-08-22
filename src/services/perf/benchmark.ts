@@ -19,14 +19,11 @@
  */
 import { stressScore } from '../../test/fixtures.js';
 import type { MidiCodec, Score } from '@sudobility/music_types';
-import type { ScoreRange } from '../../domain/selection/types.js';
-import { validateScore } from '../../domain/validation/validator.js';
-import { quantizeEvents } from '../../domain/quantization/quantize.js';
-import { allNotes } from '../../domain/score/queries.js';
-import {
-  extractFragment,
-  replaceFragment,
-} from '../../domain/score/fragment.js';
+import type { ScoreRange } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
+import { quantizeEvents } from '@sudobility/music_types';
+import { allNotes } from '@sudobility/music_types';
+import { extractFragment, replaceFragment } from '@sudobility/music_types';
 import { exportMidi } from '../../adapters/midi/export.js';
 import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
 import { createMock2DContext } from '../../test/canvas-stub.js';

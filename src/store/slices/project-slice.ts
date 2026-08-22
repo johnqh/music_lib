@@ -15,7 +15,7 @@
  */
 import { libraryMessage } from '../../services/messages.js';
 import type { StateCreator } from 'zustand';
-import { createEmptyScore } from '../../domain/score/factory.js';
+import { createEmptyScore } from '@sudobility/music_types';
 import type {
   ProjectSaveResult,
   ProjectUpdateRequest,

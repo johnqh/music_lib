@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeMidi } from './analyze.js';
 import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
-import { TempoMap } from '../../domain/time/tempo-map.js';
+import { TempoMap } from '@sudobility/music_types';
 import { appendFileSync } from 'node:fs';
 
 /** Minimal Standard MIDI File writer, so the file's division (ppq) can be chosen. */

@@ -10,14 +10,14 @@ import { describe, expect, it } from 'vitest';
 import type { MidiFile } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { twinkleScore } from '../../test/fixtures.js';
-import { allNotes } from '../../domain/score/queries.js';
+import { allNotes } from '@sudobility/music_types';
 import {
   changeArticulationCommand,
   changeDynamicCommand,
   toggleFermataCommand,
   toggleHairpinCommand,
-} from '../../domain/commands/note-commands.js';
-import { flattenScoreNotes } from '../../domain/score/flatten.js';
+} from '@sudobility/music_types';
+import { flattenScoreNotes } from '@sudobility/music_types';
 import { exportMidi } from './export.js';
 import type { Score } from '@sudobility/music_types';
 

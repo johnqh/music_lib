@@ -7,8 +7,8 @@
  * (e.g. a shorthand full-measure rest).
  */
 import type { DurationName } from '@sudobility/music_types';
-import { decomposeDuration } from '../../domain/time/durations.js';
-import { ticksFor } from '../../domain/time/ticks.js';
+import { decomposeDuration } from '@sudobility/music_types';
+import { ticksFor } from '@sudobility/music_types';
 
 /** MusicXML `<type>` element values this adapter supports (whole down to 32nd; no 64th+ or breve/long). */
 export type MusicXmlNoteType =

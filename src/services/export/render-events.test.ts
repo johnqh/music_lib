@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { playbackPlan } from '../playback/plan.js';
-import { createEmptyScore } from '../../domain/score/factory.js';
-import { addNoteCommand } from '../../domain/commands/note-commands.js';
+import { createEmptyScore } from '@sudobility/music_types';
+import { addNoteCommand } from '@sudobility/music_types';
 import { renderEvents } from './render-events.js';
 import { twinkleScore } from '../../test/fixtures.js';
 import type { Measure, NoteEvent, Pitch, Score } from '@sudobility/music_types';

@@ -17,9 +17,9 @@ const COPY = Object.fromEntries(
     { name: `name:${id}`, description: `desc:${id}` },
   ])
 ) as TemplateCopy;
-import { validateScore } from '../domain/validation/validator.js';
-import { gmKit } from '../domain/instruments/gm-kit.js';
-import { gmInstrument } from '../domain/instruments/gm.js';
+import { validateScore } from '@sudobility/music_types';
+import { gmKit } from '@sudobility/music_types';
+import { gmInstrument } from '@sudobility/music_types';
 
 describe('projectTemplates', () => {
   it('has unique ids, since the picker builds by id', () => {

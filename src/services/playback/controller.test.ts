@@ -5,7 +5,7 @@ import { twinkleScore, twoTrackScore } from '../../test/fixtures.js';
 import {
   addMeasureCommand,
   changeTrackPropsCommand,
-} from '../../domain/commands/structure-commands.js';
+} from '@sudobility/music_types';
 import { createPlaybackController, PlaybackController } from './controller.js';
 import { playbackPlan } from './plan.js';
 import type { PlaybackStoreApi } from './controller.js';

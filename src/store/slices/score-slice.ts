@@ -14,13 +14,13 @@
  * avoid. One store is created for the running app (`useAppStore.ts`), so
  * in practice this is still "the one history manager" spec §37.7 asks for.
  */
-import { HistoryManager } from '../../domain/commands/history.js';
-import type { ScoreCommand } from '../../domain/commands/types.js';
+import { HistoryManager } from '@sudobility/music_types';
+import type { ScoreCommand } from '@sudobility/music_types';
 import type { TransportState } from './playback-slice.js';
 import type { Score } from '@sudobility/music_types';
-import { scoreWithResolvedKits } from '../../domain/instruments/track-instrument.js';
-import { validateScore } from '../../domain/validation/validator.js';
-import type { ValidationIssue } from '../../domain/validation/issues.js';
+import { scoreWithResolvedKits } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
+import type { ValidationIssue } from '@sudobility/music_types';
 import type { StateCreator } from 'zustand';
 import type { AppState } from '../useAppStore.js';
 

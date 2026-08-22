@@ -7,16 +7,16 @@
  * to know where the current selection implies content should land).
  */
 import type { StateCreator } from 'zustand';
-import { allNotes, findEvent } from '../../domain/score/queries.js';
-import { selectionToRange } from '../../domain/selection/selection.js';
-import { emptySelection } from '../../domain/selection/types.js';
-import type { ScoreSelection } from '../../domain/selection/types.js';
+import { allNotes, findEvent } from '@sudobility/music_types';
+import { selectionToRange } from '@sudobility/music_types';
+import { emptySelection } from '@sudobility/music_types';
+import type { ScoreSelection } from '@sudobility/music_types';
 import type { NoteEvent, Score, UUID } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pasteEventsCommand } from '../../domain/commands/edit-commands.js';
-import { deleteEventsCommand } from '../../domain/commands/note-commands.js';
-import { closeGap, makeRoom } from '../../domain/commands/ripple-commands.js';
-import { transformCommand } from '../../domain/commands/snapshot.js';
+import { pasteEventsCommand } from '@sudobility/music_types';
+import { deleteEventsCommand } from '@sudobility/music_types';
+import { closeGap, makeRoom } from '@sudobility/music_types';
+import { transformCommand } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
 export type ClipboardData = { events: NoteEvent[]; anchorTick: number };

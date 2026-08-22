@@ -19,8 +19,8 @@ import { detectKeySignature } from './key-detection.js';
 import { assembleTrackMeasures, buildMeasureSpans } from './measures.js';
 import type { TimeSignatureChange } from './measures.js';
 import type { MidiImportOptions } from './import-options.js';
-import { midiToPitch, pitchToMidi } from '../../domain/pitch/pitch.js';
-import { createId } from '../../domain/score/ids.js';
+import { midiToPitch, pitchToMidi } from '@sudobility/music_types';
+import { createId } from '@sudobility/music_types';
 import type {
   KeySignature,
   NoteEvent,
@@ -29,10 +29,10 @@ import type {
   Track,
 } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import type { QuantizeOptions } from '../../domain/quantization/options.js';
-import { quantizeEvents } from '../../domain/quantization/quantize.js';
-import { ticksFor } from '../../domain/time/ticks.js';
-import { allocateVoices } from '../../domain/voicing/allocate.js';
+import type { QuantizeOptions } from '@sudobility/music_types';
+import { quantizeEvents } from '@sudobility/music_types';
+import { ticksFor } from '@sudobility/music_types';
+import { allocateVoices } from '@sudobility/music_types';
 
 /** The score model's fixed internal PPQ (spec §4/§15: every import is normalized to 480). */
 const SCORE_PPQ = 480;

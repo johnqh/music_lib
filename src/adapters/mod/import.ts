@@ -15,9 +15,9 @@
  *   three sets of measures; a score has no "repeat this pattern", and
  *   inventing one would trade an editable score for a faithful one.
  */
-import { createEmptyScore } from '../../domain/score/factory.js';
-import { createId } from '../../domain/score/ids.js';
-import { midiToPitch } from '../../domain/pitch/pitch.js';
+import { createEmptyScore } from '@sudobility/music_types';
+import { createId } from '@sudobility/music_types';
+import { midiToPitch } from '@sudobility/music_types';
 import { effectiveBpm, tempoChanges } from './timing.js';
 import { fillVoiceWithRests } from './fill.js';
 import type { TrackerCell, TrackerModule } from './types.js';

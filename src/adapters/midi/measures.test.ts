@@ -6,8 +6,8 @@ import {
 } from './measures.js';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { NoteEvent } from '@sudobility/music_types';
-import { validateScore } from '../../domain/validation/validator.js';
-import { createEmptyScore } from '../../domain/score/factory.js';
+import { validateScore } from '@sudobility/music_types';
+import { createEmptyScore } from '@sudobility/music_types';
 
 const PPQ = 480;
 const C_MAJOR = { fifths: 0, mode: 'major' as const };

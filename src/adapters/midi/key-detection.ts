@@ -8,7 +8,7 @@
  * fine") — ambiguous or atonal input has no guaranteed "correct" answer
  * either way.
  */
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { pitchToMidi } from '@sudobility/music_types';
 import type { KeySignature, NoteEvent } from '@sudobility/music_types';
 // Inlined from the deleted services/generation/music-theory.ts (mock stack
 // removed in Phase 2); pitch-class math only.

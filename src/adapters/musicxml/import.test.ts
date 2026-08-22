@@ -4,8 +4,8 @@ import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { importMusicXml } from './import.js';
 import { isNoteEvent, isRestEvent } from '@sudobility/music_types';
 import type { NoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { ticksFor } from '../../domain/time/ticks.js';
+import { pitchToMidi } from '@sudobility/music_types';
+import { ticksFor } from '@sudobility/music_types';
 
 // The mocks parser, not the web one: music_io/web imports music_lib, so
 // reaching for it here would pull this package's own published dist back in

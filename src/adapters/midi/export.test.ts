@@ -2,8 +2,8 @@ import { testMidiCodec } from '../../test/platform.js';
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
 import { exportMidi, safeFilename } from './export.js';
-import { createEmptyScore } from '../../domain/score/factory.js';
-import { createId } from '../../domain/score/ids.js';
+import { createEmptyScore } from '@sudobility/music_types';
+import { createId } from '@sudobility/music_types';
 import type { NoteEvent, Score } from '@sudobility/music_types';
 import {
   chordScore,

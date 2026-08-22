@@ -8,7 +8,7 @@
  */
 import type { StateCreator } from 'zustand';
 import type { PlaybackLoadState } from '@sudobility/music_types';
-import type { ScoreRange } from '../../domain/selection/types.js';
+import type { ScoreRange } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
 export type TransportState = 'stopped' | 'playing' | 'paused';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testStoreContext } from '../test/store-context.js';
 import { createAppStore } from './useAppStore.js';
-import { changeMetadataCommand } from '../domain/commands/structure-commands.js';
+import { changeMetadataCommand } from '@sudobility/music_types';
 import { twinkleScore } from '../test/fixtures.js';
 import type { GenerateScoreRequest } from '@sudobility/music_types';
 
@@ -36,7 +36,7 @@ describe('useAppStore (integration)', () => {
 
     // 10-13. What a finished job hands back: the notes it wrote, marked so
     // the editor colours them as generated material.
-    const { allNotes } = await import('../domain/score/queries.js');
+    const { allNotes } = await import('@sudobility/music_types');
     const written = allNotes(store.getState().score!).slice(0, 2);
     store.getState().selectRegenerated(written.map(n => n.id));
     expect(store.getState().selectionRegenerated).toBe(true);
@@ -48,8 +48,7 @@ describe('useAppStore (integration)', () => {
         e => 'pitch' in e
       )?.id;
     expect(noteId).toBeDefined();
-    const { changeVelocityCommand } =
-      await import('../domain/commands/note-commands.js');
+    const { changeVelocityCommand } = await import('@sudobility/music_types');
     store
       .getState()
       .dispatchCommand(

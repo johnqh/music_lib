@@ -24,7 +24,7 @@ import {
   type RegenerateRegionResult,
   type Score,
 } from '@sudobility/music_types';
-import { createEmptyScore } from '../domain/score/factory.js';
+import { createEmptyScore } from '@sudobility/music_types';
 import type { PrefsStorage, StoreContext } from '../store/context.js';
 
 /**

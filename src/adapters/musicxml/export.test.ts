@@ -6,9 +6,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { escapeXml, exportMusicXml, safeFilename } from './export.js';
-import { createId } from '../../domain/score/ids.js';
+import { createId } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
+import { measureDurationTicks, ticksFor } from '@sudobility/music_types';
 import {
   chordScore,
   twinkleScore,

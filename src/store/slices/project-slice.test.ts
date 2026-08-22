@@ -5,7 +5,7 @@
  * Timers are faked; Date stays real (no fake-indexeddb constraints anymore).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addMeasureCommand } from '../../domain/commands/structure-commands.js';
+import { addMeasureCommand } from '@sudobility/music_types';
 import { testStoreContext } from '../../test/store-context.js';
 import { threeTrackScore } from '../../test/fixtures.js';
 import { createAppStore } from '../useAppStore.js';

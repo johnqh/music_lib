@@ -9,7 +9,7 @@
  * That has no opinion about *where* the break falls, and a turn in the middle
  * of a phrase costs a real player a hand.
  */
-import { isSilentMeasure } from '../../domain/score/collapse-rests.js';
+import { isSilentMeasure } from '@sudobility/music_types';
 import type { Measure, Track } from '@sudobility/music_types';
 import type { LayoutPlan, SystemLayout } from './layout.js';
 

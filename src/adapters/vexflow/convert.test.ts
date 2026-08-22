@@ -6,7 +6,7 @@ import type {
   Pitch,
   RestEvent,
 } from '@sudobility/music_types';
-import { ticksFor } from '../../domain/time/ticks.js';
+import { ticksFor } from '@sudobility/music_types';
 import {
   buildVoiceContent,
   groupSimultaneous,

@@ -15,7 +15,7 @@ import {
   twinkleScore,
   twoTrackScore,
 } from '../../test/fixtures.js';
-import { allNotes } from '../../domain/score/queries.js';
+import { allNotes } from '@sudobility/music_types';
 import type { Score } from '@sudobility/music_types';
 
 const THEME: RenderTheme = testRenderTheme();

@@ -9,11 +9,8 @@ import {
   ICON_STROKE_WIDTH,
   ICON_VIEWBOX,
   parseIconPath,
-} from '../../domain/instruments/icon-art.js';
-import type {
-  IconShape,
-  InstrumentIconArt,
-} from '../../domain/instruments/icon-art.js';
+} from '@sudobility/music_types';
+import type { IconShape, InstrumentIconArt } from '@sudobility/music_types';
 
 function appendShape(ctx: CanvasRenderingContext2D, shape: IconShape): void {
   if (shape.kind === 'circle') {

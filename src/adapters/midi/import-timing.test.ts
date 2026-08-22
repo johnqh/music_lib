@@ -14,7 +14,7 @@ import { Midi } from '@tonejs/midi';
 import { analyzeMidi } from './analyze.js';
 import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
-import { TempoMap } from '../../domain/time/tempo-map.js';
+import { TempoMap } from '@sudobility/music_types';
 
 const BPM = 120;
 const SECONDS_PER_BEAT = 60 / BPM;

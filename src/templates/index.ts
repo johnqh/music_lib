@@ -15,9 +15,9 @@
  * — the same rule the track editor follows.
  */
 import type { Score, Track } from '@sudobility/music_types';
-import { createEmptyScore } from '../domain/score/factory.js';
-import { gmInstrument } from '../domain/instruments/gm.js';
-import { gmKitAt } from '../domain/instruments/gm-kit.js';
+import { createEmptyScore } from '@sudobility/music_types';
+import { gmInstrument } from '@sudobility/music_types';
+import { gmKitAt } from '@sudobility/music_types';
 import { chordScore, twinkleScore, twoTrackScore } from '../test/fixtures.js';
 
 export type ProjectTemplate = {

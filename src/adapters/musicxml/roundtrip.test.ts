@@ -12,11 +12,11 @@ import { describe, expect, it } from 'vitest';
 import { TEST_MUSICXML_WARNINGS } from '../../test/musicxml-warnings.js';
 import { exportMusicXml } from './export.js';
 import { importMusicXml } from './import.js';
-import { createId } from '../../domain/score/ids.js';
+import { createId } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Score, Track } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { allNotes } from '../../domain/score/queries.js';
+import { pitchToMidi } from '@sudobility/music_types';
+import { allNotes } from '@sudobility/music_types';
 import {
   changeArticulationCommand,
   changeOrnamentCommand,
@@ -30,17 +30,17 @@ import {
   toggleFermataCommand,
   toggleHairpinCommand,
   toggleSlurCommand,
-} from '../../domain/commands/note-commands.js';
+} from '@sudobility/music_types';
 import {
   changeBarlineCommand,
   changeMeasureClefCommand,
   changeRepeatsCommand,
   setPickupCommand,
-} from '../../domain/commands/structure-commands.js';
-import { barNumberAt } from '../../domain/score/bar-numbers.js';
-import { repeatPlayOrder } from '../../domain/score/repeat-order.js';
-import { measureDurationTicks, ticksFor } from '../../domain/time/ticks.js';
-import { validateScore } from '../../domain/validation/validator.js';
+} from '@sudobility/music_types';
+import { barNumberAt } from '@sudobility/music_types';
+import { repeatPlayOrder } from '@sudobility/music_types';
+import { measureDurationTicks, ticksFor } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
 import {
   chordScore,
   twinkleScore,

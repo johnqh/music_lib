@@ -23,13 +23,13 @@ import {
   changeClefCommand,
   changeTrackPropsCommand,
   deleteTrackCommand,
-} from '../../domain/commands/structure-commands.js';
-import { changeMetadataCommand } from '../../domain/commands/structure-commands.js';
+} from '@sudobility/music_types';
+import { changeMetadataCommand } from '@sudobility/music_types';
 import {
   changeInstrumentCommand,
   fitShiftForInstrument,
-} from '../../domain/instruments/instrument-fit.js';
-import { instrumentChoiceFor } from '../../domain/instruments/instrument-options.js';
+} from '@sudobility/music_types';
+import { instrumentChoiceFor } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
 /** The mixing properties, which stay editable while the transport plays. */

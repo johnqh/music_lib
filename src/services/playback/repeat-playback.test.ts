@@ -3,8 +3,8 @@
  * performance position back to the written bar it came from.
  */
 import { describe, expect, it } from 'vitest';
-import { changeRepeatsCommand } from '../../domain/commands/structure-commands.js';
-import { sourceTickFor } from '../../domain/score/performance-timeline.js';
+import { changeRepeatsCommand } from '@sudobility/music_types';
+import { sourceTickFor } from '@sudobility/music_types';
 import { twinkleScore } from '../../test/fixtures.js';
 import { playbackPlan } from './plan.js';
 

@@ -9,8 +9,8 @@
  * Pure arithmetic over an event list: no score model, no bytes, and every
  * tracker format's importer gets it for free.
  */
-import { decomposeDuration } from '../../domain/time/durations.js';
-import { createId } from '../../domain/score/ids.js';
+import { decomposeDuration } from '@sudobility/music_types';
+import { createId } from '@sudobility/music_types';
 import type { MusicalEvent, NoteEvent, UUID } from '@sudobility/music_types';
 
 /**

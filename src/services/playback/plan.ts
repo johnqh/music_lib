@@ -17,17 +17,17 @@ import type {
   PlaybackTrack,
   Score,
 } from '@sudobility/music_types';
-import { TempoMap } from '../../domain/time/tempo-map.js';
+import { TempoMap } from '@sudobility/music_types';
 import {
   performanceTimeline,
   type PerformanceTimeline,
-} from '../../domain/score/performance-timeline.js';
-import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
-import { flattenScoreNotes } from '../../domain/score/flatten.js';
-import { beatBoundaries } from '../../domain/time/ticks.js';
-import { gmInstrument } from '../../domain/instruments/gm.js';
-import { gmKitAt } from '../../domain/instruments/gm-kit.js';
-import { isPercussionTrack } from '../../domain/instruments/track-instrument.js';
+} from '@sudobility/music_types';
+import { fermataTempoMap } from '@sudobility/music_types';
+import { flattenScoreNotes } from '@sudobility/music_types';
+import { beatBoundaries } from '@sudobility/music_types';
+import { gmInstrument } from '@sudobility/music_types';
+import { gmKitAt } from '@sudobility/music_types';
+import { isPercussionTrack } from '@sudobility/music_types';
 
 /**
  * The GM voice a program addresses.

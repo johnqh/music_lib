@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { trackerToScore } from './import.js';
 import { isNoteEvent } from '@sudobility/music_types';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
-import { validateScore } from '../../domain/validation/validator.js';
-import { allNotes } from '../../domain/score/queries.js';
+import { pitchToMidi } from '@sudobility/music_types';
+import { validateScore } from '@sudobility/music_types';
+import { allNotes } from '@sudobility/music_types';
 import type { TrackerCell, TrackerModule } from './types.js';
 import type { Score } from '@sudobility/music_types';
 

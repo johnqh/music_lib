@@ -6,9 +6,9 @@
  * — which tracks sound, when each note starts, how long the file has to be —
  * is decided here, where it can be tested without a browser.
  */
-import { TempoMap } from '../../domain/time/tempo-map.js';
-import { fermataTempoMap } from '../../domain/score/fermata-tempo.js';
-import { flattenScoreNotes } from '../../domain/score/flatten.js';
+import { TempoMap } from '@sudobility/music_types';
+import { fermataTempoMap } from '@sudobility/music_types';
+import { flattenScoreNotes } from '@sudobility/music_types';
 import { resolveVoice } from '../playback/plan.js';
 import type { Score } from '@sudobility/music_types';
 

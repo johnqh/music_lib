@@ -5,10 +5,10 @@ import { exportMidi } from './export.js';
 import { importMidi } from './import.js';
 import { defaultMidiImportOptions } from './import-options.js';
 import { analyzeMidi } from './analyze.js';
-import { validateScore } from '../../domain/validation/validator.js';
+import { validateScore } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
-import { allNotes } from '../../domain/score/queries.js';
-import { pitchToMidi } from '../../domain/pitch/pitch.js';
+import { allNotes } from '@sudobility/music_types';
+import { pitchToMidi } from '@sudobility/music_types';
 import {
   chordScore,
   twinkleScore,
