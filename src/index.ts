@@ -21,6 +21,16 @@ export * from '@sudobility/music_types';
   drift.
 */
 export * from '@sudobility/music_codecs';
+/*
+  The renderer lives in `@sudobility/music_drawing` and is re-exported here.
+
+  It was `src/adapters/vexflow/` — 8,400 lines that depended on nothing in this
+  package, only on the model and on VexFlow. Splitting it out means the print
+  view and the public score page can draw a score without pulling in a store,
+  a network client and an audio engine, and it keeps this package from having
+  to carry a rendering engine in order to offer business logic.
+*/
+export * from '@sudobility/music_drawing';
 
 /**
  * @sudobility/music_lib — Moosiac business logic.
@@ -109,16 +119,6 @@ export * from '@sudobility/music_types';
 export * from './test/fixtures.js';
 export * from './test/store-context.js';
 export * from './test/canvas-stub.js';
-
-// adapters/vexflow
-export * from './adapters/vexflow/types.js';
-export * from './adapters/vexflow/measure-content.js';
-export * from './adapters/vexflow/convert.js';
-export * from './adapters/vexflow/layout.js';
-export * from './adapters/vexflow/pagination.js';
-export * from './adapters/vexflow/playhead.js';
-export * from './adapters/vexflow/canvas-renderer.js';
-export * from './adapters/vexflow/note-color.js';
 
 // services
 export * from './services/errors.js';

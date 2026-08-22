@@ -84,15 +84,18 @@ describe('music_lib is platform-free', () => {
     /*
       Pinned exactly, so a platform package cannot arrive unnoticed.
 
-      `music_codecs` is a sibling, not a platform: it is the note-file
-      encoders and decoders, which this package used to carry its own copy of.
+      `music_codecs` and `music_drawing` are siblings, not platforms: the
+      note-file codecs and the canvas renderer, both of which this package used
+      to carry its own copy of. **`vexflow` is gone entirely** — it left with
+      the renderer, so a consumer that only wants business logic no longer
+      installs a drawing engine.
       Both it and `music_types` are free of anything platform-shaped by their
       own guard tests, so depending on them cannot smuggle one in here.
     */
     expect(Object.keys(dependencies).sort()).toEqual([
       '@sudobility/music_codecs',
+      '@sudobility/music_drawing',
       'immer',
-      'vexflow',
       'zod',
     ]);
   });

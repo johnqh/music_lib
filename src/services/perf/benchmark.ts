@@ -25,9 +25,9 @@ import { quantizeEvents } from '@sudobility/music_types';
 import { allNotes } from '@sudobility/music_types';
 import { extractFragment, replaceFragment } from '@sudobility/music_types';
 import { exportMidi } from '@sudobility/music_codecs';
-import { CanvasScoreRenderer } from '../../adapters/vexflow/canvas-renderer.js';
+import { CanvasScoreRenderer } from '@sudobility/music_drawing';
 import { createMock2DContext } from '../../test/canvas-stub.js';
-import type { RenderTheme } from '../../adapters/vexflow/types.js';
+import type { RenderTheme } from '@sudobility/music_drawing';
 
 export type BenchmarkSize = { trackCount: number; measureCount: number };
 

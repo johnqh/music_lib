@@ -16,7 +16,7 @@ import type {
   Track,
 } from '@sudobility/music_types';
 import { measureDurationTicks, ticksFor } from '@sudobility/music_types';
-import type { RenderTheme } from '../adapters/vexflow/types.js';
+import type { RenderTheme } from '@sudobility/music_drawing';
 import type { DurationName } from '@sudobility/music_types';
 
 const FIXED_TIMESTAMP = '2024-01-01T00:00:00.000Z';
