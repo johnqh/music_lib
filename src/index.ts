@@ -141,3 +141,15 @@ export * from './store/selectors.js';
 
 // platform
 export * from './platform/registry.js';
+
+// Pure editing logic, moved out of music_app: none of it touches React, the
+// DOM or layout geometry, so it belongs with the model rather than the UI.
+export * from './domain/notation/lyric-syllables.js';
+export * from './domain/notation/note-entry.js';
+export * from './domain/notation/pitch-drag.js';
+export * from './domain/time/duration-modifiers.js';
+export * from './domain/time/duration-selection.js';
+export * from './domain/selection/range-select.js';
+export * from './domain/score/snapshot-tree.js';
+export * from './domain/selection/selection-editing.js';
+export * from './domain/time/tap-to-note.js';
