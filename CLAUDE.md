@@ -55,7 +55,7 @@ Everything exports from `src/index.ts` (package root import only).
 - **`computeLayout` is 28.8ms at 200 tracks x 200 bars and that is left alone deliberately.** It materialises a box per (track, measure) — 40,000 objects — but it is cached by `planFor` and a React memo, so it runs on a score, zoom, width or track-set change and never per frame. Reshaping `LayoutPlan` into derived accessors would break five call sites across music_lib and music_app to save a one-off; measure before deciding it is worth that.
 
 - **`ScoreCommand` declares `kind: 'content' | 'mix'`, and it is required.** Content is immutable while the transport plays: `score-slice`'s `dispatchCommand`/`undo`/`redo` refuse it. Mixing — volume, pan, mute, solo — is exempt and reaches the engine live through `applyMix`. `changeTrackPropsCommand` carries a partial patch and serves both, so it classifies from its own patch (mix only if *every* key is); every other factory inherits `'content'` from `snapshotCommand`. Required rather than optional so a command written later without thinking about the lock is refused rather than admitted — the typecheck caught a hand-rolled literal in `history.test.ts` the moment it landed.
-- **`PlaybackController.handleScoreChange` has exactly two branches, and the lock is what allows the first.** Playing → `engine.applyMix(score)`, no reload, no reschedule. Otherwise → load the score. It used to be a stop-reload-seek-resume cycle with `pendingResume` and `scoreChangeGeneration` deciding which of several in-flight calls owned the resume; all of that existed to make a burst of edits during playback safe, and editing during playback is now refused. **If the lock is ever loosened, that code has to come back** — the no-reload branch is only sound because a content change cannot have happened.
+- **`IMusicPlayer.load` has exactly two branches, and the lock is what allows the first.** Playing → `applyMix(tracks)`, no reload, no reschedule. Otherwise → build a plan and load it. It used to be a stop-reload-seek-resume cycle with `pendingResume` and `scoreChangeGeneration` deciding which of several in-flight calls owned the resume; all of that existed to make a burst of edits during playback safe, and editing during playback is now refused. **If the lock is ever loosened, that code has to come back** — the no-reload branch is only sound because a content change cannot have happened. The branch itself lives in `@sudobility/music_player` now; this package's edit lock is still what makes it sound, which is why it is documented here as well as there.
 
 - **`Track.midiProgram` means two different things, and `track-instrument.ts`
   is the only place that knows which.** On a percussion-clef track it addresses
@@ -100,12 +100,25 @@ Everything exports from `src/index.ts` (package root import only).
   and `new Worker(new URL(..., import.meta.url))` in two services — and neither
   Node nor Vite nor this suite objected. Anything environment-shaped is now
   injected by the app: `setErrorLogging` for dev-only console output.
-- **Platform services arrive two different ways.** Playback is a long-lived
-  singleton reached through a module import, so it comes from the registry
-  (`initializeMusicPlatform` / `getMusicPlatform`); `playbackController`'s lazy
-  Proxy resolves the engine on first use, which is why every call site kept
-  working when the engine moved out. Everything stateless — `XmlParser`,
-  `MidiCodec` — is a function or constructor parameter instead, so those stay
+- **Playback is bound to the store by an adapter, and the sound lives
+  elsewhere.** `services/playback/adapter.ts` is what remains of
+  `PlaybackController` after the engines, the transport and plan building moved
+  to `@sudobility/music_player`. What stayed is everything that reads or writes
+  editing state — the score subscription, the visible tracks, the selection and
+  the caret — because a copy of the caret inside the player would be a second
+  thing that can disagree with the first. So the player exposes primitives
+  (`play`, `seek`, `setLoop`) and the adapter composes the score- and
+  selection-aware operations: `togglePlay`, `seekToMeasure`, `previousMeasure`,
+  `nextMeasure`, `setLoopFromSelection`.
+- **This package imports `music_player` only through `/core`.** The root export
+  resolves to the web entry, which constructs a synth; `/core` is the
+  platform-free half — the interface, the singleton, the engine contract and the
+  plan builders. `no-platform-imports.test.ts` asserts it, because a bare root
+  import would make this package's own platform-free guarantee false. The old
+  `platform/registry.ts` is gone: it existed to hold the playback engine, which
+  now has its own singleton.
+- **Everything stateless is still a parameter.** `XmlParser` and the codecs are
+  function or constructor arguments rather than registry entries, so those stay
   testable with no global setup.
 - **`vexflow` stays here** because it is not actually platform-bound: the canvas
   renderer draws into a 2D context the caller supplies, and was verified to

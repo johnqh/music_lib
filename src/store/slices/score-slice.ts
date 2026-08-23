@@ -53,7 +53,7 @@ export type ScoreSlice = {
  * `applyMix`, and muting a part while listening is how an arrangement gets
  * listened to, not editing.
  *
- * This is load-bearing for `services/playback/controller.ts`: its "score
+ * This is load-bearing for `services/playback/adapter.ts`: its "score
  * changed while playing" branch pushes mix state to the engine and does *not*
  * reload, which is only sound because this guarantees a content change cannot
  * have happened. Loosening the rule here without revisiting that will silently

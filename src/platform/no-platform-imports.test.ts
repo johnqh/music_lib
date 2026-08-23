@@ -92,13 +92,44 @@ describe('music_lib is platform-free', () => {
       installs a drawing engine.
       Both it and `music_types` are free of anything platform-shaped by their
       own guard tests, so depending on them cannot smuggle one in here.
+
+      `music_player` *does* carry engines — an `AudioWorklet` on the web, native
+      audio on React Native — which is why this package imports it only through
+      its `/core` subpath: the interface, the singleton and the pure plan
+      builders, with nothing that makes a sound. Importing its root would
+      resolve to the web entry and make this assertion false. That is asserted
+      directly below.
     */
     expect(Object.keys(dependencies).sort()).toEqual([
       '@sudobility/music_codecs',
       '@sudobility/music_drawing',
+      '@sudobility/music_player',
       'immer',
       'zod',
     ]);
+  });
+
+  /**
+   * The engines live behind a subpath, and this package must not reach past it.
+   *
+   * `@sudobility/music_player`'s root export resolves to the web entry (or the
+   * React Native one under Metro), both of which construct a synth. `/core` is
+   * the platform-free half: the interface, the singleton and the pure plan
+   * builders. A bare root import here would put an `AudioWorklet` in a package
+   * whose whole point is that it has none.
+   */
+  it('imports music_player only through its platform-free /core subpath', () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles('src')) {
+      const text = readFileSync(file, 'utf8');
+      if (
+        text.includes("from '@sudobility/music_player'") ||
+        text.includes('from "@sudobility/music_player"')
+      ) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it('touches no web-only global outside the canvas renderer, which is handed its context', () => {

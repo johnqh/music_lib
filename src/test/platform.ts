@@ -10,12 +10,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { XmlParseError } from '@sudobility/music_types';
-import type {
-  PlaybackEngine,
-  ScoreRange,
-  XmlElement,
-  XmlParser,
-} from '@sudobility/music_types';
+import type { XmlElement, XmlParser } from '@sudobility/music_types';
 
 /**
  * A real XML parser, via jsdom.
@@ -43,33 +38,4 @@ export function testXmlParser(): XmlParser {
       return root as unknown as XmlElement;
     },
   };
-}
-
-/**
- * A playback engine that does nothing.
- *
- * The registry tests only check that what goes in comes back out, so identity
- * is the whole contract — but it has to satisfy the interface, or the registry
- * would be typed against something no real engine resembles.
- */
-export function testPlaybackEngine(): PlaybackEngine {
-  return {
-    initialize: async () => {},
-    load: async () => {},
-    play: async () => {},
-    pause: () => {},
-    stop: () => {},
-    seek: () => {},
-    setTempoMultiplier: () => {},
-    setLoop: (_range: ScoreRange | null) => {},
-    setTrackMute: () => {},
-    setTrackSolo: () => {},
-    applyMix: () => {},
-    setMetronome: () => {},
-    setMasterVolume: () => {},
-    noteOn: () => {},
-    noteOff: () => {},
-    setObserver: () => {},
-    dispose: () => {},
-  } as unknown as PlaybackEngine;
 }

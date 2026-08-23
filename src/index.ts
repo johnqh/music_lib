@@ -121,18 +121,14 @@ export * from './test/store-context.js';
 export * from './test/canvas-stub.js';
 
 // services
+export * from './services/playback/adapter.js';
+/** Re-exported so the app's React bindings and their tests reach one bus type. */
+export { PlaybackBus } from '@sudobility/music_player/core';
 export * from './services/errors.js';
 export * from './services/messages.js';
-export * from './services/import-export/musicxml-service.js';
-export * from './services/export/render-events.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
-export * from './services/playback/types.js';
-export * from './services/playback/plan.js';
-export * from './services/playback/controller.js';
-export * from './services/playback/bus.js';
-export * from './services/position/music-position.js';
-export * from './services/position/singleton.js';
+
 export * from './services/selection/singleton.js';
 
 // store
@@ -145,7 +141,6 @@ export * from './store/useAppStore.js';
 export * from './store/selectors.js';
 
 // platform
-export * from './platform/registry.js';
 
 // Pure editing logic, moved out of music_app: none of it touches React, the
 // DOM or layout geometry, so it belongs with the model rather than the UI.
