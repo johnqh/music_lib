@@ -18,7 +18,7 @@
  * diagnostic JSON" download.
  */
 import { stressScore } from '../../test/fixtures.js';
-import type { MidiCodec, Score } from '@sudobility/music_types';
+import type { Score } from '@sudobility/music_types';
 import type { ScoreRange } from '@sudobility/music_types';
 import { validateScore } from '@sudobility/music_types';
 import { quantizeEvents } from '@sudobility/music_types';
@@ -113,10 +113,7 @@ function representativeRange(score: Score): ScoreRange {
 }
 
 /** Benchmarks every perf-relevant operation named in the Task 17 brief against one `stressScore(size.trackCount, size.measureCount)`. */
-function benchmarkSize(
-  size: BenchmarkSize,
-  codec: MidiCodec
-): BenchmarkSizeReport {
+function benchmarkSize(size: BenchmarkSize): BenchmarkSizeReport {
   const score = stressScore(size.trackCount, size.measureCount);
   const timings: BenchmarkTiming[] = [];
 
@@ -142,7 +139,7 @@ function benchmarkSize(
   );
   timings.push({ name: 'replaceFragment', ms: replaceTiming.ms });
 
-  const exportTiming = time(() => exportMidi(score, codec));
+  const exportTiming = time(() => exportMidi(score));
   timings.push({ name: 'exportMidi', ms: exportTiming.ms });
 
   // Canvas renderer (windowed): timed against the recording mock context, so
@@ -196,12 +193,11 @@ function benchmarkSize(
  * meaningful relative to the machine/run they were captured on.
  */
 export function runBenchmark(
-  codec: MidiCodec,
   sizes: BenchmarkSize[] = DEFAULT_BENCHMARK_SIZES
 ): BenchmarkReport {
   return {
     generatedAt: new Date().toISOString(),
-    sizes: sizes.map(size => benchmarkSize(size, codec)),
+    sizes: sizes.map(size => benchmarkSize(size)),
   };
 }
 

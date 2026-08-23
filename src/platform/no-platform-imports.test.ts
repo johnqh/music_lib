@@ -6,11 +6,12 @@ import { join } from 'node:path';
  * Every shipped source file.
  *
  * `src/test/` is excluded because it is scaffolding: the build leaves it out,
- * and it is where the test doubles live — including a real MIDI codec, which
- * these tests need to round-trip bytes and which is the one legitimate
- * `@tonejs/midi` import in the package. Excluding it is what let music_lib stop
- * borrowing those doubles from `@sudobility/music_io`, a platform package it
- * has no business depending on even for tests.
+ * and it is where the test doubles live. It used to hold a hand-copied MIDI
+ * codec — the one legitimate `@tonejs/midi` import in the package — because
+ * the only real one sat in `@sudobility/music_io`, a platform package this one
+ * has no business depending on even for tests. The codec is in
+ * `@sudobility/music_codecs` now, so there is no MIDI double left to exclude
+ * and `@tonejs/midi` is not a dependency of this package at all.
  *
  * The rules below still cover everything that ships, which is what they are
  * for: keeping a *published* music_lib free of audio, MIDI and the DOM.
