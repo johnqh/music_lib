@@ -34,7 +34,7 @@ import type {
   Score,
   UUID,
 } from '@sudobility/music_types';
-import { isNoteEvent } from '@sudobility/music_types';
+import { createId, isNoteEvent } from '@sudobility/music_types';
 import type { MusicalEvent } from '@sudobility/music_types';
 import type { ScoreSelection } from '@sudobility/music_types';
 import type { ScoreCommand } from '@sudobility/music_types';
@@ -55,8 +55,10 @@ import type {
   Clef,
   Dynamic,
   KeySignature,
+  CollisionMode,
   Measure,
   RelocateNotesParams,
+  ScoreRange,
   TimeSignature,
 } from '@sudobility/music_types';
 import {
@@ -74,12 +76,17 @@ import {
   moveNotesCommand,
   resizeNotesCommand,
   soundingPitchForTrack,
+  trackWrittenTransposition,
+  transposeKeySignature,
+  transposePitch,
 } from '@sudobility/music_types';
 import {
   chordSelection,
   durationForTap,
+  measureAtTick,
   midiToPitch,
   noteIdsInTickRange,
+  noteIdsOverlappingRange,
   pitchToMidi,
 } from '@sudobility/music_types';
 import { selectSelectedNotes } from '../../store/selectors.js';
@@ -101,6 +108,19 @@ function caretTick(): number {
   return getMusicPositionSource().reportedTick;
 }
 import { selectActiveTrackId } from '../../store/selectors.js';
+import { selectVisibleTrackIds } from '../../store/selectors.js';
+import {
+  clipboardSpan,
+  cutNeedsPrompt,
+  pasteNeedsPrompt,
+  prepareRegenerationRequestForRange,
+  replacementRegion,
+  scoreWithTracks,
+} from '@sudobility/music_types';
+import type {
+  RegenerateRegionRequest,
+  ReplaceScope,
+} from '@sudobility/music_types';
 import {
   gmMaxPolyphony,
   insertWithRippleCommand,
@@ -110,6 +130,7 @@ import type { EditMode } from '../../store/slices/ui-slice.js';
 import { ticksFor } from '@sudobility/music_types';
 import {
   addNoteCommand,
+  addTrackCommand,
   changeAccidentalCommand,
   changeArticulationCommand,
   changeDurationCommand,
@@ -290,6 +311,24 @@ export function insertNoteAtCaret(
   // melody instead of overwriting one position.
   if (advanceCaret)
     getMusicPositionSource().moveTo(target.startTick + durationTicks);
+}
+
+/**
+ * The pitch the toolbar's Insert Note action should write.
+ *
+ * It follows the selected note when there is one, because an insert button is
+ * usually used to repeat or vary what is already under the cursor. With no
+ * selected note it falls back to middle C.
+ */
+export function defaultInsertPitch(store: EditorStoreApi): Pitch {
+  const { score, selection } = store.getState();
+  if (score) {
+    for (const id of selection.eventIds) {
+      const event = findEvent(score, id);
+      if (event && isNoteEvent(event)) return event.pitch;
+    }
+  }
+  return { step: 'C', accidental: 0, octave: 4 };
 }
 
 /**
@@ -1207,6 +1246,34 @@ export function selectMeasureRange(
 // ---- the toolbar -------------------------------------------------------------
 
 /**
+ * Adds a blank track and makes it active.
+ *
+ * The toolbar only asks for "blank"; creating the id, dispatching the command,
+ * and selecting the new track are one editing action a second app should not
+ * need to spell out again.
+ */
+export function addBlankTrack(
+  store: EditorStoreApi,
+  name = 'New track'
+): UUID | null {
+  const state = store.getState();
+  if (!state.score || state.state === 'playing') return null;
+
+  const id = createId();
+  dispatchTracked(
+    store,
+    addTrackCommand({ id, name }, commandLabel('addTrack'))
+  );
+
+  const updated = store.getState().score;
+  if (updated && findTrack(updated, id)) {
+    store.getState().setActiveTrack(id);
+    return id;
+  }
+  return null;
+}
+
+/**
  * A note value was chosen.
  *
  * Two things, because choosing a length means both of them: whatever is
@@ -1483,6 +1550,34 @@ export function setDynamic(
 }
 
 /**
+ * The pitch a note should show in the inspector.
+ *
+ * This is the forward half of `setNotePitch`: the score stores sounding pitch,
+ * while the panel may show what the player reads in written-pitch mode.
+ */
+export function displayedPitchForNote(
+  score: Score,
+  note: NoteEvent,
+  pitchDisplay: 'concert' | 'written'
+): Pitch {
+  const track = findTrack(score, note.trackId);
+  const semitones =
+    pitchDisplay === 'written' && track ? trackWrittenTransposition(track) : 0;
+  if (semitones === 0) return note.pitch;
+
+  const key = measureAtTick(score, note.trackId, note.startTick)
+    ?.keySignature ?? {
+    fifths: 0,
+    mode: 'major',
+  };
+  return transposePitch(
+    note.pitch,
+    semitones,
+    transposeKeySignature(key, semitones)
+  );
+}
+
+/**
  * Set a note's pitch from the inspector, inverting the written-pitch lens.
  *
  * The panel shows what is *drawn*; the score stores what *sounds*. On a B-flat
@@ -1683,4 +1778,180 @@ export function setKeySignature(
       )
     );
   }
+}
+
+/**
+ * The collision rule a write uses, from the toolbar's edit mode.
+ *
+ * A drop is a write, so it obeys the mode already set rather than inventing a
+ * rule or asking. `insert` ripples, which is what `insert` means everywhere
+ * else in the editor — the two names differ only because the collision enum
+ * is about what happens to what was already there.
+ */
+export function collisionForEditMode(mode: EditMode): CollisionMode {
+  return mode === 'insert' ? 'ripple' : mode;
+}
+
+/**
+ * Mark what a generation actually wrote, so it colours as new material.
+ *
+ * Found by the region that was asked for rather than by watching the edit: a
+ * job applies server-side, so there is no command to observe. Overlap rather
+ * than containment, because a note that was already sounding into the region
+ * was replaced too.
+ */
+export function selectRegeneratedInRange(
+  store: EditorStoreApi,
+  range: ScoreRange
+): void {
+  const score = store.getState().score;
+  if (!score) return;
+  const written = noteIdsOverlappingRange(score, range);
+  if (written.length > 0) store.getState().selectRegenerated(written);
+}
+
+// ---- generation and export scope ---------------------------------------------
+
+/** What the Replace dialog collects. The region it applies to is derived, not asked for. */
+export type ReplaceSubmission = {
+  instruction: string;
+  style?: string;
+  mood?: string;
+  complexity?: 'simple' | 'moderate' | 'complex';
+  constraints: {
+    preserveBoundaryNotes: boolean;
+    preserveHarmony: boolean;
+    preserveRhythm: boolean;
+    preserveMelody: boolean;
+  };
+};
+
+/** A replacement ready to submit: which kind of job, the request, and the region it will overwrite. */
+export type PreparedReplacement = {
+  kind: 'replace-notes' | 'replace-measures' | 'replace-track';
+  request: RegenerateRegionRequest;
+  range: ScoreRange;
+};
+
+/**
+ * Turn a Replace submission into the request the server actually needs.
+ *
+ * The dialog only collects settings; the region — its tick range, the fragment
+ * being replaced, and the surrounding context the model reads to continue
+ * seamlessly — is derived from the selection and the scope. Sending the
+ * settings alone would leave the server guessing at the part of the score
+ * nobody described.
+ *
+ * `null` when the selection yields no region, which is the honest answer for
+ * "replace the notes" with nothing selected.
+ */
+export function prepareReplacement(
+  store: EditorStoreApi,
+  scope: ReplaceScope,
+  submission: ReplaceSubmission
+): PreparedReplacement | null {
+  const state = store.getState();
+  const current = state.score;
+  if (!current) return null;
+
+  const region = replacementRegion(
+    current,
+    state.selection,
+    selectActiveTrackId(state),
+    scope
+  );
+  if (!region) return null;
+
+  const request = prepareRegenerationRequestForRange(
+    current,
+    region.range,
+    submission.instruction,
+    {
+      measureAligned: region.measureAligned,
+      ...(submission.style ? { style: submission.style } : {}),
+      ...(submission.mood ? { mood: submission.mood } : {}),
+      ...(submission.complexity ? { complexity: submission.complexity } : {}),
+      constraints: submission.constraints,
+    }
+  );
+
+  const kind =
+    scope === 'notes'
+      ? 'replace-notes'
+      : scope === 'measures'
+        ? 'replace-measures'
+        : 'replace-track';
+
+  return { kind, request, range: region.range };
+}
+
+/**
+ * Whether an export has to ask which tracks it covers.
+ *
+ * Only when something is hidden: with every track visible the two answers
+ * produce the same file, and a dialog whose options do the same thing is a
+ * click nobody can get wrong. Same rule the cut and paste prompts follow.
+ */
+export function exportScopeNeedsPrompt(store: EditorStoreApi): boolean {
+  return hiddenTrackCount(store) > 0;
+}
+
+/** How many tracks the score has that the editor is not showing. */
+export function hiddenTrackCount(store: EditorStoreApi): number {
+  const state = store.getState();
+  const score = state.score;
+  if (!score) return 0;
+  return score.tracks.length - selectVisibleTrackIds(state).length;
+}
+
+/** The score an export writes, for the scope the user chose. */
+export function exportTargetScore(
+  store: EditorStoreApi,
+  scope: 'all' | 'visible'
+): Score | null {
+  const state = store.getState();
+  const score = state.score;
+  if (!score) return null;
+  return scope === 'all'
+    ? score
+    : scoreWithTracks(score, [...selectVisibleTrackIds(state)]);
+}
+
+// ---- clipboard ---------------------------------------------------------------
+
+/**
+ * Whether cutting the current selection has to ask "leave silence, or close
+ * the gap?".
+ *
+ * The rule for *not* asking lives in `cutNeedsPrompt`; this is the part that
+ * knows where the selection is. Both halves are here so the UI's only job is
+ * to open a dialog when told to.
+ */
+export function cutWouldPrompt(store: EditorStoreApi): boolean {
+  const state = store.getState();
+  const score = state.score;
+  if (!score) return false;
+  const notes = state.selection.eventIds
+    .map(id => findEvent(score, id))
+    .filter(
+      (event): event is NoteEvent => event !== null && isNoteEvent(event)
+    );
+  if (notes.length === 0) return false;
+  return cutNeedsPrompt(score, notes);
+}
+
+/** The same, for pasting: only when the target span already holds something. */
+export function pasteWouldPrompt(store: EditorStoreApi): boolean {
+  const state = store.getState();
+  const score = state.score;
+  const clipboard = state.clipboard;
+  if (!score || !clipboard || clipboard.events.length === 0) return false;
+  const trackId = selectActiveTrackId(state);
+  if (!trackId) return false;
+  return pasteNeedsPrompt(
+    score,
+    trackId,
+    clipboard.anchorTick,
+    clipboardSpan(clipboard.events)
+  );
 }

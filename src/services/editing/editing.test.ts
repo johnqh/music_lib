@@ -19,6 +19,8 @@ import {
   changeArticulation,
   changeDuration,
   changeVelocity,
+  addBlankTrack,
+  defaultInsertPitch,
   deleteSelected,
   duplicateSelected,
   findAdjacentEventId,
@@ -53,12 +55,20 @@ import {
   setTempoAt,
   setPickup,
   setBarline,
+  displayedPitchForNote,
   setNotePitch,
   moveNoteToTick,
   setDynamic,
   resizeNotes,
   setTimeSignature,
   setKeySignature,
+  selectRegeneratedInRange,
+  collisionForEditMode,
+  prepareReplacement,
+  exportScopeNeedsPrompt,
+  exportTargetScore,
+  cutWouldPrompt,
+  pasteWouldPrompt,
   transposeOctave,
   transposeSemitone,
 } from './editing.js';
@@ -133,6 +143,23 @@ describe('insertNoteAtCaret', () => {
       insertNoteAtCaret(store, { step: 'C', accidental: 0, octave: 4 })
     ).not.toThrow();
     expect(store.getState().score).toBeNull();
+  });
+
+  it('defaultInsertPitch follows the selected note, then falls back to middle C', () => {
+    const store = makeStore();
+    const note = allNotes(store.getState().score!)[0] as NoteEvent;
+    store
+      .getState()
+      .setSelection({ eventIds: [note.id], measureIds: [], trackIds: [] });
+
+    expect(defaultInsertPitch(store)).toEqual(note.pitch);
+
+    store.getState().clearSelection();
+    expect(defaultInsertPitch(store)).toEqual({
+      step: 'C',
+      accidental: 0,
+      octave: 4,
+    });
   });
 });
 
@@ -960,6 +987,17 @@ describe('the toolbar', () => {
     expect(after.durationTicks).toBe(store.getState().score!.ppq / 2);
   });
 
+  it('addBlankTrack creates a track and makes it active', () => {
+    const store = makeStore();
+    const before = store.getState().score!.tracks.length;
+
+    const id = addBlankTrack(store);
+
+    expect(id).toBeTruthy();
+    expect(store.getState().score!.tracks).toHaveLength(before + 1);
+    expect(store.getState().activeTrackId).toBe(id);
+  });
+
   it('chooseEditMode falls back to replace where the track cannot stack', () => {
     // Stacking onto a monophonic part cannot work, and the refusal would only
     // surface after you had already played something.
@@ -1129,6 +1167,23 @@ describe('the inspector', () => {
 });
 
 describe('the note panel', () => {
+  it('displayedPitchForNote shows the written pitch for a transposing part', () => {
+    const store = makeStore();
+    const track = store.getState().score!.tracks[0];
+    store
+      .getState()
+      .dispatchCommand(
+        changeTrackPropsCommand(track.id, { midiProgram: 71 }, 'clarinet')
+      );
+    const score = store.getState().score!;
+    const note = allNotes(score)[0] as NoteEvent;
+
+    expect(displayedPitchForNote(score, note, 'written')).not.toEqual(
+      note.pitch
+    );
+    expect(displayedPitchForNote(score, note, 'concert')).toEqual(note.pitch);
+  });
+
   it('setNotePitch stores the sounding pitch when the panel shows written', () => {
     // On a B-flat clarinet read in written pitch the two differ by a tone, and
     // storing what was typed writes a note that draws right and sounds wrong.
@@ -1241,5 +1296,140 @@ describe('measure signatures', () => {
     setKeySignature(store, [], { fifths: 1, mode: 'minor' });
 
     expect(store.getState().score).toBe(score);
+  });
+});
+
+describe('generated material', () => {
+  it('marks what a generation wrote, including a note it overran', () => {
+    // Found by the region asked for, because a job applies server-side and
+    // there is no command to watch. Overlap, not containment: a note already
+    // sounding into the region was replaced too.
+    const store = makeStore();
+    const track = store.getState().score!.tracks[0];
+    const first = allNotes(store.getState().score!).filter(
+      n => n.trackId === track.id
+    )[0];
+
+    selectRegeneratedInRange(store, {
+      startTick: first.startTick + 1,
+      endTick: first.startTick + 2,
+      trackIds: [track.id],
+    });
+
+    expect(store.getState().selection.eventIds).toContain(first.id);
+  });
+
+  it('marks nothing when the region is on another track', () => {
+    const store = makeStore();
+    const other = store.getState().score!.tracks.at(-1)!;
+    const before = store.getState().selection.eventIds;
+
+    selectRegeneratedInRange(store, {
+      startTick: 0,
+      endTick: 1,
+      trackIds: [`${other.id}-nope`],
+    });
+
+    expect(store.getState().selection.eventIds).toEqual(before);
+  });
+
+  it('collisionForEditMode ripples in insert mode and passes the rest through', () => {
+    expect(collisionForEditMode('insert')).toBe('ripple');
+    expect(collisionForEditMode('replace')).toBe('replace');
+    expect(collisionForEditMode('stack')).toBe('stack');
+  });
+});
+
+describe('replacement and export scope', () => {
+  const submission = () => ({
+    instruction: 'darker',
+    constraints: {
+      preserveBoundaryNotes: false,
+      preserveHarmony: false,
+      preserveRhythm: false,
+      preserveMelody: false,
+    },
+  });
+
+  it('derives the region from the selection rather than asking for it', () => {
+    // The dialog collects settings; sending those alone would leave the server
+    // guessing at the part of the score nobody described.
+    const store = makeStore();
+    const measures = store.getState().score!.tracks[0].measures.slice(0, 2);
+    store.getState().setSelection({
+      eventIds: [],
+      measureIds: measures.map(m => m.id),
+      trackIds: [],
+    });
+
+    const prepared = prepareReplacement(store, 'measures', submission());
+
+    expect(prepared).not.toBeNull();
+    expect(prepared!.kind).toBe('replace-measures');
+    expect(prepared!.range.startTick).toBe(measures[0].startTick);
+    expect(prepared!.request.instruction).toBe('darker');
+  });
+
+  it('answers null when the selection yields no region', () => {
+    // "Replace the notes" with nothing selected has no honest answer.
+    const store = makeStore();
+    store.getState().clearSelection();
+
+    expect(prepareReplacement(store, 'notes', submission())).toBeNull();
+  });
+
+  it('asks about export scope only when something is hidden', () => {
+    // A dialog whose options do the same thing is a click nobody can get
+    // wrong, so it should not appear.
+    const store = makeStore();
+    store.getState().setScore(twoTrackScore());
+    expect(exportScopeNeedsPrompt(store)).toBe(false);
+
+    store.getState().setVisibleTracks([store.getState().score!.tracks[0].id]);
+
+    expect(exportScopeNeedsPrompt(store)).toBe(true);
+  });
+
+  it('narrows the exported score to the visible tracks when asked', () => {
+    const store = makeStore();
+    store.getState().setScore(twoTrackScore());
+    const all = store.getState().score!.tracks.length;
+    store.getState().setVisibleTracks([store.getState().score!.tracks[0].id]);
+
+    expect(exportTargetScore(store, 'all')!.tracks).toHaveLength(all);
+    expect(exportTargetScore(store, 'visible')!.tracks).toHaveLength(1);
+  });
+});
+
+describe('clipboard prompts', () => {
+  it('does not ask to cut when nothing follows on that track', () => {
+    // Sliding the rest of the track up moves nothing, so the two answers
+    // produce identical scores.
+    const store = makeStore();
+    const notes = allNotes(store.getState().score!);
+    const last = notes[notes.length - 1];
+    store
+      .getState()
+      .setSelection({ eventIds: [last.id], measureIds: [], trackIds: [] });
+
+    expect(cutWouldPrompt(store)).toBe(false);
+  });
+
+  it('asks to cut when something follows it', () => {
+    const store = makeStore();
+    const first = allNotes(store.getState().score!)[0];
+    store
+      .getState()
+      .setSelection({ eventIds: [first.id], measureIds: [], trackIds: [] });
+
+    expect(cutWouldPrompt(store)).toBe(true);
+  });
+
+  it('does not ask with an empty selection or an empty clipboard', () => {
+    const store = makeStore();
+    store.getState().clearSelection();
+
+    expect(cutWouldPrompt(store)).toBe(false);
+    expect(pasteWouldPrompt(store)).toBe(false);
   });
 });

@@ -35,85 +35,10 @@ export * from '@sudobility/music_drawing';
 /**
  * @sudobility/music_lib — Moosiac business logic.
  *
- * Domain layer (framework-free): score model factories/queries, undoable
- * commands + history, validation, quantization, voice allocation,
- * selection helpers, time/pitch math. Types and schemas come from
- * @sudobility/music_types (re-exported by the relevant modules for
- * convenience). Adapters (VexFlow/Tone/MIDI/MusicXML), services, and the
- * Zustand store are exported from here as well (added incrementally).
+ * Domain primitives, codecs and drawing are re-exported above so existing app
+ * imports keep working. The exports below are the library-owned services,
+ * store helpers and app-independent editing facades.
  */
-
-// domain/score
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/selection
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/commands
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/validation
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/quantization
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/voicing
-export * from '@sudobility/music_types';
-
-// domain/time
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/instruments
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-
-// domain/pitch
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
 
 // test fixtures (deterministic score builders — used by downstream test suites)
 export * from './test/fixtures.js';
@@ -128,6 +53,8 @@ export * from './services/errors.js';
 export * from './services/messages.js';
 export * from './services/editing/copy.js';
 export * from './services/editing/editing.js';
+export * from './services/editing/shortcuts.js';
+export * from './services/generation/request.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 
@@ -146,12 +73,5 @@ export * from './store/selectors.js';
 
 // Pure editing logic, moved out of music_app: none of it touches React, the
 // DOM or layout geometry, so it belongs with the model rather than the UI.
-export * from '@sudobility/music_types';
 export * from './domain/notation/note-entry.js';
 export * from './domain/notation/pitch-drag.js';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
-export * from '@sudobility/music_types';
