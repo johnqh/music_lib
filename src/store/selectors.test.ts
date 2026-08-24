@@ -3,7 +3,7 @@ import { testStoreContext } from '../test/store-context.js';
 import { createAppStore } from './useAppStore.js';
 import {
   selectActiveTrackId,
-  selectCurrentMeasureBeat,
+  measureBeatAt,
   selectSelectedMeasureRange,
   selectSelectedMeasures,
   selectSelectedNoteCount,
@@ -69,39 +69,33 @@ describe('selectors', () => {
     });
   });
 
-  describe('selectCurrentMeasureBeat', () => {
+  describe('measureBeatAt', () => {
+    // A pure reading of (score, tick) rather than a store selector: the
+    // position is one shared value held outside the store, so there is no
+    // state pair to memoize on and nothing to keep in step.
     it('is null with no score', () => {
-      const store = createAppStore({ context: testStoreContext() });
-      expect(selectCurrentMeasureBeat(store.getState())).toBeNull();
+      expect(measureBeatAt(null, 0)).toBeNull();
     });
 
     it('reports 1-based measure/beat at tick 0', () => {
-      const store = createAppStore({ context: testStoreContext() });
-      store.getState().setScore(twinkleScore());
-      expect(selectCurrentMeasureBeat(store.getState())).toEqual({
+      expect(measureBeatAt(twinkleScore(), 0)).toEqual({
         measureIndex: 1,
         beat: 1,
       });
     });
 
     it('reports the correct measure/beat partway through the score (480 ppq, 4/4 => 480 ticks/beat, 1920/measure)', () => {
-      const store = createAppStore({ context: testStoreContext() });
-      store.getState().setScore(twinkleScore());
-      store.getState().setCaretTick(1920 + 480 * 2); // measure 2, beat 3
-      expect(selectCurrentMeasureBeat(store.getState())).toEqual({
+      expect(measureBeatAt(twinkleScore(), 1920 + 480 * 2)).toEqual({
         measureIndex: 2,
         beat: 3,
       });
     });
 
-    it('clamps to the last measure when positionTick is past the end of the score', () => {
-      const store = createAppStore({ context: testStoreContext() });
+    it('clamps to the last measure when the tick is past the end of the score', () => {
       const score = twinkleScore();
-      store.getState().setScore(score);
-      store.getState().setCaretTick(1_000_000);
       const lastMeasure =
         score.tracks[0].measures[score.tracks[0].measures.length - 1];
-      expect(selectCurrentMeasureBeat(store.getState())!.measureIndex).toBe(
+      expect(measureBeatAt(score, 1_000_000)!.measureIndex).toBe(
         lastMeasure.index + 1
       );
     });
@@ -144,18 +138,14 @@ describe('selectors', () => {
       expect(third).not.toBe(first);
     });
 
-    it('selectCurrentMeasureBeat returns the same object reference across repeated calls with unchanged inputs, and a new one once positionTick changes', () => {
-      const store = createAppStore({ context: testStoreContext() });
-      store.getState().setScore(twinkleScore());
-      store.getState().setCaretTick(480);
-
-      const first = selectCurrentMeasureBeat(store.getState());
-      const second = selectCurrentMeasureBeat(store.getState());
-      expect(second).toBe(first);
-
-      store.getState().setCaretTick(960);
-      const third = selectCurrentMeasureBeat(store.getState());
-      expect(third).not.toBe(first);
+    it('measureBeatAt reads the tick it is handed, so nothing has to be kept in step', () => {
+      // This used to assert reference stability, because the reading was a
+      // memoized selector over a store field and anything reading it high in
+      // the tree re-rendered on every store change. It is not in the store at
+      // all now: the one readout that wants it subscribes to the position.
+      const score = twinkleScore();
+      expect(measureBeatAt(score, 480)).toEqual({ measureIndex: 1, beat: 2 });
+      expect(measureBeatAt(score, 960)).toEqual({ measureIndex: 1, beat: 3 });
     });
   });
 });

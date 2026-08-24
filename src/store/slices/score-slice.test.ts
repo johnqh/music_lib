@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  getMusicPosition,
+  getMusicPositionSource,
+} from '@sudobility/music_types';
 import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 import {
@@ -99,11 +103,11 @@ describe('score-slice', () => {
     it('resets the playback caret when adopting a new score', () => {
       const store = createAppStore({ context: testStoreContext() });
       store.getState().setScore(twinkleScore());
-      store.getState().setCaretTick(1920);
+      getMusicPositionSource().moveTo(1920);
 
       store.getState().setScore(twinkleScore());
 
-      expect(store.getState().caretTick).toBe(0);
+      expect(getMusicPosition().reportedTick).toBe(0);
     });
   });
 

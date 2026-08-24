@@ -126,6 +126,8 @@ export * from './services/playback/adapter.js';
 export { PlaybackBus } from '@sudobility/music_player/core';
 export * from './services/errors.js';
 export * from './services/messages.js';
+export * from './services/editing/copy.js';
+export * from './services/editing/editing.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 

@@ -11,6 +11,10 @@
  * and this composes the score- and selection-aware operations out of them.
  */
 import { scoreEndTick, selectionToRange } from '@sudobility/music_types';
+import {
+  getMusicPosition,
+  getMusicPositionSource,
+} from '@sudobility/music_types';
 import type {
   Score,
   ScoreRange,
@@ -51,24 +55,23 @@ export class PlaybackAdapter {
    * projection to the caret on pause would leave it a few ticks past where the
    * audio actually stopped.
    */
-  private lastPositionTick = 0;
 
   constructor(
     private readonly player: IMusicPlayer,
     private readonly store: PlaybackStoreApi
   ) {
     this.unsubscribePlayer.push(
-      player.onPosition(tick => {
-        this.lastPositionTick = tick;
-      }),
+      /*
+        No position subscription, and no caret to commit on stop.
+
+        This used to keep `lastPositionTick` and write it into the store's
+        caret whenever the transport stopped, so that "play from the caret"
+        would resume where the music left off. There is one position now: the
+        engine reports into it and the caret *is* it, so the two coincide by
+        construction rather than by this class copying one into the other.
+      */
       player.onTransport(state => {
         this.store.getState().setPlaybackState(state);
-        // Stopping or pausing commits the engine's final position to the edit
-        // caret, so the two coincide whenever the transport is not running —
-        // which is the whole basis of "play from the caret" still working.
-        if (state !== 'playing') {
-          this.store.getState().setCaretTick(this.lastPositionTick);
-        }
       }),
       // Low-frequency and store-shaped: it reports per percent and behaves like
       // ordinary React state, unlike position and the sounding set.
@@ -156,9 +159,9 @@ export class PlaybackAdapter {
    */
   seek(tick: number): void {
     if (!this.store.getState().score) return;
-    const target = Math.max(0, tick);
-    this.store.getState().setCaretTick(target);
-    this.player.seek(target);
+    // Moving the position is the whole of it: the player follows moves of its
+    // own accord, so telling it as well would be two writes of one number.
+    getMusicPositionSource().moveTo(Math.max(0, tick));
   }
 
   seekToMeasure(measureIndex: number): void {
@@ -175,17 +178,17 @@ export class PlaybackAdapter {
   }
 
   previousMeasure(): void {
-    const { score, caretTick } = this.store.getState();
+    const { score } = this.store.getState();
     if (!score) return;
-    const current = measureAt(score, caretTick);
+    const current = measureAt(score, getMusicPosition().reportedTick);
     if (!current) return;
     this.seekToMeasure(Math.max(0, current.index - 1));
   }
 
   nextMeasure(): void {
-    const { score, caretTick } = this.store.getState();
+    const { score } = this.store.getState();
     if (!score) return;
-    const current = measureAt(score, caretTick);
+    const current = measureAt(score, getMusicPosition().reportedTick);
     if (!current) return;
     const lastIndex = score.tracks[0].measures.length - 1;
     this.seekToMeasure(Math.min(lastIndex, current.index + 1));
@@ -284,9 +287,9 @@ export class PlaybackAdapter {
     return this.player.onTransport(fn);
   }
 
-  /** Where playback last reported it was, in score ticks. */
+  /** Where playback last reported it was, in score ticks. Read through to the one position. */
   get positionTick(): number {
-    return this.lastPositionTick;
+    return getMusicPosition().reportedTick;
   }
 
   reportError(message: string, error: unknown): void {

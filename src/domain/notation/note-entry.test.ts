@@ -4,6 +4,7 @@ import {
   testStoreContext,
   twinkleScore,
 } from '../../index.js';
+import { getMusicPositionSource } from '@sudobility/music_types';
 import { describe, expect, it } from 'vitest';
 import {
   durationForDigit,
@@ -84,12 +85,12 @@ describe('entryReferencePitch', () => {
     // Entry runs left to right; the reference is what a player would have just
     // played, which is behind the caret rather than at the end of the bar.
     const store = makeStore();
-    store.getState().setCaretTick(0);
+    getMusicPositionSource().moveTo(0);
     const atStart = entryReferencePitch(store);
 
     const score = store.getState().score!;
     const last = score.tracks[0].measures.at(-1)!;
-    store.getState().setCaretTick(last.startTick + last.durationTicks - 1);
+    getMusicPositionSource().moveTo(last.startTick + last.durationTicks - 1);
     const atEnd = entryReferencePitch(store);
 
     expect(atStart).toBeTruthy();

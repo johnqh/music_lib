@@ -3,11 +3,12 @@ import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../useAppStore.js';
 
 describe('playback-slice', () => {
-  it('starts stopped, at tick 0, with no active notes/loop, unit tempo, metronome off, full volume', () => {
+  it('starts stopped, with no active notes/loop, unit tempo, metronome off, full volume', () => {
+    // No caret here any more: the position is one shared value, not a store
+    // field this slice has to initialise and keep in step.
     const store = createAppStore({ context: testStoreContext() });
     const state = store.getState();
     expect(state.state).toBe('stopped');
-    expect(state.caretTick).toBe(0);
     expect(state.loopRange).toBeNull();
     expect(state.tempoMultiplier).toBe(1);
     expect(state.metronome).toBe(false);
@@ -19,9 +20,6 @@ describe('playback-slice', () => {
 
     store.getState().setPlaybackState('playing');
     expect(store.getState().state).toBe('playing');
-
-    store.getState().setCaretTick(1920);
-    expect(store.getState().caretTick).toBe(1920);
 
     const loop = { startTick: 0, endTick: 1920, trackIds: ['t1'] };
     store.getState().setLoopRange(loop);

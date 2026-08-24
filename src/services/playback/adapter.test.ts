@@ -2,6 +2,7 @@
  * The adapter binds the store to the player. These pin what it must not lose.
  */
 import { describe, expect, it, vi } from 'vitest';
+import { getMusicPosition } from '@sudobility/music_types';
 import { MockMusicPlayer } from '@sudobility/music_player/mocks';
 import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../../store/useAppStore.js';
@@ -44,10 +45,14 @@ describe('playback adapter', () => {
 
     // "Play from the caret" rests on the two coinciding whenever the transport
     // is not running.
-    expect(store.getState().caretTick).toBe(960);
+    expect(getMusicPosition().reportedTick).toBe(960);
   });
 
-  it('moves the caret and the transport together on seek', () => {
+  it('seeks by moving the one position, and does not also tell the player', () => {
+    // Telling it as well would be two writes of one number. A real player
+    // subscribes to the position and follows a move on its own — that is
+    // music_player's contract and is tested there; this mock does not, which
+    // is exactly why `calls` stays empty here.
     const store = makeStore();
     const player = new MockMusicPlayer();
     const adapter = createPlaybackAdapter(player, store);
@@ -55,8 +60,8 @@ describe('playback adapter', () => {
 
     adapter.seek(480);
 
-    expect(store.getState().caretTick).toBe(480);
-    expect(player.calls).toContain('seek(480)');
+    expect(getMusicPosition().reportedTick).toBe(480);
+    expect(player.calls).not.toContain('seek(480)');
   });
 
   it('clears the selection on the ->playing transition only', async () => {

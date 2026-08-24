@@ -22,6 +22,7 @@ import type {
   PitchStep,
   Score,
 } from '@sudobility/music_types';
+import { getMusicPosition } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { findTrack, pitchToMidi, selectActiveTrackId } from '../../index.js';
 import type { createAppStore } from '../../store/useAppStore.js';
@@ -99,6 +100,9 @@ export function entryReferencePitch(store: EditorStoreApi): Pitch {
   const state = store.getState();
   const score: Score | null = state.score;
   const trackId = selectActiveTrackId(state);
+  // The caret is the shared position, not a store field: one number, read here
+  // rather than copied into the store and kept in step.
+  const caretTick = getMusicPosition().reportedTick;
   const fallback: Pitch = { step: 'C', accidental: 0, octave: 4 };
   if (!score || !trackId) return fallback;
 
@@ -110,7 +114,7 @@ export function entryReferencePitch(store: EditorStoreApi): Pitch {
     for (const voice of measure.voices) {
       for (const event of voice.events) {
         if (!isNoteEvent(event)) continue;
-        if (event.startTick > state.caretTick) continue;
+        if (event.startTick > caretTick) continue;
         if (!best || event.startTick >= best.tick)
           best = { tick: event.startTick, pitch: event.pitch };
       }

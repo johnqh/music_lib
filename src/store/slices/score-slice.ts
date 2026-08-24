@@ -15,6 +15,7 @@
  * in practice this is still "the one history manager" spec §37.7 asks for.
  */
 import { HistoryManager } from '@sudobility/music_types';
+import { getMusicPositionSource } from '@sudobility/music_types';
 import type { ScoreCommand } from '@sudobility/music_types';
 import type { TransportState } from './playback-slice.js';
 import type { Score } from '@sudobility/music_types';
@@ -147,10 +148,11 @@ export const createScoreSlice: StateCreator<
       // the user did not make; the correction persists with their next one.
       // Identity is preserved when there is nothing to correct.
       const resolved = scoreWithResolvedKits(score);
+      // A new score starts at the top, and the caret is the shared position.
+      getMusicPositionSource().moveTo(0);
       set(state => {
         state.score = resolved;
         state.validationIssues = validateScore(resolved);
-        state.caretTick = 0;
         syncHistoryMirrors(state);
       });
     },

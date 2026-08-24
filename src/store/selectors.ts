@@ -18,6 +18,7 @@
  * re-render every time.
  */
 import { findEvent, findTrack } from '@sudobility/music_types';
+import type { Score } from '@sudobility/music_types';
 import { selectionToRange } from '@sudobility/music_types';
 import type { ScoreRange } from '@sudobility/music_types';
 import type { Measure, NoteEvent, Track } from '@sudobility/music_types';
@@ -96,25 +97,23 @@ export type MeasureBeat = { measureIndex: number; beat: number };
  * `null` if there's no score, or the score has no measures. Memoized on
  * (`score`, `caretTick`) reference/value identity.
  */
-export const selectCurrentMeasureBeat = memoize2(
-  state => state.score,
-  state => state.caretTick,
-  (score, caretTick): MeasureBeat | null => {
-    if (!score) return null;
-    const track = score.tracks[0];
-    if (!track || track.measures.length === 0) return null;
+export function measureBeatAt(
+  score: Score | null,
+  tick: number
+): MeasureBeat | null {
+  if (!score) return null;
+  const track = score.tracks[0];
+  if (!track || track.measures.length === 0) return null;
 
-    const measure =
-      track.measures.find(
-        m =>
-          caretTick >= m.startTick && caretTick < m.startTick + m.durationTicks
-      ) ?? track.measures[track.measures.length - 1];
+  const measure =
+    track.measures.find(
+      m => tick >= m.startTick && tick < m.startTick + m.durationTicks
+    ) ?? track.measures[track.measures.length - 1];
 
-    const beatTicks = beatDurationTicks(measure.timeSignature, score.ppq);
-    const beat = Math.floor((caretTick - measure.startTick) / beatTicks) + 1;
-    return { measureIndex: measure.index + 1, beat };
-  }
-);
+  const beatTicks = beatDurationTicks(measure.timeSignature, score.ppq);
+  const beat = Math.floor((tick - measure.startTick) / beatTicks) + 1;
+  return { measureIndex: measure.index + 1, beat };
+}
 
 /**
  * The tracks to draw, in score order.
