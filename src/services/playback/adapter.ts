@@ -24,7 +24,7 @@ import type {
 import type { IMusicPlayer } from '@sudobility/music_player/core';
 import { getMusicPlayer } from '@sudobility/music_player/core';
 import { libraryMessage } from '../messages.js';
-import { selectVisibleTrackIds } from '../../store/selectors.js';
+import { selectVisibleTrackIds } from '@sudobility/music_editing';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 

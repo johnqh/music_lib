@@ -11,28 +11,34 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { StoreContext } from './context.js';
-import { createScoreSlice } from './slices/score-slice.js';
-import type { ScoreSlice } from './slices/score-slice.js';
-import { createSelectionSlice } from './slices/selection-slice.js';
-import type { SelectionSlice } from './slices/selection-slice.js';
+import {
+  createScoreSlice,
+  createSelectionSlice,
+  createTrackSlice,
+  createUiSlice,
+} from '@sudobility/music_editing';
+import type { EditingState } from '@sudobility/music_editing';
 import { createPlaybackSlice } from './slices/playback-slice.js';
 import type { PlaybackSlice } from './slices/playback-slice.js';
 import { createGenerationSlice } from './slices/generation-slice.js';
 import type { GenerationSlice } from './slices/generation-slice.js';
 import { createProjectSlice } from './slices/project-slice.js';
 import type { ProjectSlice } from './slices/project-slice.js';
-import { createTrackSlice } from './slices/track-slice.js';
-import type { TrackSlice } from './slices/track-slice.js';
-import { createUiSlice } from './slices/ui-slice.js';
-import type { UiSlice } from './slices/ui-slice.js';
 
-export type AppState = ScoreSlice &
-  SelectionSlice &
+/**
+ * The web app's single store: the editing state plus everything an app needs
+ * around it.
+ *
+ * It satisfies `EditingState` by construction — the editing slices are in it,
+ * `PlaybackSlice` supplies the `state` field the edit lock reads, and
+ * `ProjectSlice` supplies `markDirty` — which is what lets the same slices be
+ * composed here and, unchanged, into a store holding one document and nothing
+ * else.
+ */
+export type AppState = EditingState &
   PlaybackSlice &
   GenerationSlice &
-  ProjectSlice &
-  TrackSlice &
-  UiSlice;
+  ProjectSlice;
 
 export type CreateAppStoreOptions = {
   /** The backend context (MusicClient, token getter, prefs storage). */
@@ -46,15 +52,33 @@ export function createAppStore(options: CreateAppStoreOptions) {
   const { context } = options;
 
   return create<AppState>()(
-    immer((set, get, api) => ({
-      ...createScoreSlice(set, get, api),
-      ...createSelectionSlice(set, get, api),
-      ...createPlaybackSlice(set, get, api),
-      ...createGenerationSlice(context)(set, get, api),
-      ...createProjectSlice(context)(set, get, api),
-      ...createTrackSlice(set, get, api),
-      ...createUiSlice(set, get, api),
-    }))
+    immer((set, get, api) => {
+      /*
+        What THIS app does when the editing engine says something changed:
+        tell the autosaver. That is `project-slice`'s job, not editing's — the
+        engine is handed a callback and knows nothing about projects, servers
+        or debounce windows, which is exactly what lets the same slices run in
+        a native app that saves to a file, or to nothing at all.
+      */
+      const changed = () => get().markDirty();
+
+      return {
+        /*
+          The four editing slices come from `@sudobility/music_editing`, and
+          they are composed here into a state carrying much more than they know
+          about. That is the point of the split: the same slices make a native
+          app's per-document store, where there is no playback, generation or
+          project state beside them.
+        */
+        ...createScoreSlice<AppState>({ set, get, changed }),
+        ...createSelectionSlice<AppState>({ set, get, changed }),
+        ...createTrackSlice<AppState>({ set, get, changed }),
+        ...createUiSlice<AppState>({ set, get, changed }),
+        ...createPlaybackSlice(set, get, api),
+        ...createGenerationSlice(context)(set, get, api),
+        ...createProjectSlice(context)(set, get, api),
+      };
+    })
   );
 }
 
@@ -112,3 +136,13 @@ export const useAppStore: UseAppStoreHook = Object.assign(
       getAppStore().subscribe(...args)) as AppStore['subscribe'],
   }
 );
+
+/**
+ * The store an editing operation is handed in THIS app.
+ *
+ * `@sudobility/music_editing` publishes the generic handle; binding it to the
+ * composed state is the consumer's job, and music_app has fifty files that say
+ * `EditorStoreApi` and mean "the app's store". Naming it here keeps every one
+ * of them true.
+ */
+export type EditorStoreApi = ReturnType<typeof createAppStore>;

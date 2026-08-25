@@ -11,7 +11,13 @@ import type { PlaybackLoadState } from '@sudobility/music_types';
 import type { ScoreRange } from '@sudobility/music_types';
 import type { AppState } from '../useAppStore.js';
 
-export type TransportState = 'stopped' | 'playing' | 'paused';
+/**
+ * Re-exported: the value itself lives in music_types, because the editing
+ * store's edit lock reads it and pointing that import at the playback slice
+ * was the one dependency running the wrong way.
+ */
+import type { TransportState } from '@sudobility/music_types';
+export type { TransportState };
 
 export type PlaybackSlice = {
   /** Named `state` (not `transportState`) to match the spec's exact field name for this property. */

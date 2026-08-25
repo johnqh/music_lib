@@ -20,6 +20,16 @@ export * from '@sudobility/music_types';
   `@sudobility/music_lib` import keeps working and there is nothing left to
   drift.
 */
+/*
+  The editing engine, re-exported whole.
+
+  music_app imports `insertNoteAtCaret` and `EditorStoreApi` from
+  `@sudobility/music_lib` in fifty files, and none of them should have had to
+  change because the engine moved house. The same reasoning as the
+  music_types/music_codecs/music_drawing re-exports above: one home for the
+  code, every existing import still resolving.
+*/
+export * from '@sudobility/music_editing';
 export * from '@sudobility/music_codecs';
 /*
   The renderer lives in `@sudobility/music_drawing` and is re-exported here.
@@ -51,27 +61,17 @@ export * from './services/playback/adapter.js';
 export { PlaybackBus } from '@sudobility/music_player/core';
 export * from './services/errors.js';
 export * from './services/messages.js';
-export * from './services/editing/copy.js';
-export * from './services/editing/editing.js';
-export * from './services/editing/shortcuts.js';
 export * from './services/generation/request.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
-
-export * from './services/selection/singleton.js';
 
 // store
 export * from './store/context.js';
 export * from './services/prefs.js';
 export * from './templates/index.js';
-export * from './store/slices/track-slice.js';
-export * from './store/slices/ui-slice.js';
 export * from './store/useAppStore.js';
-export * from './store/selectors.js';
 
 // platform
 
 // Pure editing logic, moved out of music_app: none of it touches React, the
 // DOM or layout geometry, so it belongs with the model rather than the UI.
-export * from './domain/notation/note-entry.js';
-export * from './domain/notation/pitch-drag.js';

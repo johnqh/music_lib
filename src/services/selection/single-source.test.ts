@@ -1,13 +1,20 @@
 /**
  * The store and `IMusicSelection` cannot disagree.
  *
+ * Still tested HERE, because what it guards is the COMPOSED app store agreeing
+ * with the shared selection — the singleton itself moved to music_editing with
+ * the rest of the editing engine.
+ *
  * The same guarantee `single-source.test.ts` makes for the playhead, made for
  * the selection: there is one writer, so a reader that never touches the store
  * still sees exactly what the store sees.
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { createAppStore, testStoreContext } from '../../index.js';
-import { getMusicSelection, resetMusicSelection } from './singleton.js';
+import {
+  getMusicSelection,
+  resetMusicSelection,
+} from '@sudobility/music_editing';
 
 beforeEach(() => resetMusicSelection());
 
