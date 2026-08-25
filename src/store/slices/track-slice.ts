@@ -174,6 +174,33 @@ export const createTrackSlice: StateCreator<
 
   setTrackMix: (trackId, patch, label) => {
     get().dispatchCommand(changeTrackPropsCommand(trackId, patch, label));
+
+    /*
+      Turning solo on is exclusive, and makes that track active.
+
+      Exclusive because two soloed tracks are a state nobody asks for on
+      purpose: you solo to hear *one* part, and a second solo silently widens
+      what you are hearing without you touching the first track. Clearing the
+      others is what "solo" means to somebody reading the word.
+
+      Active, because the silence needed a face. An `S` on the soloed track
+      said which one you could hear and left the other six looking exactly as
+      they always do — so a reader hears one part and has nothing on screen
+      telling them why. Making it active borrows the treatment that already
+      exists: every other track dims whole, which is precisely "these are not
+      what you are hearing". Nothing is locked; clicking another track still
+      makes it active, and the dimming follows as it always has.
+    */
+    if (patch.solo !== true) return;
+
+    for (const track of get().score?.tracks ?? []) {
+      if (track.id !== trackId && track.solo) {
+        get().dispatchCommand(
+          changeTrackPropsCommand(track.id, { solo: false }, label)
+        );
+      }
+    }
+    get().setActiveTrack(trackId);
   },
 
   removeTrack: (trackId, label) => {

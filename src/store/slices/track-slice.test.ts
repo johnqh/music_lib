@@ -154,6 +154,56 @@ describe('track-slice', () => {
     expect(store.getState().score!.tracks[0].name).toBe(track.name);
   });
 
+  it('soloing one track clears the solo on another', () => {
+    // Two soloed tracks are a state nobody asks for on purpose: you solo to
+    // hear one part, and a second solo silently widens what you hear.
+    const store = makeStore(twoTrackScore());
+    const [first, second] = store.getState().score!.tracks;
+
+    store.getState().setTrackMix(first.id, { solo: true }, 'Solo');
+    store.getState().setTrackMix(second.id, { solo: true }, 'Solo');
+
+    expect(store.getState().score!.tracks[0].solo).toBe(false);
+    expect(store.getState().score!.tracks[1].solo).toBe(true);
+  });
+
+  it('soloing makes that track active, so the others read as silenced', () => {
+    // The silence needed a face: an `S` on the soloed track left the rest
+    // looking exactly as they always do. Active borrows the dimming that
+    // already means "not what you are hearing".
+    const store = makeStore(twoTrackScore());
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setActiveTrack(first.id);
+
+    store.getState().setTrackMix(second.id, { solo: true }, 'Solo');
+
+    expect(store.getState().activeTrackId).toBe(second.id);
+  });
+
+  it('leaves the active track alone when solo is turned off', () => {
+    // Clearing a solo is not a request to go anywhere.
+    const store = makeStore(twoTrackScore());
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setTrackMix(second.id, { solo: true }, 'Solo');
+    store.getState().setActiveTrack(first.id);
+
+    store.getState().setTrackMix(second.id, { solo: false }, 'Unsolo');
+
+    expect(store.getState().activeTrackId).toBe(first.id);
+  });
+
+  it('muting does not touch solo or the active track', () => {
+    const store = makeStore(twoTrackScore());
+    const [first, second] = store.getState().score!.tracks;
+    store.getState().setTrackMix(first.id, { solo: true }, 'Solo');
+    store.getState().setActiveTrack(second.id);
+
+    store.getState().setTrackMix(second.id, { muted: true }, 'Mute');
+
+    expect(store.getState().score!.tracks[0].solo).toBe(true);
+    expect(store.getState().activeTrackId).toBe(second.id);
+  });
+
   it('deletes a track when there is more than one', () => {
     const store = makeStore(twoTrackScore());
     const [first, second] = store.getState().score!.tracks;
