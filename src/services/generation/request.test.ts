@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createEmptyScore } from '@sudobility/music_types';
 import {
   buildGenerateScoreRequest,
+  buildGenerateTrackRequest,
   canBuildGenerateScoreRequest,
   estimateGenerateScoreCredits,
   firstMelodyInstrumentEntryId,
@@ -114,5 +116,53 @@ describe('generate score request helpers', () => {
     expect(
       firstMelodyInstrumentEntryId([{ id: 1, value: 'kit:0' }])
     ).toBeUndefined();
+  });
+});
+
+describe('buildGenerateTrackRequest', () => {
+  it('matches the open score, or the track will not line up with it', () => {
+    /*
+      The whole reason this takes a Score. A track generated at a different
+      length, time signature, key or tempo is unusable rather than merely
+      different — it does not fit the music it was asked to accompany.
+    */
+    const score = createEmptyScore({ title: 'Waltz', measures: 12 });
+    const request = buildGenerateTrackRequest(score, 'a bass line', {
+      midiProgram: 33,
+      instrumentName: 'Electric Bass',
+      clef: 'bass',
+    });
+    expect(request.durationMeasures).toBe(12);
+    expect(request.timeSignature).toEqual(
+      score.tracks[0].measures[0].timeSignature
+    );
+    expect(request.keySignature).toEqual(
+      score.tracks[0].measures[0].keySignature
+    );
+    expect(request.tempo).toBe(score.tempoMap[0].bpm);
+  });
+
+  it('takes the clef from the choice, not from the program', () => {
+    // A drum kit is not a GM program — kit 40 is Brush where program 40 is
+    // Violin — so the percussion clef is the only thing that tells them apart.
+    const score = createEmptyScore({ title: 'Beat', measures: 4 });
+    const request = buildGenerateTrackRequest(score, 'a groove', {
+      midiProgram: 40,
+      instrumentName: 'Brush Kit',
+      clef: 'percussion',
+    });
+    expect(request.tracks[0].clef).toBe('percussion');
+    expect(request.tracks[0].midiProgram).toBe(40);
+  });
+
+  it('asks for exactly one track', () => {
+    // The server appends what it produces; asking for two would append two.
+    const score = createEmptyScore({ title: 'Waltz', measures: 4 });
+    const request = buildGenerateTrackRequest(score, 'a line', {
+      midiProgram: 0,
+      instrumentName: 'Piano',
+      clef: 'treble',
+    });
+    expect(request.tracks).toHaveLength(1);
   });
 });

@@ -404,6 +404,19 @@ export type TestStoreContext = StoreContext & {
   fakeProvider: FakeGenerationProvider;
 };
 
+/**
+ * A context with **no server**: what a native app editing a local file has.
+ *
+ * Deliberately supplies no `provider` either. Overriding it would hide the
+ * thing these tests exist to check — that generation reports itself
+ * unavailable rather than quietly working against a fake.
+ */
+export function localStoreContext(
+  overrides: Partial<StoreContext> = {}
+): StoreContext {
+  return { storage: new MemoryPrefsStorage(), ...overrides };
+}
+
 export function testStoreContext(
   overrides: Partial<StoreContext> = {}
 ): TestStoreContext {

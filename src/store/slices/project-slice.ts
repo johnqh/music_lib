@@ -23,7 +23,7 @@ import type {
 } from '@sudobility/music_types';
 import { createAutosaver } from '../../services/persistence/autosave.js';
 import type { Autosaver } from '../../services/persistence/autosave.js';
-import { requireToken, type StoreContext } from '../context.js';
+import { authorizedServer, hasServer, type StoreContext } from '../context.js';
 import type { AppState } from '../useAppStore.js';
 
 export type SaveState = 'saved' | 'saving' | 'unsaved';
@@ -45,6 +45,15 @@ export type ProjectSlice = {
    * is open.
    */
   serverUpdatedAt: string | null;
+  /**
+   * Whether this store has a server behind it at all.
+   *
+   * Read it to decide what to *offer*, not to decide what to catch: a host
+   * that hides the project, generation and publishing affordances when this is
+   * false never reaches `ServerUnavailableError`. Fixed for the life of the
+   * store — a host does not gain a server halfway through.
+   */
+  serverAvailable: boolean;
 
   /** Creates and persists a brand-new project on the server, then loads its score (fresh undo history) into `score-slice`. */
   newProject: (input: NewProjectInput) => Promise<void>;
@@ -94,7 +103,7 @@ export function createProjectSlice(
           state.saveState = 'saving';
         });
         try {
-          const token = await requireToken(context);
+          const { client, token } = await authorizedServer(context);
           const visibleTrackIds = get().visibleTrackIds;
           const body: ProjectUpdateRequest = {
             name: project.name,
@@ -111,11 +120,7 @@ export function createProjectSlice(
               ...(visibleTrackIds ? { visibleTrackIds } : {}),
             },
           };
-          const saved = await context.client.updateProject(
-            project.id,
-            body,
-            token
-          );
+          const saved = await client.updateProject(project.id, body, token);
           currentProject = saved;
           lastSavedScore = score;
           set(state => {
@@ -193,11 +198,12 @@ export function createProjectSlice(
       dirty: false,
       saveState: 'saved',
       serverUpdatedAt: null,
+      serverAvailable: hasServer(context),
 
       newProject: async input => {
         const score = input.score ?? createEmptyScore({ title: input.name });
-        const token = await requireToken(context);
-        const created = await context.client.createProject(
+        const { client, token } = await authorizedServer(context);
+        const created = await client.createProject(
           { name: input.name, score },
           token
         );
@@ -208,8 +214,8 @@ export function createProjectSlice(
       },
 
       openProject: async id => {
-        const token = await requireToken(context);
-        const record = await context.client.getProject(id, token);
+        const { client, token } = await authorizedServer(context);
+        const record = await client.getProject(id, token);
         await adopt(record, record.score);
       },
 
