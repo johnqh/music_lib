@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "1.9.12",
+  "version": "1.9.13",
   "description": "Business logic for ScoreSmith: score domain model, commands/undo, validation, quantization, rendering/audio/file adapters, and the app store",
   "type": "module",
   "main": "./dist/index.js",
@@ -40,26 +40,26 @@
   "author": "Sudobility",
   "license": "BUSL-1.1",
   "dependencies": {
-    "@sudobility/music_codecs": "^0.2.11",
-    "@sudobility/music_drawing": "^0.0.19",
+    "@sudobility/music_codecs": "^0.2.12",
+    "@sudobility/music_drawing": "^0.0.20",
     "@sudobility/music_player": "^0.1.0",
     "immer": "^10.0.0 || ^11.0.0",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@sudobility/music_client": "^0.4.46",
-    "@sudobility/music_editing": "^0.0.3",
-    "@sudobility/music_types": "^0.13.10",
+    "@sudobility/music_client": "^0.4.47",
+    "@sudobility/music_editing": "^0.0.4",
+    "@sudobility/music_types": "^0.13.11",
     "@tanstack/react-query": ">=5",
     "react": ">=18",
     "zustand": ">=5"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
-    "@sudobility/music_client": "^0.4.46",
-    "@sudobility/music_editing": "^0.0.3",
+    "@sudobility/music_client": "^0.4.47",
+    "@sudobility/music_editing": "^0.0.4",
     "@sudobility/music_player": "^0.1.0",
-    "@sudobility/music_types": "^0.13.10",
+    "@sudobility/music_types": "^0.13.11",
     "@tanstack/react-query": "^5.0.0",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.1.2",
