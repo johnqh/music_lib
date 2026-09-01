@@ -88,6 +88,45 @@ function drums(name = 'Drums', kit = 0): TemplateTrack {
   };
 }
 
+/**
+ * The General MIDI program a blank project's track opens on.
+ *
+ * Acoustic Grand Piano: the instrument that reads sensibly in either clef and
+ * the one a blank page is most often started on.
+ */
+const DEFAULT_PROGRAM = 0;
+
+/** How many bars a blank project starts with. */
+const DEFAULT_MEASURES = 8;
+
+/**
+ * The score a brand-new project starts as.
+ *
+ * **A project always has at least one track**, and this is what makes that
+ * true at the one end; `removeTrack` refusing to delete the last track is what
+ * makes it true at the other. A trackless score is not a state this product
+ * supports: it draws nothing but a playhead, there is no measure grid for a
+ * track to be added back into, and what the reader sees is an empty page with
+ * a red line on it and no way to tell whether anything is wrong.
+ *
+ * It lives here rather than in `createEmptyScore` because it is a decision
+ * about what a *project* is, not about how a `Score` is assembled — the same
+ * reason the templates beside it live here. music_types builds whatever it is
+ * asked for; choosing a piano, eight bars and one track is product policy, and
+ * two apps have to make the same choice.
+ *
+ * The instrument name comes from the catalogue rather than being typed, like
+ * every template's — `midiProgram` is the identity and a hand-written name is
+ * free to disagree with it.
+ */
+export function newProjectScore(title: string): Score {
+  return createEmptyScore({
+    title,
+    measures: DEFAULT_MEASURES,
+    tracks: [part('Piano', DEFAULT_PROGRAM)],
+  });
+}
+
 export function projectTemplates(copy: TemplateCopy): ProjectTemplate[] {
   return [
     // --- empty ensembles ----------------------------------------------------

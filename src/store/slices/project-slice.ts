@@ -15,7 +15,7 @@
  */
 import { libraryMessage } from '../../services/messages.js';
 import type { StateCreator } from 'zustand';
-import { createEmptyScore } from '@sudobility/music_types';
+import { newProjectScore } from '../../templates/index.js';
 import type {
   ProjectSaveResult,
   ProjectUpdateRequest,
@@ -201,7 +201,10 @@ export function createProjectSlice(
       serverAvailable: hasServer(context),
 
       newProject: async input => {
-        const score = input.score ?? createEmptyScore({ title: input.name });
+        // `newProjectScore`, not a bare empty score: a project always opens
+        // with a track to write on. See its own doc for why that is policy
+        // here rather than in the factory.
+        const score = input.score ?? newProjectScore(input.name);
         const { client, token } = await authorizedServer(context);
         const created = await client.createProject(
           { name: input.name, score },

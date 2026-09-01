@@ -3,6 +3,7 @@ import {
   TEMPLATE_IDS,
   type TemplateCopy,
   buildTemplate,
+  newProjectScore,
   projectTemplates,
   templateSummaries,
 } from './index.js';
@@ -83,5 +84,47 @@ describe('projectTemplates', () => {
     expect(templateSummaries(COPY).map(t => t.id)).toEqual(
       projectTemplates(COPY).map(t => t.id)
     );
+  });
+});
+
+describe('newProjectScore', () => {
+  /*
+    A project always has at least one track. This is one end of that rule;
+    `removeTrack` refusing to delete the last track is the other. Without both,
+    the reader gets an empty page with a red playhead on it and no way to tell
+    whether anything is wrong — which is exactly how it presented.
+  */
+  it('opens a blank project on a piano track, ready to write on', () => {
+    const score = newProjectScore('Untitled');
+    expect(score.tracks).toHaveLength(1);
+    const track = score.tracks[0];
+    expect(track.name).toBe('Piano');
+    expect(track.midiProgram).toBe(0);
+    expect(track.clef).toBe('treble');
+    // Bars to write into, each fully rested — an empty grid draws nothing.
+    expect(track.measures.length).toBeGreaterThan(0);
+    for (const measure of track.measures) {
+      expect(measure.voices.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('names the instrument from the catalogue rather than by hand', () => {
+    // `midiProgram` is the identity; a typed name is free to disagree with it.
+    // Program 0 is "Acoustic Grand Piano", which is not the track's own name.
+    const score = newProjectScore('Untitled');
+    expect(score.tracks[0].instrumentName).toBe(gmInstrument(0)?.name);
+  });
+
+  it('titles the score with the project name', () => {
+    expect(newProjectScore('Wedding March').metadata.title).toBe(
+      'Wedding March'
+    );
+  });
+
+  it('gives every template a track too', () => {
+    // The same rule, for the other way into a new project.
+    for (const template of projectTemplates(COPY)) {
+      expect(template.build().tracks.length).toBeGreaterThan(0);
+    }
   });
 });
