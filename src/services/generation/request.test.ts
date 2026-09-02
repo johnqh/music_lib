@@ -6,6 +6,7 @@ import {
   GENERATE_SCORE_STYLE_PRESETS,
   GUEST_INSTRUMENTS,
   styleInstrumentsWithGuest,
+  withGenerationVariant,
   GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   buildGenerateScoreRequest,
   buildGenerateTrackRequest,
@@ -484,5 +485,37 @@ describe('every style preset', () => {
       expect(preset.prompt.length, style).toBeGreaterThan(30);
       expect(preset.prompt.toLowerCase(), style).not.toBe(style.toLowerCase());
     }
+  });
+});
+
+/**
+ * The generation backend rides on the request, and only when it is not the
+ * default — so an ordinary generation is exactly what it was before backends
+ * could be chosen.
+ */
+describe('withGenerationVariant', () => {
+  const base = { prompt: 'p', durationMeasures: 8, tracks: [] } as never;
+
+  it('sends no field for the default', () => {
+    expect(withGenerationVariant(base, 'default')).not.toHaveProperty(
+      'variant'
+    );
+    expect(withGenerationVariant(base, undefined)).not.toHaveProperty(
+      'variant'
+    );
+    expect(withGenerationVariant(base, '')).not.toHaveProperty('variant');
+  });
+
+  it('tags the request with any other backend', () => {
+    expect(withGenerationVariant(base, 'deepseek').variant).toBe('deepseek');
+    expect(withGenerationVariant(base, 'weak').variant).toBe('weak');
+  });
+
+  it('leaves the rest of the request alone', () => {
+    const tagged = withGenerationVariant(base, 'deepseek');
+    expect(tagged.prompt).toBe('p');
+    expect(tagged.durationMeasures).toBe(8);
+    // A new object, so a caller's request is never mutated under it.
+    expect(tagged).not.toBe(base);
   });
 });

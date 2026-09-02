@@ -503,6 +503,26 @@ function alsoTaken(taken: ReadonlySet<string>): Set<string> {
  * duplicate is the bug this replaced (two tracks named "Acoustic Guitar
  * (steel)" generate as one part written twice).
  */
+/**
+ * A request tagged with the generation backend to use, when it is not the default.
+ *
+ * One line of decision, but it lives here rather than in a call site because
+ * both apps make the same call and a rule copied into two of them is a rule
+ * that eventually disagrees with itself — the same reason the style presets and
+ * the bar/beat readout ended up here.
+ *
+ * The default is expressed by sending **no field at all**, so an ordinary
+ * generation is byte-for-byte what it was before backends could be chosen.
+ * That matters on the wire: a field present on every request is a field the
+ * server has to reason about on every request.
+ */
+export function withGenerationVariant(
+  request: GenerateScoreRequest,
+  variant: string | undefined
+): GenerateScoreRequest {
+  return variant && variant !== 'default' ? { ...request, variant } : request;
+}
+
 export function styleInstrumentsWithGuest(
   style: string,
   rng: () => number = Math.random
