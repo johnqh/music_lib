@@ -196,7 +196,7 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
   // Fast, short, two guitars and no ornament.
   punk: {
     prompt:
-      'punk — fast straight eighths on downstrokes, three chords, no ornament, and a snare driving every backbeat',
+      'punk — fast straight eighths on downstrokes, three chords, no ornament, and a snare driving every backbeat. The guitar figure repeats unchanged through a section; the energy comes from the tempo and the drive, never from varying the part.',
     // Overdriven rhythm under a distorted lead, not two of the same patch:
     // identical programs generate two tracks under one name, which is
     // unreadable in the track list and gives the model nothing to tell the
@@ -208,7 +208,7 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
   },
   heavyMetal: {
     prompt:
-      'heavy metal — palm-muted galloping low riffs, minor and modal, double-kick drive, and long held high notes over the top',
+      'heavy metal — built on ONE palm-muted galloping low riff, repeated bar after bar through a section rather than rewritten each bar; minor and modal, double-kick drive underneath, and long held high notes over the top. The riff is the song: keep it the same and let the drums and the held lead supply the variation. ONE riff means one FIGURE, not one note - the riff moves between several pitches (root, flat-7, flat-6 and back is the classic shape), and a bar of the same pitch struck eight times is a pedal, not a riff.',
     // Twin guitars are the idiom here, but they are a rhythm part and a lead
     // part — the same program twice is one part written twice.
     instruments: ['30', '29', '34', KIT],
