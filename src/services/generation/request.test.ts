@@ -246,8 +246,22 @@ describe('style presets', () => {
   });
 
   it('keeps the forms that have a length', () => {
-    // Twelve-bar blues and the sixteen-bar rag are the form, not a choice.
-    expect(GENERATE_SCORE_STYLE_PRESETS.blues?.measures).toBe(12);
+    /*
+      Twelve-bar blues and the sixteen-bar rag are the form, not a choice.
+
+      This used to assert 12 bars outright, when every preset declared its own
+      length and a blues was one chorus — about thirty seconds. Lengths are
+      derived from a target duration now, so what has to hold is that a blues
+      is a whole number of TWELVES: rounded to fours like everything else, a
+      three-minute blues came out at 76 bars, six choruses and a third of one.
+    */
+    const blues = GENERATE_SCORE_STYLE_PRESETS.blues;
+    expect(blues?.formBars).toBe(12);
+    expect((blues?.measures ?? 0) % 12).toBe(0);
+    expect(blues?.measures).toBeGreaterThan(12);
+    const rag = GENERATE_SCORE_STYLE_PRESETS.ragtime;
+    expect(rag?.formBars).toBe(16);
+    expect((rag?.measures ?? 0) % 16).toBe(0);
     expect(GENERATE_SCORE_STYLE_PRESETS.ragtime?.timeSignature).toBe('2/4');
     // And a waltz is in three, which is what makes it one.
     expect(GENERATE_SCORE_STYLE_PRESETS.waltz?.timeSignature).toBe('3/4');
@@ -457,12 +471,26 @@ describe('every style preset', () => {
   });
 
   /* A tempo or length outside these is a typo, not a style. */
-  it('states a plausible tempo and length', () => {
+  it('states a plausible tempo, and a length a listener would call a song', () => {
+    /*
+      Asserted as DURATION, not bars.
+
+      Every preset used to declare 16 bars, which is about thirty seconds — and
+      a bar count cannot be checked across styles anyway, since 16 bars is 31
+      seconds of metal at 152bpm and 46 of a ballad at 84. What matters is the
+      time it takes, so that is what is bounded.
+    */
     for (const [style, preset] of entries) {
       expect(preset.tempo, style).toBeGreaterThanOrEqual(40);
       expect(preset.tempo, style).toBeLessThanOrEqual(240);
-      expect(preset.measures, style).toBeGreaterThanOrEqual(4);
-      expect(preset.measures, style).toBeLessThanOrEqual(64);
+      const beats = Number(preset.timeSignature.split('/')[0]);
+      const seconds = (preset.measures * beats * 60) / preset.tempo;
+      expect(seconds, `${style} runs ${Math.round(seconds)}s`).toBeGreaterThan(
+        150
+      );
+      expect(seconds, `${style} runs ${Math.round(seconds)}s`).toBeLessThan(
+        360
+      );
     }
   });
 

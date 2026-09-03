@@ -1,5 +1,7 @@
 import {
   generateScoreRequestSchema,
+  measuresForSeconds,
+  SONG_SECONDS,
   instrumentChoiceFor,
   type GenerateScoreRequest,
   type GenerateScoreRequestTrack,
@@ -114,8 +116,33 @@ export type GenerateScoreStylePreset = {
   instruments: readonly string[];
   /** Beats per minute, in the middle of the range the genre is played at. */
   tempo: number;
-  /** Bars, where the genre's form implies a number. */
+  /**
+   * Bars the piece runs for — DERIVED, never typed.
+   *
+   * Every preset used to declare 16, which is about thirty seconds and a
+   * fragment rather than a song. A bar count is also the wrong thing to fix
+   * across styles: 16 bars is 31 seconds of metal at 152bpm and 46 of a ballad
+   * at 84, so one number produces a different piece of music every time the
+   * tempo moves. The length that matters is TIME, and the bars follow from it
+   * with the preset's own tempo and meter — see `measuresForSeconds`.
+   */
   measures: number;
+  /**
+   * How long this style's pieces run, in seconds. Defaults to a typical song.
+   *
+   * Present so a style that is genuinely not song-shaped can say so, rather
+   * than being stretched to three minutes because everything else is.
+   */
+  seconds?: number;
+  /**
+   * The genre's form in bars, where it HAS one.
+   *
+   * A blues is twelve bars and a rag sixteen — those are the form, not a
+   * choice, so the length has to be a whole number of them. Rounded to fours
+   * like everything else, a three-minute blues came out at 76 bars: six
+   * choruses and a third of one.
+   */
+  formBars?: number;
   /** A key of `GENERATE_SCORE_TIME_SIGNATURE_OPTIONS`. */
   timeSignature: string;
   /** The mode the genre usually sits in; absent where it is not typical. */
@@ -127,8 +154,15 @@ type TimeSignatureMode = 'major' | 'minor';
 
 const KIT = 'kit:0';
 
-export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
-  Record<string, GenerateScoreStylePreset>
+/**
+ * The styles, before their length is worked out.
+ *
+ * Split from the export purely so `measures` can be derived rather than typed
+ * 29 times: a value repeated per preset is 29 chances for one of them to be a
+ * fragment, which is exactly what had happened.
+ */
+const STYLE_PRESET_SOURCE: Readonly<
+  Record<string, Omit<GenerateScoreStylePreset, 'measures'>>
 > = {
   // --- the original six -----------------------------------------------------
   // A waltz is in three; that is what makes it a waltz.
@@ -137,7 +171,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'waltz — a lilting three-four with the weight on beat one and a light "oom-pah-pah" accompaniment',
     instruments: ['0', '48', '43'],
     tempo: 160,
-    measures: 16,
     timeSignature: '3/4',
   },
   // A rhythm section plus a horn to carry the head.
@@ -146,7 +179,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'jazz — swung eighth notes, walking bass, extended chords, and a melody that phrases across the barline rather than sitting on the beat',
     instruments: ['66', '0', '32', KIT],
     tempo: 132,
-    measures: 16,
     timeSignature: '4/4',
   },
   pop: {
@@ -154,7 +186,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'pop — a clear singable hook, four-bar phrases, a backbeat on two and four, and space between the phrases',
     instruments: ['0', '27', '33', KIT],
     tempo: 120,
-    measures: 16,
     timeSignature: '4/4',
   },
   cinematic: {
@@ -162,7 +193,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'cinematic orchestral — long sustained lines that build, a rising dynamic arc, and rhythm that serves the swell rather than a groove',
     instruments: ['48', '40', '42', '60', '47'],
     tempo: 90,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -171,7 +201,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'ambient — slow evolving pads, very long note values, no strong pulse, and silence used as a voice',
     instruments: ['89', '0', '48'],
     tempo: 70,
-    measures: 16,
     timeSignature: '4/4',
   },
   battle: {
@@ -179,7 +208,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'driving battle music — insistent ostinato, hard accents, brass stabs against a relentless low pulse',
     instruments: ['61', '48', '47', KIT],
     tempo: 150,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -190,7 +218,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'rock — a hard backbeat on two and four, power-chord riffing, and a bass locked to the kick',
     instruments: ['29', '27', '33', KIT],
     tempo: 128,
-    measures: 16,
     timeSignature: '4/4',
   },
   // Fast, short, two guitars and no ornament.
@@ -203,7 +230,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
     // parts apart by. See the same fix in `country`.
     instruments: ['30', '29', '34', KIT],
     tempo: 180,
-    measures: 16,
     timeSignature: '4/4',
   },
   heavyMetal: {
@@ -213,7 +239,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
     // part — the same program twice is one part written twice.
     instruments: ['30', '29', '34', KIT],
     tempo: 152,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -221,11 +246,12 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
   // --- American vernacular --------------------------------------------------
   // Twelve bars, because that is the form rather than a length.
   blues: {
+    // Twelve bars is the form itself, so a blues runs a whole number of them.
+    formBars: 12,
     prompt:
       'twelve-bar blues — shuffle feel, blue notes and bends, call-and-response between a voice-like melody and answering fills, dominant seventh chords',
     instruments: ['27', '22', '33', KIT],
     tempo: 88,
-    measures: 12,
     timeSignature: '4/4',
   },
   country: {
@@ -244,7 +270,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
     */
     instruments: ['25', '110', '27', '32', KIT],
     tempo: 118,
-    measures: 16,
     timeSignature: '4/4',
   },
   // Banjo leads, fiddle answers, and nothing is amplified.
@@ -253,7 +278,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'bluegrass — fast acoustic picking, banjo rolls in constant eighths under a syncopated fiddle melody, driving upright bass on one and three',
     instruments: ['105', '110', '25', '32'],
     tempo: 160,
-    measures: 16,
     timeSignature: '4/4',
   },
   funk: {
@@ -261,7 +285,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'funk — heavily syncopated sixteenth-note groove, everything locked to a hard downbeat on the one, staccato stabs and plenty of rests',
     instruments: ['36', '28', '61', '4', KIT],
     tempo: 104,
-    measures: 16,
     timeSignature: '4/4',
   },
   soul: {
@@ -269,16 +292,16 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'soul — a laid-back backbeat sitting slightly behind the beat, gospel-tinged chords, horn stabs answering a vocal-style melody',
     instruments: ['16', '4', '33', '61', KIT],
     tempo: 96,
-    measures: 16,
     timeSignature: '4/4',
   },
   // Piano alone, in two, as it was written for.
   ragtime: {
+    // A rag is built in sixteen-bar strains.
+    formBars: 16,
     prompt:
       'ragtime — a syncopated right-hand melody against a steady striding left-hand bass in two, cheerful and precise',
     instruments: ['0'],
     tempo: 96,
-    measures: 16,
     timeSignature: '2/4',
   },
   // A big band: brass and reeds over a rhythm section.
@@ -287,7 +310,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'big-band swing — swung eighth notes, brass and reed sections trading riffs, walking bass, ride-cymbal pulse with accents on two and four',
     instruments: ['56', '66', '57', '0', '32', KIT],
     tempo: 168,
-    measures: 32,
     timeSignature: '4/4',
   },
 
@@ -297,7 +319,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'bossa nova — a gentle syncopated guitar pattern, soft brushed drums, a lyrical melody sitting behind the beat, rich seventh and ninth chords',
     instruments: ['24', '0', '32', KIT],
     tempo: 132,
-    measures: 16,
     timeSignature: '4/4',
   },
   samba: {
@@ -305,7 +326,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'samba — fast two-beat percussion-driven groove, heavy syncopation on the offbeats, surdo pulse landing on beat two',
     instruments: ['24', '61', '32', KIT],
     tempo: 100,
-    measures: 16,
     timeSignature: '2/4',
   },
   salsa: {
@@ -313,7 +333,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'salsa — clave-driven, a montuno piano ostinato, syncopated brass hits, busy percussion, bass playing the tumbao rather than the downbeat',
     instruments: ['0', '56', '57', '32', KIT],
     tempo: 190,
-    measures: 16,
     timeSignature: '4/4',
   },
   // The bandoneon is not in General MIDI; its tango accordion is.
@@ -322,7 +341,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'tango — sharp dotted rhythms and dramatic accents, minor key, sudden stops and rubato pulls against a strict pulse',
     instruments: ['23', '40', '0', '43'],
     tempo: 120,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -332,7 +350,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'reggae — one-drop: the kick lands on beat three, not one; guitar and organ chop the offbeat eighths; bass plays a heavy melodic line, low and sparse',
     instruments: ['28', '18', '33', KIT],
     tempo: 78,
-    measures: 16,
     timeSignature: '4/4',
   },
 
@@ -342,7 +359,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'hip-hop — a hard boom-bap drum pattern with swung sixteenths, a deep sustained sub bass, sparse looping keys, and space left for a vocal',
     instruments: ['39', '4', '48', KIT],
     tempo: 90,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -351,7 +367,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'lo-fi hip-hop — slow swung drums slightly off the grid, warm jazzy minor seventh chords, a sparse melody, unhurried and repetitive',
     instruments: ['4', '33', '89', KIT],
     tempo: 74,
-    measures: 16,
     timeSignature: '4/4',
     /*
       Minor, like the hip hop it comes from.
@@ -367,7 +382,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'house — four-on-the-floor kick, offbeat open hats, a repetitive synth riff, and a bassline locked to the eighths between the kicks',
     instruments: ['81', '38', '89', KIT],
     tempo: 126,
-    measures: 16,
     timeSignature: '4/4',
   },
   // Swing horns over a four-on-the-floor: the joke only works with both.
@@ -388,7 +402,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'electro swing — vintage swing horns over a modern four-on-the-floor electronic beat, minor and bluesy in a gypsy-jazz vein; hard-swung eighths, syncopated and playful, with clarinet and trumpet riffs answering each other',
     instruments: ['56', '71', '38', KIT],
     tempo: 122,
-    measures: 16,
     timeSignature: '4/4',
     mode: 'minor',
   },
@@ -397,7 +410,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'disco — four-on-the-floor kick, offbeat hi-hats, an octave-jumping bassline, and string and guitar figures on the sixteenths',
     instruments: ['48', '28', '33', KIT],
     tempo: 120,
-    measures: 16,
     timeSignature: '4/4',
   },
 
@@ -407,7 +419,6 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'baroque — a steady walking bass, contrapuntal interweaving voices, sequences and ornamented melodic lines, terraced dynamics',
     instruments: ['6', '40', '42'],
     tempo: 100,
-    measures: 16,
     timeSignature: '4/4',
   },
   march: {
@@ -415,10 +426,40 @@ export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
       'march — a firm two-beat pulse, dotted fanfare rhythms, a brass melody over a low oom-pah, crisp snare figures',
     instruments: ['56', '57', '58', KIT],
     tempo: 116,
-    measures: 16,
     timeSignature: '2/4',
   },
 };
+
+/**
+ * The styles, each with the bars its own tempo and meter need for a song.
+ *
+ * Derived rather than declared: see `GenerateScoreStylePreset.measures`. A
+ * style may set `seconds` to opt out of song length; everything else gets
+ * `SONG_SECONDS.typical`, which is where a listener expects a song to sit.
+ */
+export const GENERATE_SCORE_STYLE_PRESETS: Readonly<
+  Record<string, GenerateScoreStylePreset>
+> = Object.fromEntries(
+  Object.entries(STYLE_PRESET_SOURCE).map(([style, preset]) => [
+    style,
+    {
+      ...preset,
+      measures: measuresForSeconds(
+        preset.seconds ?? SONG_SECONDS.typical,
+        preset.tempo,
+        beatsPerBarOf(preset.timeSignature),
+        preset.formBars
+      ),
+    },
+  ])
+);
+
+/** Beats in a bar, from a picker value like "6/8". */
+function beatsPerBarOf(timeSignature: string): number {
+  const [numerator] = timeSignature.split('/');
+  const beats = Number(numerator);
+  return Number.isFinite(beats) && beats > 0 ? beats : 4;
+}
 
 /**
  * Instruments a piece can invite in that its genre would not have asked for.
