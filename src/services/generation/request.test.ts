@@ -6,7 +6,6 @@ import {
   GENERATE_SCORE_STYLE_PRESETS,
   GUEST_INSTRUMENTS,
   styleInstrumentsWithGuest,
-  withGenerationVariant,
   GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   buildGenerateScoreRequest,
   buildGenerateTrackRequest,
@@ -14,6 +13,9 @@ import {
   estimateGenerateScoreCredits,
   firstMelodyInstrumentEntryId,
   generateScoreTrackForInstrumentValue,
+  buildNewProjectScore,
+  canBuildNewProjectScore,
+  type GenerateScoreRequestDraft,
 } from './request.js';
 
 const BASE_DRAFT = {
@@ -516,34 +518,82 @@ describe('every style preset', () => {
   });
 });
 
-/**
- * The generation backend rides on the request, and only when it is not the
- * default — so an ordinary generation is exactly what it was before backends
- * could be chosen.
- */
-describe('withGenerationVariant', () => {
-  const base = { prompt: 'p', durationMeasures: 8, tracks: [] } as never;
+describe('buildNewProjectScore', () => {
+  const base = {
+    durationMeasures: 8,
+    instrumentValues: ['40', '42'],
+  };
 
-  it('sends no field for the default', () => {
-    expect(withGenerationVariant(base, 'default')).not.toHaveProperty(
-      'variant'
-    );
-    expect(withGenerationVariant(base, undefined)).not.toHaveProperty(
-      'variant'
-    );
-    expect(withGenerationVariant(base, '')).not.toHaveProperty('variant');
+  it('builds the ensemble that was chosen, with its programs', () => {
+    // Through `generateScoreTrackForInstrumentValue`, which is what carries
+    // midiProgram — a String Quartet that came back as four pianos is the
+    // failure this exists to prevent.
+    const score = buildNewProjectScore(base);
+    expect(score?.tracks.map(t => t.midiProgram)).toEqual([40, 42]);
+    // Both treble, and that is `clefForProgram`'s rule rather than an
+    // oversight: only the GM *Bass family* (32-39) reads better on the bass
+    // staff, so a cello at program 42 opens on treble and is changed on the
+    // track afterwards.
+    expect(score?.tracks.map(t => t.clef)).toEqual(['treble', 'treble']);
   });
 
-  it('tags the request with any other backend', () => {
-    expect(withGenerationVariant(base, 'deepseek').variant).toBe('deepseek');
-    expect(withGenerationVariant(base, 'weak').variant).toBe('weak');
+  it('builds the number of bars asked for, on every track', () => {
+    const score = buildNewProjectScore({ ...base, durationMeasures: 12 });
+    expect(score?.tracks.map(t => t.measures.length)).toEqual([12, 12]);
   });
 
-  it('leaves the rest of the request alone', () => {
-    const tagged = withGenerationVariant(base, 'deepseek');
-    expect(tagged.prompt).toBe('p');
-    expect(tagged.durationMeasures).toBe(8);
-    // A new object, so a caller's request is never mutated under it.
-    expect(tagged).not.toBe(base);
+  it('needs no prompt — that is the whole difference from a generation', () => {
+    expect(canBuildNewProjectScore(base)).toBe(true);
+    expect(canBuildGenerateScoreRequest({ ...base, prompt: '' })).toBe(false);
+  });
+
+  it('titles the score, falling back to Untitled', () => {
+    expect(
+      buildNewProjectScore({ ...base, title: '  Wedding March  ' })?.metadata
+        .title
+    ).toBe('Wedding March');
+    expect(buildNewProjectScore(base)?.metadata.title).toBe('Untitled');
+  });
+
+  it('carries the meter and key into every measure', () => {
+    const score = buildNewProjectScore({
+      ...base,
+      timeSignature: { numerator: 3, denominator: 4 },
+      keySignature: { fifths: -3, mode: 'minor' },
+    });
+    const first = score?.tracks[0]?.measures[0];
+    expect(first?.timeSignature).toEqual({ numerator: 3, denominator: 4 });
+    expect(first?.keySignature).toEqual({ fifths: -3, mode: 'minor' });
+  });
+
+  it('takes a blank tempo as "no tempo", and a bad one as a refusal', () => {
+    // The same rule the generating builder applies, so the two modes cannot
+    // disagree about what a form is allowed to submit.
+    expect(
+      buildNewProjectScore({ ...base, tempoText: '' })?.tempoMap[0]?.bpm
+    ).toBe(120);
+    expect(
+      buildNewProjectScore({ ...base, tempoText: '90' })?.tempoMap[0]?.bpm
+    ).toBe(90);
+    expect(buildNewProjectScore({ ...base, tempoText: 'fast' })).toBeNull();
+    expect(buildNewProjectScore({ ...base, tempoText: '0' })).toBeNull();
+  });
+
+  it('refuses a form it could not make a score from', () => {
+    expect(buildNewProjectScore({ ...base, durationMeasures: 0 })).toBeNull();
+    expect(buildNewProjectScore({ ...base, durationMeasures: 2.5 })).toBeNull();
+    expect(buildNewProjectScore({ ...base, instrumentValues: [] })).toBeNull();
+  });
+
+  it('accepts a generation draft unchanged, because one form feeds both', () => {
+    // `GenerateScoreRequestDraft` is assignable to `NewProjectDraft`. If this
+    // stops compiling, the two have been allowed to drift and the toggle can
+    // no longer be a toggle.
+    const draft: GenerateScoreRequestDraft = {
+      ...base,
+      prompt: 'A waltz',
+      style: 'waltz',
+    };
+    expect(buildNewProjectScore(draft)).not.toBeNull();
   });
 });

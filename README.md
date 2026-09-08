@@ -1,6 +1,6 @@
 # @sudobility/music_lib
 
-Business logic for the Moosiac music platform: score domain model with undoable commands, validation, quantization, VexFlow rendering adapter, Tone.js playback, MIDI/MusicXML import/export, and the Zustand app store.
+Frontend logic for the Moosiac music platform: app-side generation request helpers, rendering/audio/file adapters, and the Zustand app store. Shared score/domain/generation contracts live in `@sudobility/music_types`.
 
 ## Installation
 
@@ -26,7 +26,7 @@ import {
 
 ## What's Inside
 
-- **Domain** — score factories/queries, ScoreCommand factories + HistoryManager (undo/redo), validation (spec rules), quantization engine, voice allocation, tick/pitch math
+- **Frontend helpers** — generation request builders and app-facing helpers around the shared score/domain contracts
 - **Adapters** — VexFlow 4 notation renderer (virtualized), Tone.js playback engine + instruments, MIDI and MusicXML round-trip codecs
 - **Store** — Zustand slices for score/selection/playback/generation/project/ui with memoized selectors
 - **Workers** — off-thread MIDI parsing and quantization with inline fallbacks
