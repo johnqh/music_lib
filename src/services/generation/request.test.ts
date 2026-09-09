@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { gmInstrument, gmKitAt } from '@sudobility/music_types';
 import { createEmptyScore } from '@sudobility/music_types';
+import { DEFAULT_VOCAL_INSTRUMENT_VALUE } from '@sudobility/music_types';
 import {
   GENERATE_SCORE_STYLE_OPTIONS,
+  hasVocalInstrument,
   GENERATE_SCORE_STYLE_PRESETS,
   GUEST_INSTRUMENTS,
   styleInstrumentsWithGuest,
@@ -595,5 +597,42 @@ describe('buildNewProjectScore', () => {
       style: 'waltz',
     };
     expect(buildNewProjectScore(draft)).not.toBeNull();
+  });
+});
+
+describe('a sung roster', () => {
+  const draft = (instrumentValues: readonly string[], lyrics?: boolean) => ({
+    prompt: 'a song about the sea',
+    durationMeasures: 16,
+    instrumentValues,
+    ...(lyrics === undefined ? {} : { lyrics }),
+  });
+
+  it('knows when a roster has somebody singing in it', () => {
+    expect(
+      hasVocalInstrument(['0', '33', DEFAULT_VOCAL_INSTRUMENT_VALUE])
+    ).toBe(true);
+    expect(hasVocalInstrument(['0', '33', 'kit:0'])).toBe(false);
+    expect(hasVocalInstrument([])).toBe(false);
+  });
+
+  it('asks for words only when the draft says so', () => {
+    expect(
+      buildGenerateScoreRequest(draft([DEFAULT_VOCAL_INSTRUMENT_VALUE], true))
+        ?.lyrics
+    ).toBe(true);
+  });
+
+  it('omits the field entirely when no words were asked for', () => {
+    const request = buildGenerateScoreRequest(
+      draft([DEFAULT_VOCAL_INSTRUMENT_VALUE])
+    );
+    expect(request).not.toBeNull();
+    expect(request && 'lyrics' in request).toBe(false);
+  });
+
+  it('never asks for words over a roster with nobody to sing them', () => {
+    const request = buildGenerateScoreRequest(draft(['0', 'kit:0'], true));
+    expect(request && 'lyrics' in request).toBe(false);
   });
 });

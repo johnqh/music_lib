@@ -152,6 +152,8 @@ Everything exports from `src/index.ts` (package root import only).
 - The playback controller is a module-level singleton that constructs Tone objects at import — component tests in consuming apps must mock it
 - Two `safeFilename` helpers existed (midi/musicxml); the package root re-exports the midi one only
 
+- **`hasVocalInstrument` is shared because both apps ask it twice** — once to decide whether to offer a lyrics control, once to decide whether adding a voice for the reader would be adding a second one. The *decision* is here; the list splice stays in each app, because the two hold their roster in different shapes (`{id, value}[]` on web, so the same instrument can appear twice and survive reordering; `string[]` on native). `GenerateScoreRequestDraft.lyrics` is dropped by `buildGenerateScoreRequest` unless the roster can actually sing — the server writes a lyric onto sung tracks and nothing else, so gating it only in the dialogs would leave a roster edited down to instruments still asking for words.
+
 ## Related Projects
 
 - `music_types` — shared types/schemas · `music_client` — network client · `music_api` — backend · `music_app` — web UI

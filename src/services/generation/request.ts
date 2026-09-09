@@ -3,6 +3,7 @@ import {
   generateScoreRequestSchema,
   GENERATE_SCORE_STYLE_PRESETS,
   instrumentChoiceFor,
+  isVocalInstrumentValue,
   type GenerateScoreRequest,
   type GenerateScoreRequestTrack,
   type InstrumentChoice,
@@ -188,9 +189,29 @@ export type GenerateScoreRequestDraft = {
   style?: string;
   mood?: string;
   tempoText?: string;
+  /**
+   * Whether the sung part comes back with words under it.
+   *
+   * Only ever reaches the wire when somebody in the roster can sing them —
+   * see `buildGenerateScoreRequest`. Deliberately not inferred from the roster
+   * alone: a voice program held as a wordless "ooh" pad is a different piece of
+   * music from a song with a lyric, and asking is the only way to tell.
+   */
+  lyrics?: boolean;
 };
 
 export type InstrumentValueEntry = { id: number; value: string };
+
+/**
+ * Whether anybody in this roster is singing.
+ *
+ * Shared rather than written in each app because both of them ask it twice —
+ * once to decide whether to offer a lyrics control at all, and once to decide
+ * whether adding a voice for the reader would be adding a second one.
+ */
+export function hasVocalInstrument(values: readonly string[]): boolean {
+  return values.some(isVocalInstrumentValue);
+}
 
 export function generateScoreTrackForInstrumentValue(
   value: string
@@ -269,6 +290,18 @@ export function buildGenerateScoreRequest(
         }
       : {}),
     ...(draft.mood ? { mood: draft.mood } : {}),
+    /*
+      Words, but only where there is a mouth to sing them.
+
+      The server writes a lyric onto the sung tracks and onto nothing else, so
+      a request asking for words over an entirely instrumental roster describes
+      an outcome it cannot get. Gated here rather than at the two call sites so
+      the apps cannot disagree about it — and so a roster edited down to
+      instruments after the switch was set does not quietly keep asking.
+    */
+    ...(draft.lyrics === true && hasVocalInstrument(draft.instrumentValues)
+      ? { lyrics: true }
+      : {}),
     ...(tempo === undefined ? {} : { tempo }),
   };
 
