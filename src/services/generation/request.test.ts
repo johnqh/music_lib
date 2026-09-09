@@ -636,3 +636,52 @@ describe('a sung roster', () => {
     expect(request && 'lyrics' in request).toBe(false);
   });
 });
+
+describe("the lyric's subject", () => {
+  const draft = (over: Record<string, unknown> = {}) => ({
+    prompt: 'a slow waltz in D minor',
+    durationMeasures: 16,
+    instrumentValues: [DEFAULT_VOCAL_INSTRUMENT_VALUE],
+    lyrics: true,
+    ...over,
+  });
+
+  it('travels when the words are about something of their own', () => {
+    expect(
+      buildGenerateScoreRequest(
+        draft({ lyricsTheme: 'a love song about coming home' })
+      )?.lyricsTheme
+    ).toBe('a love song about coming home');
+  });
+
+  it('is left off when there is none, so the words follow the piece', () => {
+    const request = buildGenerateScoreRequest(draft());
+    expect(request && 'lyricsTheme' in request).toBe(false);
+  });
+
+  it('is left off when it is only whitespace', () => {
+    // An input somebody tabbed through is not a subject.
+    const request = buildGenerateScoreRequest(draft({ lyricsTheme: '   ' }));
+    expect(request && 'lyricsTheme' in request).toBe(false);
+  });
+
+  it('never travels without the lyrics it describes', () => {
+    /*
+      A theme for a lyric nobody asked for is the disagreement this field was
+      once left out to avoid. Gated in the builder rather than trusted at each
+      call site, exactly as `lyrics` itself is.
+    */
+    const off = buildGenerateScoreRequest(
+      draft({ lyrics: false, lyricsTheme: 'a love song' })
+    );
+    expect(off && 'lyricsTheme' in off).toBe(false);
+  });
+
+  it('never travels over a roster with nobody to sing it', () => {
+    const instrumental = buildGenerateScoreRequest(
+      draft({ instrumentValues: ['0', 'kit:0'], lyricsTheme: 'a love song' })
+    );
+    expect(instrumental && 'lyricsTheme' in instrumental).toBe(false);
+    expect(instrumental && 'lyrics' in instrumental).toBe(false);
+  });
+});

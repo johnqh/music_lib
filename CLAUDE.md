@@ -154,6 +154,8 @@ Everything exports from `src/index.ts` (package root import only).
 
 - **`hasVocalInstrument` is shared because both apps ask it twice** — once to decide whether to offer a lyrics control, once to decide whether adding a voice for the reader would be adding a second one. The *decision* is here; the list splice stays in each app, because the two hold their roster in different shapes (`{id, value}[]` on web, so the same instrument can appear twice and survive reordering; `string[]` on native). `GenerateScoreRequestDraft.lyrics` is dropped by `buildGenerateScoreRequest` unless the roster can actually sing — the server writes a lyric onto sung tracks and nothing else, so gating it only in the dialogs would leave a roster edited down to instruments still asking for words.
 
+- **`lyricsTheme` is gated with `lyrics`, in the builder.** A subject for a lyric nobody asked for is exactly the disagreement the field was once left out to avoid, so it reaches the wire only alongside the words it describes and only over a roster that can sing them — one rule, in one place, rather than trusted at each app's call site. Blank is no theme.
+
 ## Related Projects
 
 - `music_types` — shared types/schemas · `music_client` — network client · `music_api` — backend · `music_app` — web UI

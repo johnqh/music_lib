@@ -198,6 +198,14 @@ export type GenerateScoreRequestDraft = {
    * music from a song with a lyric, and asking is the only way to tell.
    */
   lyrics?: boolean;
+  /**
+   * What the words are about, when that is not what the piece is about.
+   *
+   * Only reaches the wire alongside the lyrics it describes — see
+   * `buildGenerateScoreRequest`. Blank is no theme: an input somebody tabbed
+   * through must not become a subject line.
+   */
+  lyricsTheme?: string;
 };
 
 export type InstrumentValueEntry = { id: number; value: string };
@@ -291,16 +299,23 @@ export function buildGenerateScoreRequest(
       : {}),
     ...(draft.mood ? { mood: draft.mood } : {}),
     /*
-      Words, but only where there is a mouth to sing them.
+      Words, but only where there is a mouth to sing them — and a subject for
+      them only alongside the words themselves.
 
-      The server writes a lyric onto the sung tracks and onto nothing else, so
-      a request asking for words over an entirely instrumental roster describes
-      an outcome it cannot get. Gated here rather than at the two call sites so
-      the apps cannot disagree about it — and so a roster edited down to
-      instruments after the switch was set does not quietly keep asking.
+      The server writes a lyric onto the sung tracks and onto nothing else, so a
+      request asking for words over an entirely instrumental roster describes an
+      outcome it cannot get, and a theme without them describes a lyric nobody
+      asked for. Both are gated here rather than at the two call sites, so the
+      apps cannot disagree about it and a roster edited down to instruments
+      after the switch was set does not quietly keep asking.
     */
     ...(draft.lyrics === true && hasVocalInstrument(draft.instrumentValues)
-      ? { lyrics: true }
+      ? {
+          lyrics: true as const,
+          ...(draft.lyricsTheme?.trim()
+            ? { lyricsTheme: draft.lyricsTheme.trim() }
+            : {}),
+        }
       : {}),
     ...(tempo === undefined ? {} : { tempo }),
   };
