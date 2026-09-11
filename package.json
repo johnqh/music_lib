@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "1.9.31",
+  "version": "1.9.32",
   "description": "Frontend logic for ScoreSmith: request builders, rendering/audio/file adapters, and the app store",
   "type": "module",
   "main": "./dist/index.js",
