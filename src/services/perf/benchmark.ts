@@ -66,6 +66,7 @@ const RENDER_THEME: RenderTheme = {
   noteSelected: '#000000',
   noteRegenerated: '#8b5a2b',
   notePlaying: '#0066ff',
+  noteOutOfRange: '#b91c1c',
   staveActive: '#000000',
   staveInactive: '#666666',
   caret: '#d32f2f',

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { gmInstrument, gmKitAt } from '@sudobility/music_types';
+import {
+  gmInstrument,
+  gmKitAt,
+  styleTempoRange,
+} from '@sudobility/music_types';
 import { createEmptyScore } from '@sudobility/music_types';
 import { DEFAULT_VOCAL_INSTRUMENT_VALUE } from '@sudobility/music_types';
 import {
@@ -8,6 +12,8 @@ import {
   GENERATE_SCORE_STYLE_PRESETS,
   GUEST_INSTRUMENTS,
   styleInstrumentsWithGuest,
+  styleKey,
+  styleTempo,
   GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   buildGenerateScoreRequest,
   buildGenerateTrackRequest,
@@ -683,5 +689,94 @@ describe("the lyric's subject", () => {
     );
     expect(instrumental && 'lyricsTheme' in instrumental).toBe(false);
     expect(instrumental && 'lyrics' in instrumental).toBe(false);
+  });
+});
+
+/*
+ * Every score this app generated was in C — measured across every stored
+ * project, `fifths` was 0 without exception. The dialog initialised the key to
+ * 0 and a style only ever overwrote the mode, so two genres arrived in one key
+ * and sounded like each other whatever their rhythms did.
+ */
+describe('styleKey', () => {
+  it('picks a key the style is actually played in', () => {
+    // Big-band keys are flat: B♭, E♭, F, C.
+    expect(styleKey('swing', () => 0)).toEqual({ fifths: -2, mode: 'major' });
+    // Guitar music lives where the open strings are.
+    expect(styleKey('rock', () => 0)).toEqual({ fifths: 4, mode: 'major' });
+  });
+
+  it("reads the tonic in the style's own mode", () => {
+    // Electro swing is a minor genre, so 0 is A minor rather than C major.
+    expect(styleKey('electroSwing', () => 0)).toEqual({
+      fifths: -1,
+      mode: 'minor',
+    });
+  });
+
+  it('does not answer the same key every time', () => {
+    const seen = new Set(
+      Array.from({ length: 4 }, (_, i) => styleKey('jazz', () => i / 4)?.fifths)
+    );
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('leaves a style it does not know alone', () => {
+    expect(styleKey('sea shanty')).toBeNull();
+  });
+
+  it('offers a key for every style the app can choose', () => {
+    for (const style of GENERATE_SCORE_STYLE_OPTIONS) {
+      expect(
+        styleKey(style, () => 0),
+        style
+      ).not.toBeNull();
+    }
+  });
+});
+
+describe('styleTempo', () => {
+  it("picks a tempo inside the genre's own range", () => {
+    for (const style of GENERATE_SCORE_STYLE_OPTIONS) {
+      const [min, max] = styleTempoRange(style)!;
+      for (const r of [0, 0.5, 0.999]) {
+        const picked = styleTempo(style, () => r)!;
+        expect(picked.tempo, `${style} @ ${r}`).toBeGreaterThanOrEqual(min);
+        expect(picked.tempo, `${style} @ ${r}`).toBeLessThanOrEqual(max);
+      }
+    }
+  });
+
+  /*
+   * The bar count is derived from the tempo — `measures` is "bars that fill
+   * three and a half minutes at this speed" — so a faster piece needs more of
+   * them to last as long. Returning one without the other is how a generation
+   * ends up half a minute short.
+   */
+  it('gives more bars to a faster tempo', () => {
+    const slow = styleTempo('pop', () => 0)!;
+    const fast = styleTempo('pop', () => 0.999)!;
+    expect(fast.tempo).toBeGreaterThan(slow.tempo);
+    expect(fast.measures).toBeGreaterThanOrEqual(slow.measures);
+  });
+
+  it('keeps a blues in whole twelve-bar choruses at any tempo', () => {
+    for (const r of [0, 0.3, 0.6, 0.999]) {
+      expect(styleTempo('blues', () => r)!.measures % 12).toBe(0);
+    }
+  });
+
+  it('does not answer the same tempo every time', () => {
+    const seen = new Set(
+      Array.from(
+        { length: 8 },
+        (_, i) => styleTempo('salsa', () => i / 8)?.tempo
+      )
+    );
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('leaves a style it does not know alone', () => {
+    expect(styleTempo('sea shanty')).toBeNull();
   });
 });

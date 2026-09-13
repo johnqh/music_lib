@@ -4,6 +4,9 @@ import {
   GENERATE_SCORE_STYLE_PRESETS,
   instrumentChoiceFor,
   isVocalInstrumentValue,
+  measuresForSeconds,
+  SONG_SECONDS,
+  styleTempoRange,
   type GenerateScoreRequest,
   type GenerateScoreRequestTrack,
   type InstrumentChoice,
@@ -125,6 +128,76 @@ export function styleInstrumentsWithGuest(
   const guest =
     available[Math.floor(rng() * available.length) % available.length];
   return [...preset.instruments, guest];
+}
+
+/**
+ * A key this style is actually played in, chosen fresh each time.
+ *
+ * Every score this app generated was in C, and not because a model preferred
+ * it: the New Project dialog initialised the key to `fifths: 0` and a style
+ * only ever overwrote the MODE, so the request pinned C on every genre and the
+ * plan prompt dutifully bound the chart to it. Measured across every stored
+ * project: `fifths` was 0 in all of them. Two genres in one key, played by
+ * rosters that overlap, sound like each other however different their rhythms
+ * are — and the rhythms measurably were.
+ *
+ * Chosen HERE and shown in the dialog rather than decided on the server, so
+ * the reader sees the key before generating and can change it — the same shape
+ * as the guest instrument above, which is picked here and rendered into an
+ * editable list.
+ *
+ * `rng` is injectable so a test can pin the choice; nothing but a test passes
+ * it. Null for a style with no keys of its own, which leaves whatever the
+ * reader had chosen alone.
+ */
+export function styleKey(
+  style: string,
+  rng: () => number = Math.random
+): KeySignature | null {
+  const preset = GENERATE_SCORE_STYLE_PRESETS[style];
+  const keys = preset?.keys;
+  if (!preset || !keys || keys.length === 0) return null;
+  const fifths = keys[Math.floor(rng() * keys.length) % keys.length];
+  // The mode is the preset's, so a minor genre's `0` is A minor rather than C
+  // major: the list above is tonics *within* the mode the style declares.
+  return { fifths, mode: preset.mode ?? 'major' };
+}
+
+/**
+ * A tempo this style is played at, and the bars a song of that length needs.
+ *
+ * The two travel together because the bar count is DERIVED from the tempo:
+ * `measures` on the preset is "how many bars fill three and a half minutes at
+ * this speed", so picking a tempo without recomputing it makes a faster piece
+ * a shorter one. Returning both is what stops a caller from setting one and
+ * forgetting the other — which is what a dialog with two fields invites.
+ *
+ * The tempo itself varies per generation for the reason the key and the guest
+ * instrument do: every score of a genre ran at exactly its nominal tempo, so
+ * two goes at salsa were both at 190, and sameness is cumulative.
+ *
+ * `rng` is injectable so a test can pin the choice; nothing but a test passes
+ * it. Null for a style with no preset, which leaves the fields alone.
+ */
+export function styleTempo(
+  style: string,
+  rng: () => number = Math.random
+): { tempo: number; measures: number } | null {
+  const preset = GENERATE_SCORE_STYLE_PRESETS[style];
+  const range = styleTempoRange(style);
+  if (!preset || !range) return null;
+  const [min, max] = range;
+  const tempo = min + Math.floor(rng() * (max - min + 1));
+  const [beats] = preset.timeSignature.split('/');
+  return {
+    tempo,
+    measures: measuresForSeconds(
+      preset.seconds ?? SONG_SECONDS.typical,
+      tempo,
+      Number(beats) || 4,
+      preset.formBars
+    ),
+  };
 }
 
 export const GENERATE_SCORE_MOOD_OPTIONS: readonly string[] = [

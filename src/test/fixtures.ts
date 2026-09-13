@@ -26,6 +26,7 @@ export function testRenderTheme(): RenderTheme {
     noteSelected: '#333333',
     noteRegenerated: '#444444',
     notePlaying: '#555555',
+    noteOutOfRange: '#999999',
     staveActive: '#666666',
     staveInactive: '#777777',
     caret: '#888888',

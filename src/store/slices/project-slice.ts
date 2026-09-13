@@ -217,6 +217,16 @@ export function createProjectSlice(
       },
 
       openProject: async id => {
+        /*
+          No "is it loading" flag here, deliberately.
+
+          The editor route asks a simpler question and gets a better answer:
+          does the store hold the project the URL names? That is false from the
+          first render rather than from whenever an effect got around to
+          setting a flag, so nothing paints the previous project first — which
+          is exactly what a flag let through, along with an app bar that went
+          on naming it.
+        */
         const { client, token } = await authorizedServer(context);
         const record = await client.getProject(id, token);
         await adopt(record, record.score);
