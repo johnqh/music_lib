@@ -17,6 +17,7 @@ import { libraryMessage } from '../../services/messages.js';
 import type { StateCreator } from 'zustand';
 import { newProjectScore } from '../../templates/index.js';
 import type {
+  GenerationRecord,
   ProjectSaveResult,
   ProjectUpdateRequest,
   Score,
@@ -33,6 +34,12 @@ export type NewProjectInput = { name: string; score?: Score };
 export type ProjectSlice = {
   projectId: string | null;
   projectName: string;
+  /**
+   * The open project's last whole-score generation — what was asked for and
+   * the choices it was built from — or null. Kept so the editor can show the
+   * choices and generate again with some of them locked.
+   */
+  lastGeneration: GenerationRecord | null;
   dirty: boolean;
   saveState: SaveState;
   /**
@@ -180,6 +187,7 @@ export function createProjectSlice(
       set(state => {
         state.projectId = project.id;
         state.projectName = project.name;
+        state.lastGeneration = project.lastGeneration ?? null;
         state.dirty = false;
         state.saveState = 'saved';
         state.serverUpdatedAt = project.updatedAt;
@@ -195,6 +203,7 @@ export function createProjectSlice(
     return {
       projectId: null,
       projectName: '',
+      lastGeneration: null,
       dirty: false,
       saveState: 'saved',
       serverUpdatedAt: null,
