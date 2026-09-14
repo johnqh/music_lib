@@ -19,6 +19,8 @@ import {
   buildGenerateTrackRequest,
   canBuildGenerateScoreRequest,
   estimateGenerateScoreCredits,
+  estimateGenerateTrackCredits,
+  estimateReplacementCredits,
   firstMelodyInstrumentEntryId,
   generateScoreTrackForInstrumentValue,
   buildNewProjectScore,
@@ -775,5 +777,38 @@ describe('styleTempo', () => {
 
   it('leaves a style it does not know alone', () => {
     expect(styleTempo('sea shanty')).toBeNull();
+  });
+});
+
+/*
+ * Every generate modal quotes what the server bills: bars times tracks, and a
+ * Replace is charged the whole bars its region touches.
+ */
+describe('credit estimates for the editor modals', () => {
+  const score = buildNewProjectScore({
+    title: 'x',
+    durationMeasures: 4,
+    instrumentValues: ['0', '40'],
+    timeSignature: { numerator: 4, denominator: 4 },
+  })!;
+  const [piano, violin] = score.tracks;
+  const bar = piano.measures[0].durationTicks;
+
+  it('charges a Replace Notes the bars it touches, per track', () => {
+    const region = {
+      range: {
+        startTick: bar / 2,
+        endTick: bar + bar / 2,
+        trackIds: [piano.id, violin.id],
+      },
+      measureAligned: false,
+      noteCount: 0,
+      unselectedNoteCount: 0,
+    };
+    expect(estimateReplacementCredits(score, region)).toBe(4);
+  });
+
+  it('charges a new track every bar of the score once', () => {
+    expect(estimateGenerateTrackCredits(score)).toBe(4);
   });
 });

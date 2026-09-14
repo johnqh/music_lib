@@ -11,6 +11,7 @@ import {
   type GenerateScoreRequestTrack,
   type InstrumentChoice,
   type KeySignature,
+  type ReplacementRegion,
   type Score,
   type TimeSignature,
 } from '@sudobility/music_types';
@@ -314,6 +315,38 @@ export function estimateGenerateScoreCredits(
 ): number {
   if (!Number.isInteger(durationMeasures) || durationMeasures <= 0) return 0;
   return durationMeasures * Math.max(0, trackCount);
+}
+
+/**
+ * The credits a Replace will cost: the bars the region touches, times its
+ * tracks.
+ *
+ * The same arithmetic the server bills by — a job is charged per bar per track
+ * of what it generated, and a replaced region comes back as whole bars on each
+ * of its tracks, so a Replace Notes spanning part of two bars is two bars. An
+ * upper bound for the same reason the Generate quote is one.
+ */
+export function estimateReplacementCredits(
+  score: Score,
+  region: ReplacementRegion
+): number {
+  const { startTick, endTick, trackIds } = region.range;
+  const track =
+    score.tracks.find(candidate => candidate.id === trackIds[0]) ??
+    score.tracks[0];
+  if (!track) return 0;
+  const bars = track.measures.filter(
+    measure =>
+      measure.startTick < endTick &&
+      measure.startTick + measure.durationTicks > startTick
+  ).length;
+  return estimateGenerateScoreCredits(bars, trackIds.length);
+}
+
+/** The credits generating one more track costs: every bar of the score, once. */
+export function estimateGenerateTrackCredits(score: Score): number {
+  const bars = Math.max(0, ...score.tracks.map(track => track.measures.length));
+  return estimateGenerateScoreCredits(bars, 1);
 }
 
 export function firstMelodyInstrumentEntryId(
