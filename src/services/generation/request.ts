@@ -35,43 +35,6 @@ export type GenerateScoreComplexity = NonNullable<
 >;
 
 /**
- * Instruments a piece can invite in that its genre would not have asked for.
- *
- * Every generation of one style otherwise draws the same four or five
- * instruments, so sixteen bars of country are sixteen bars of country every
- * time. One guest is enough to make each attempt its own piece — a cello under
- * a metal riff, a harmonica over a house track — and because it is chosen from
- * outside the style's own roster it is the one part of the ensemble that is not
- * a foregone conclusion.
- *
- * Common instruments only, and deliberately so. These are the sounds a listener
- * can name, which is what makes the guest read as a decision rather than as a
- * patch nobody recognises: a violin is interesting over a funk groove, and
- * "Pad 6 (metallic)" is just an unfamiliar noise. They are also all instruments
- * that carry a line — a guest with nothing to play is a track of rests.
- *
- * No kits: percussion is chosen by the style, and a second drummer is not a
- * guest, it is a mess.
- */
-export const GUEST_INSTRUMENTS: readonly string[] = [
-  '0', //  Acoustic Grand Piano
-  '11', // Vibraphone
-  '21', // Accordion
-  '22', // Harmonica
-  '24', // Acoustic Guitar (nylon)
-  '40', // Violin
-  '42', // Cello
-  '46', // Orchestral Harp
-  '56', // Trumpet
-  '60', // French Horn
-  '65', // Alto Sax
-  '68', // Oboe
-  '71', // Clarinet
-  '73', // Flute
-  '105', // Banjo
-];
-
-/**
  * Programs that are the same instrument under two names.
  *
  * General MIDI lists Violin at 40 and Fiddle at 110, and they are one
@@ -97,37 +60,76 @@ function alsoTaken(taken: ReadonlySet<string>): Set<string> {
   return out;
 }
 
+/** Which of a style's tiers an ensemble entry came from. */
+export type StyleTier = 'essential' | 'preferred' | 'optional';
+
+export type StyleRosterEntry = { value: string; tier: StyleTier };
+
+/** How many of a style's optional instruments each roster draws. */
+export const STYLE_OPTIONAL_PICKS = 2;
+
 /**
- * A style's instruments, plus one guest that is not among them.
+ * The ensemble a style starts from: its essential instruments, its preferred
+ * ones, and a couple of its optional ones chosen at random.
  *
- * The exclusion is exactly "not in the typical instruments for the style",
- * since a preset's roster *is* that style's typical instruments — so a banjo
- * is never offered to bluegrass and a trumpet is never doubled in a big-band
- * lineup, without a second table saying so for each of the styles.
+ * It used to be the preset's one list plus a single "guest" drawn from a pool
+ * shared by every genre, and every entry was removable — so a reggae roster
+ * could lose its kit, which is a reggae with no one-drop. The tiers say what a
+ * style cannot be without (`essential`, which the dialogs refuse to remove),
+ * what it is usually played with (`preferred`), and what colours it
+ * (`optional`, drawn fresh each time, so two pieces of one style are not the
+ * same band twice).
  *
- * `rng` is injectable so a test can pin the choice; nothing but a test passes
- * it. The guest goes LAST, which is where the caller shows it: both dialogs
- * render the ensemble as an editable list, so the addition is visible before
- * anything is generated and can be removed with one tap by somebody who wanted
- * the plain lineup.
+ * `voice` says whether a singer may be added: only when the model writes the
+ * music. A duplicate of anything already in the roster is never drawn, by
+ * program or by the same instrument under another General MIDI name.
  *
- * Returns the roster unchanged for an unknown style, and when every guest is
- * already in it — there is nothing to add that would not be a duplicate, and a
- * duplicate is the bug this replaced (two tracks named "Acoustic Guitar
- * (steel)" generate as one part written twice).
+ * Ordered the way a lead sheet reads: the singer, then melodic parts, then
+ * bass-clef parts, then percussion — the first melodic track is the one the
+ * dialogs label as carrying the melody. `rng` is injectable so a test can pin
+ * the draw. An unknown style has no roster.
  */
-export function styleInstrumentsWithGuest(
+export function styleRoster(
   style: string,
+  options: { voice: boolean },
   rng: () => number = Math.random
-): readonly string[] {
+): StyleRosterEntry[] {
   const preset = GENERATE_SCORE_STYLE_PRESETS[style];
   if (!preset) return [];
-  const taken = alsoTaken(new Set(preset.instruments));
-  const available = GUEST_INSTRUMENTS.filter(value => !taken.has(value));
-  if (available.length === 0) return preset.instruments;
-  const guest =
-    available[Math.floor(rng() * available.length) % available.length];
-  return [...preset.instruments, guest];
+  const allowed = (value: string): boolean =>
+    options.voice || !isVocalInstrumentValue(value);
+  const chosen: StyleRosterEntry[] = [
+    ...preset.essential.map(value => ({ value, tier: 'essential' as const })),
+    ...preset.preferred
+      .filter(allowed)
+      .map(value => ({ value, tier: 'preferred' as const })),
+  ];
+  const pool = [...preset.optional].filter(allowed);
+  for (
+    let pick = 0;
+    pick < STYLE_OPTIONAL_PICKS && pool.length > 0;
+    pick += 1
+  ) {
+    const taken = alsoTaken(new Set(chosen.map(entry => entry.value)));
+    const available = pool.filter(value => !taken.has(value));
+    if (available.length === 0) break;
+    const value =
+      available[Math.floor(rng() * available.length) % available.length];
+    chosen.push({ value, tier: 'optional' });
+    pool.splice(pool.indexOf(value), 1);
+  }
+  const rank = (value: string): number => {
+    if (isVocalInstrumentValue(value)) return 0;
+    const clef = instrumentChoiceFor(value).clef;
+    return clef === 'percussion' ? 3 : clef === 'bass' ? 2 : 1;
+  };
+  // Stable, so each tier keeps its written order within a rank.
+  return chosen
+    .map((entry, index) => ({ entry, index }))
+    .sort(
+      (x, y) => rank(x.entry.value) - rank(y.entry.value) || x.index - y.index
+    )
+    .map(({ entry }) => entry);
 }
 
 /**

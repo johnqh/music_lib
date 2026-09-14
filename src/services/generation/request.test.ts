@@ -10,8 +10,8 @@ import {
   GENERATE_SCORE_STYLE_OPTIONS,
   hasVocalInstrument,
   GENERATE_SCORE_STYLE_PRESETS,
-  GUEST_INSTRUMENTS,
-  styleInstrumentsWithGuest,
+  STYLE_OPTIONAL_PICKS,
+  styleRoster,
   styleKey,
   styleTempo,
   GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
@@ -348,98 +348,95 @@ describe('the style that reaches the model', () => {
   });
 });
 
-/**
- * The guest instrument.
- *
- * Every generation of one style otherwise draws the same four or five
- * instruments, so sixteen bars of country came back as sixteen bars of country
- * every time. One instrument from outside the style's own roster is what makes
- * each attempt its own piece.
+/*
+ * A style's roster is its essential instruments, its preferred ones, and a
+ * couple of optional ones drawn at random. The essential tier is what the
+ * dialogs refuse to remove: a reggae without its kit is not reggae.
  */
-describe('styleInstrumentsWithGuest', () => {
-  const first = () => 0;
-  const last = () => 0.999999;
+describe('styleRoster', () => {
+  const values = (entries: readonly { value: string }[]) =>
+    entries.map(e => e.value);
 
-  it('adds exactly one instrument to the style’s own roster', () => {
-    const preset = GENERATE_SCORE_STYLE_PRESETS.country;
-    const withGuest = styleInstrumentsWithGuest('country', first);
-    expect(withGuest).toHaveLength(preset.instruments.length + 1);
-    expect(withGuest.slice(0, -1)).toEqual([...preset.instruments]);
-  });
-
-  /*
-   * "Not in the typical instruments for the style" is exactly the preset's own
-   * roster, which is why no per-style exclusion table is needed: a banjo is
-   * never offered to bluegrass because bluegrass already has one.
-   */
-  it('never offers an instrument the style already has', () => {
+  it('always carries every essential and preferred instrument', () => {
     for (const style of Object.keys(GENERATE_SCORE_STYLE_PRESETS)) {
       const preset = GENERATE_SCORE_STYLE_PRESETS[style];
-      for (const pick of [first, last, () => 0.5]) {
-        const withGuest = styleInstrumentsWithGuest(style, pick);
-        const guest = withGuest[withGuest.length - 1];
-        if (withGuest.length > preset.instruments.length) {
-          expect(preset.instruments).not.toContain(guest);
-        }
+      const roster = styleRoster(style, { voice: true }, () => 0.3);
+      for (const value of [...preset.essential, ...preset.preferred]) {
+        expect(values(roster), `${style} ${value}`).toContain(value);
+      }
+      for (const value of preset.essential) {
+        expect(roster.find(e => e.value === value)?.tier).toBe('essential');
       }
     }
   });
 
-  it('picks from the guest pool, and a different one as the roll changes', () => {
-    const picks = new Set(
-      [0, 0.2, 0.4, 0.6, 0.8, 0.99].map(r => {
-        const list = styleInstrumentsWithGuest('house', () => r);
-        return list[list.length - 1];
-      })
-    );
-    expect(picks.size).toBeGreaterThan(1);
-    for (const pick of picks) expect(GUEST_INSTRUMENTS).toContain(pick);
+  it(`draws ${STYLE_OPTIONAL_PICKS} optional instruments, different ones as the roll changes`, () => {
+    const preset = GENERATE_SCORE_STYLE_PRESETS.reggae;
+    const drawn = new Set<string>();
+    for (const roll of [0, 0.3, 0.6, 0.99]) {
+      const optional = styleRoster(
+        'reggae',
+        { voice: true },
+        () => roll
+      ).filter(e => e.tier === 'optional');
+      expect(optional).toHaveLength(STYLE_OPTIONAL_PICKS);
+      expect(new Set(values(optional)).size).toBe(STYLE_OPTIONAL_PICKS);
+      for (const e of optional) {
+        expect(preset.optional).toContain(e.value);
+        drawn.add(e.value);
+      }
+    }
+    expect(drawn.size).toBeGreaterThan(STYLE_OPTIONAL_PICKS);
   });
 
-  /* A second drummer is not a guest. */
-  it('never offers a drum kit', () => {
-    expect(GUEST_INSTRUMENTS.some(v => v.startsWith('kit:'))).toBe(false);
+  it('draws fewer when the pool is smaller', () => {
+    expect(
+      styleRoster('punk', { voice: true }, () => 0).filter(
+        e => e.tier === 'optional'
+      )
+    ).toHaveLength(1);
+  });
+
+  it('adds no singer unless the model is writing the music', () => {
+    for (const style of Object.keys(GENERATE_SCORE_STYLE_PRESETS)) {
+      for (const roll of [0, 0.5, 0.99]) {
+        expect(
+          styleRoster(style, { voice: false }, () => roll).some(e =>
+            hasVocalInstrument([e.value])
+          )
+        ).toBe(false);
+      }
+    }
+    expect(values(styleRoster('pop', { voice: true }, () => 0))[0]).toBe('53');
+  });
+
+  it('puts the singer first and the kit last', () => {
+    const roster = values(styleRoster('reggae', { voice: true }, () => 0));
+    expect(roster[0]).toBe('53');
+    expect(roster[roster.length - 1]).toBe('kit:0');
+  });
+
+  /* Violin (40) and Fiddle (110) are one instrument under two GM names. */
+  it('never draws a rename of something already there', () => {
+    for (let roll = 0; roll < 1; roll += 0.05) {
+      const roster = values(
+        styleRoster('country', { voice: true }, () => roll)
+      );
+      expect(roster).toContain('110');
+      expect(roster).not.toContain('40');
+    }
   });
 
   it('stays in range at the top of the roll', () => {
-    // Math.random() is [0,1), but a caller-supplied rng may not be; the index
-    // must never run off the end of the pool.
-    const list = styleInstrumentsWithGuest('rock', () => 1);
-    expect(list.length).toBe(
-      GENERATE_SCORE_STYLE_PRESETS.rock.instruments.length + 1
-    );
-    expect(list[list.length - 1]).toBeDefined();
+    expect(
+      styleRoster('rock', { voice: true }, () => 1).every(
+        e => e.value !== undefined
+      )
+    ).toBe(true);
   });
 
   it('has nothing to say about a style it does not know', () => {
-    expect(styleInstrumentsWithGuest('not-a-style', first)).toEqual([]);
-  });
-});
-
-/*
- * Violin (40) and Fiddle (110) are one instrument under two GM names, so a
- * lineup with a fiddle must never be offered a violin as its guest — it would
- * be handed the part it already had, which is the duplicate-instrument bug in
- * a form that excluding by program alone cannot see.
- */
-describe('the guest is never a rename of something already there', () => {
-  it('offers no violin to a lineup that has a fiddle', () => {
-    for (const style of ['country', 'bluegrass']) {
-      expect(GENERATE_SCORE_STYLE_PRESETS[style].instruments).toContain('110');
-      for (let roll = 0; roll < 1; roll += 0.02) {
-        const list = styleInstrumentsWithGuest(style, () => roll);
-        expect(list[list.length - 1]).not.toBe('40');
-      }
-    }
-  });
-
-  it('still offers a violin where nothing plays one', () => {
-    const seen = new Set<string>();
-    for (let roll = 0; roll < 1; roll += 0.02) {
-      const list = styleInstrumentsWithGuest('house', () => roll);
-      seen.add(list[list.length - 1]);
-    }
-    expect(seen).toContain('40');
+    expect(styleRoster('not-a-style', { voice: true })).toEqual([]);
   });
 });
 
