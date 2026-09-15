@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { StoreContext } from './context.js';
+import { toastSinkActions, type StoreContext } from './context.js';
 import {
   createScoreSlice,
   createSelectionSlice,
@@ -24,6 +24,8 @@ import { createGenerationSlice } from './slices/generation-slice.js';
 import type { GenerationSlice } from './slices/generation-slice.js';
 import { createProjectSlice } from './slices/project-slice.js';
 import type { ProjectSlice } from './slices/project-slice.js';
+import { createDevicePrefsSlice } from '../services/prefs.js';
+import type { DevicePrefsSlice } from '../services/prefs.js';
 
 /**
  * The web app's single store: the editing state plus everything an app needs
@@ -38,7 +40,8 @@ import type { ProjectSlice } from './slices/project-slice.js';
 export type AppState = EditingState &
   PlaybackSlice &
   GenerationSlice &
-  ProjectSlice;
+  ProjectSlice &
+  DevicePrefsSlice;
 
 export type CreateAppStoreOptions = {
   /** The backend context (MusicClient, token getter, prefs storage). */
@@ -77,6 +80,10 @@ export function createAppStore(options: CreateAppStoreOptions) {
         ...createPlaybackSlice(set, get, api),
         ...createGenerationSlice(context)(set, get, api),
         ...createProjectSlice(context)(set, get, api),
+        ...createDevicePrefsSlice<AppState>(set),
+        // Last, so it replaces the ui slice's own pair when the host renders
+        // toasts itself.
+        ...(context.toasts ? toastSinkActions(context.toasts) : {}),
       };
     })
   );

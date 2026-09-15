@@ -126,6 +126,43 @@ describe('project-slice (server-backed)', () => {
     expect(store.getState().saveState).toBe('saved');
   });
 
+  it('stays dirty when an edit lands while a save is in the air', async () => {
+    // The save wrote the score as it was when it started. Marking the store
+    // clean when it returns would call an edit that was never written saved —
+    // a tab that looks safe to close, holding work the server does not have.
+    const context = testStoreContext();
+    const store = createAppStore({ context });
+    await store.getState().newProject({ name: 'Race' });
+
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => (release = resolve));
+    const real = context.fakeClient.updateProject.bind(context.fakeClient);
+    context.fakeClient.updateProject = async (...args) => {
+      await gate;
+      return real(...args);
+    };
+
+    store.getState().dispatchCommand(addMeasureCommand('Add measure'));
+    const saving = store.getState().saveNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.getState().saveState).toBe('saving');
+
+    store.getState().dispatchCommand(addMeasureCommand('Add measure'));
+    release();
+    await saving;
+
+    expect(store.getState().dirty).toBe(true);
+    expect(store.getState().saveState).toBe('unsaved');
+
+    // And the edit is not lost: the next save carries it.
+    await store.getState().saveNow();
+    expect(store.getState().dirty).toBe(false);
+    expect(
+      context.fakeClient.storedRecord(store.getState().projectId!)!.score
+        .tracks[0].measures.length
+    ).toBe(store.getState().score!.tracks[0].measures.length);
+  });
+
   describe('serverUpdatedAt', () => {
     it("tracks the server's version through open and save", async () => {
       // A poller compares this with what the server reports. If a save left it

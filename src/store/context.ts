@@ -14,7 +14,9 @@ import type {
   RegenerateRegionRequest,
   RegenerateRegionResult,
 } from '@sudobility/music_types';
+import type { Toast, UiSlice } from '@sudobility/music_editing';
 import {
+  createId,
   parseGenerateScoreResult,
   parseRegenerateRegionResult,
 } from '@sudobility/music_types';
@@ -48,7 +50,55 @@ export type StoreContext = {
   storage?: PrefsStorage;
   /** Test override: replaces the default ApiGenerationProvider. */
   provider?: MusicGenerationProvider;
+  /**
+   * Where toasts go, when the host does not render them from the store.
+   *
+   * Absent, a toast is appended to `state.toasts` and the host's toast list
+   * reads it from there — the web app. Present, every `pushToast` and
+   * `dismissToast` on a store built from this context goes here instead and
+   * nothing is held in state: the native app has no list reading the store,
+   * and a toast held where nobody dismisses it is one that accumulates forever.
+   */
+  toasts?: ToastSink;
 };
+
+/**
+ * A host's toast renderer.
+ *
+ * The toast arrives with its id already assigned, because the store's caller
+ * is handed that id back — a refused paste's Undo action dismisses its own
+ * toast by it.
+ */
+export type ToastSink = {
+  push(toast: Toast): void;
+  dismiss(id: string): void;
+};
+
+/**
+ * `pushToast`/`dismissToast`, pointed at a sink.
+ *
+ * Spread over the editing slices when a context carries one, so every toast in
+ * the store — an editing refusal, a failed autosave, a playback error, a failed
+ * generation job — takes the one route, rather than each raiser having to know
+ * which host it is in.
+ */
+export function toastSinkActions(
+  sink: ToastSink
+): Pick<UiSlice, 'pushToast' | 'dismissToast'> {
+  return {
+    pushToast: toast => {
+      const id = createId();
+      sink.push({
+        id,
+        message: toast.message,
+        severity: toast.severity ?? 'info',
+        ...(toast.action ? { action: toast.action } : {}),
+      });
+      return id;
+    },
+    dismissToast: id => sink.dismiss(id),
+  };
+}
 
 /** Thrown when an authenticated call is attempted while signed out. */
 export class AuthRequiredError extends Error {

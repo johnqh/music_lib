@@ -8,6 +8,7 @@ import { testStoreContext } from '../../test/store-context.js';
 import { createAppStore } from '../../store/useAppStore.js';
 import { twinkleScore } from '../../test/fixtures.js';
 import { createPlaybackAdapter } from './adapter.js';
+import { setLibraryMessages } from '../messages.js';
 import type { PlaybackStoreApi } from './adapter.js';
 
 function makeStore(): PlaybackStoreApi {
@@ -30,6 +31,9 @@ describe('playback adapter', () => {
     const store = makeStore();
     const player = new MockMusicPlayer();
     createPlaybackAdapter(player, store);
+    // A transport plays a score: the state is mirrored into the store whose
+    // score the player holds (see bindPlayer's player ownership).
+    store.getState().setScore(twinkleScore());
 
     player.emitTransport('playing');
     expect(store.getState().state).toBe('playing');
@@ -87,5 +91,47 @@ describe('playback adapter', () => {
 
     player.emitLoadState({ status: 'loading', fraction: 0.45 });
     expect(store.getState().synthLoad.status).toBe('loading');
+  });
+
+  it('toasts a playback failure in the host language, with the detail', async () => {
+    setLibraryMessages({
+      retry: () => 'Retry',
+      saveFailed: () => 'Save failed',
+      playbackFailed: () => 'Playback failed',
+      scoreLoadFailed: () => 'Score load failed',
+      authRequired: () => 'Sign in',
+      serverUnavailable: () => 'No server',
+    });
+    const store = makeStore();
+    const player = new MockMusicPlayer();
+    player.play = async () => {
+      throw new Error('no audio device');
+    };
+    const adapter = createPlaybackAdapter(player, store);
+    store.getState().setScore(twinkleScore());
+
+    await adapter.togglePlay();
+
+    expect(store.getState().toasts.map(t => t.message)).toEqual([
+      'Playback failed: no audio device',
+    ]);
+  });
+
+  it('keeps the transport settings in the store beside the player', () => {
+    const store = makeStore();
+    const player = new MockMusicPlayer();
+    const adapter = createPlaybackAdapter(player, store);
+    store.getState().setScore(twinkleScore());
+
+    adapter.setMetronome(true);
+    adapter.setTempoMultiplier(0.5);
+    adapter.toggleLoop();
+
+    const state = store.getState();
+    expect(state.metronome).toBe(true);
+    expect(state.tempoMultiplier).toBe(0.5);
+    // No selection: the whole score loops.
+    expect(state.loopRange?.startTick).toBe(0);
+    expect(player.calls).toContain('setMetronome(true)');
   });
 });

@@ -63,6 +63,12 @@ export * from './services/errors.js';
 export * from './services/messages.js';
 export * from './services/generation/request.js';
 export * from './services/generation/score-duration.js';
+export * from './services/generation/credits.js';
+export * from './services/generation/new-project-draft.js';
+export * from './services/generation/labelled-options.js';
+export * from './services/generation/replace-draft.js';
+export * from './services/generation/generation-locks.js';
+export * from './services/import/midi-import-options.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 
@@ -76,3 +82,10 @@ export * from './store/useAppStore.js';
 
 // Pure editing logic, moved out of music_app: none of it touches React, the
 // DOM or layout geometry, so it belongs with the model rather than the UI.
+// documents: a store per document, and the saving rules both origins share
+export * from './services/persistence/document-saver.js';
+export * from './services/persistence/project-write.js';
+export * from './store/document-store.js';
+
+// host copy: the libraries' copy tables, built from the host's `t`
+export * from './services/library-copy.js';

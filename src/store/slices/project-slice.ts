@@ -13,21 +13,24 @@
  * server's copy stands so a poller can tell this client's own writes from
  * somebody else's.
  */
-import { libraryMessage } from '../../services/messages.js';
 import type { StateCreator } from 'zustand';
 import { newProjectScore } from '../../templates/index.js';
 import type {
   GenerationRecord,
   ProjectSaveResult,
-  ProjectUpdateRequest,
   Score,
 } from '@sudobility/music_types';
-import { createAutosaver } from '../../services/persistence/autosave.js';
-import type { Autosaver } from '../../services/persistence/autosave.js';
+import { createDocumentSaver } from '../../services/persistence/document-saver.js';
+import type {
+  DocumentSaver,
+  SaveState,
+} from '../../services/persistence/document-saver.js';
+import { projectWrite } from '../../services/persistence/project-write.js';
 import { authorizedServer, hasServer, type StoreContext } from '../context.js';
 import type { AppState } from '../useAppStore.js';
 
-export type SaveState = 'saved' | 'saving' | 'unsaved';
+/** Re-exported from where the saver declares it, so existing imports resolve. */
+export type { SaveState };
 
 export type NewProjectInput = { name: string; score?: Score };
 
@@ -89,65 +92,37 @@ export function createProjectSlice(
 ): StateCreator<AppState, [['zustand/immer', never]], [], ProjectSlice> {
   return (set, get) => {
     let currentProject: ProjectSaveResult | null = null;
-    let autosaver: Autosaver | null = null;
-    /**
-     * The exact score object the server was last given (or handed us).
-     *
-     * Identity, not a deep compare: every mutation goes through a command that
-     * returns a new score, so an unchanged reference *is* an unchanged score.
-     * It is what lets a save that exists only to persist a hidden-track list
-     * leave the score — the largest thing this app owns — out of the request.
-     */
-    let lastSavedScore: Score | null = null;
+    let autosaver: DocumentSaver | null = null;
 
-    function attachAutosaver(): Autosaver {
+    /*
+      A fresh saver per project, so a write queued for the outgoing project can
+      never land on the incoming one. The rules — score omitted when unchanged,
+      dirty cleared only when what was saved is still what is open, a failure
+      toasted and kept dirty — are `createDocumentSaver`'s, shared with the
+      per-document store.
+    */
+    function attachAutosaver(score: Score): DocumentSaver {
       autosaver?.dispose();
-      const next = createAutosaver(async () => {
-        const project = currentProject;
-        const score = get().score;
-        if (!project || !score) return;
-        set(state => {
-          state.saveState = 'saving';
-        });
-        try {
-          const { client, token } = await authorizedServer(context);
-          const visibleTrackIds = get().visibleTrackIds;
-          const body: ProjectUpdateRequest = {
-            name: project.name,
-            // Omitted when the score has not moved since the last save. A
-            // visibility toggle marks the project dirty like any other change,
-            // and used to ship the entire score to record a list of track ids.
-            ...(score === lastSavedScore ? {} : { score }),
-            // zoom rides along because ProjectUiPrefs requires it. Changing
-            // it deliberately does NOT mark the project dirty, so it
-            // persists opportunistically on the next real save rather than
-            // adding a write per click of the zoom button.
-            uiPrefs: {
-              zoom: get().zoom,
-              ...(visibleTrackIds ? { visibleTrackIds } : {}),
-            },
-          };
-          const saved = await client.updateProject(project.id, body, token);
-          currentProject = saved;
-          lastSavedScore = score;
-          set(state => {
-            state.saveState = 'saved';
-            state.dirty = false;
-            // Recorded so a status poll can recognise this write as ours.
-            state.serverUpdatedAt = saved.updatedAt;
-          });
-        } catch (err) {
-          // Keep the dirty flag so the next change/flush retries; surface via toast.
-          set(state => {
-            state.saveState = 'unsaved';
-          });
-          get().pushToast({
-            severity: 'error',
-            message: libraryMessage('saveFailed'),
-          });
-          throw err;
-        }
+      const next = createDocumentSaver<AppState>({
+        set,
+        get,
+        destination: () =>
+          currentProject
+            ? projectWrite(
+                context,
+                () => currentProject!.id,
+                () => ({
+                  name: currentProject!.name,
+                  zoom: get().zoom,
+                  visibleTrackIds: get().visibleTrackIds,
+                }),
+                saved => {
+                  currentProject = saved;
+                }
+              )
+            : null,
       });
+      next.adopted(score);
       autosaver = next;
       return next;
     }
@@ -182,8 +157,7 @@ export function createProjectSlice(
     ): Promise<void> {
       await flushOutgoing();
       currentProject = project;
-      lastSavedScore = score;
-      attachAutosaver();
+      attachAutosaver(score);
       set(state => {
         state.projectId = project.id;
         state.projectName = project.name;

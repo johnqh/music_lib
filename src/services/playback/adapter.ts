@@ -8,243 +8,140 @@
  * player would be a second thing that can disagree with the first.
  *
  * So the split is: the player exposes primitives (`play`, `seek`, `setLoop`),
- * and this composes the score- and selection-aware operations out of them.
+ * and the score- and selection-aware operations are composed out of them.
+ *
+ * **That composition is music_editing's `bindPlayer` now**, and this class is
+ * a thin shell over it. The native app has a store per document and had
+ * written a smaller binder of its own, which mirrored the transport and loaded
+ * scores and did nothing else — no loop, no bar stepping, no clearing the
+ * selection on play, no visible tracks pushed to the player. Those are rules
+ * about how editing and playback meet, not about the web app's store, so they
+ * are stated once there and bound here. What stays here is what only this
+ * package has: the player's disposal, auditioning, the bus and position
+ * pass-throughs, the localized error toast, and the lazy app-wide singleton.
  */
-import { scoreEndTick, selectionToRange } from '@sudobility/music_types';
-import {
-  getMusicPosition,
-  getMusicPositionSource,
-} from '@sudobility/music_types';
+import { getMusicPosition } from '@sudobility/music_types';
 import type {
-  Score,
-  ScoreRange,
   SoundingNote,
   TransportPlaybackState,
 } from '@sudobility/music_types';
 import type { IMusicPlayer } from '@sudobility/music_player/core';
 import { getMusicPlayer } from '@sudobility/music_player/core';
+import { bindPlayer } from '@sudobility/music_editing';
+import type {
+  BindablePlayer,
+  PlayerBinding,
+  PlayerFailure,
+} from '@sudobility/music_editing';
 import { libraryMessage } from '../messages.js';
-import { selectVisibleTrackIds } from '@sudobility/music_editing';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 
 /** The store shape this module operates on: the same type `useAppStore`/`createAppStore()` produce. */
 export type PlaybackStoreApi = ReturnType<typeof createAppStore>;
 
-/** The measure a domain tick falls in, on the score's first track (every track shares the measure grid). */
-function measureAt(score: Score, tick: number) {
-  const track = score.tracks[0];
-  if (!track || track.measures.length === 0) return null;
-  return (
-    track.measures.find(
-      m => tick >= m.startTick && tick < m.startTick + m.durationTicks
-    ) ?? track.measures[track.measures.length - 1]
-  );
-}
+/*
+  Compile-time proof that music_player's interface is what the binder binds.
+  music_editing may not import music_player, so it declares the methods it
+  uses structurally; if either side moves, this stops compiling here rather
+  than a host finding out at runtime.
+*/
+const playerIsBindable: IMusicPlayer extends BindablePlayer ? true : false =
+  true;
+void playerIsBindable;
 
 export class PlaybackAdapter {
-  private readonly unsubscribe: () => void;
-  private readonly unsubscribePlayer: Array<() => void> = [];
-
-  /**
-   * The last tick the player *reported*, which is not the same number as
-   * `IMusicPosition.tick`.
-   *
-   * That one is dead-reckoned forward between reports so the caret moves
-   * smoothly; this one is the last authoritative value. Committing the smoothed
-   * projection to the caret on pause would leave it a few ticks past where the
-   * audio actually stopped.
-   */
+  private readonly binding: PlayerBinding;
 
   constructor(
     private readonly player: IMusicPlayer,
     private readonly store: PlaybackStoreApi
   ) {
-    this.unsubscribePlayer.push(
-      /*
-        No position subscription, and no caret to commit on stop.
+    /*
+      No position subscription, and no caret to commit on stop.
 
-        This used to keep `lastPositionTick` and write it into the store's
-        caret whenever the transport stopped, so that "play from the caret"
-        would resume where the music left off. There is one position now: the
-        engine reports into it and the caret *is* it, so the two coincide by
-        construction rather than by this class copying one into the other.
-      */
-      player.onTransport(state => {
-        this.store.getState().setPlaybackState(state);
-      }),
-      // Low-frequency and store-shaped: it reports per percent and behaves like
-      // ordinary React state, unlike position and the sounding set.
-      player.onLoadState(state => this.store.getState().setSynthLoad(state))
-    );
-
-    let lastVisibleTrackIds: readonly string[] | null =
-      this.store.getState().visibleTrackIds;
-    let lastScore: Score | null = this.store.getState().score;
-    if (lastScore) void this.load(lastScore);
-
-    this.unsubscribe = this.store.subscribe(state => {
-      if (state.score !== lastScore) {
-        lastScore = state.score;
-        if (lastScore) void this.load(lastScore);
-        return;
-      }
-      // Hiding a track silences it. Pushed straight to the player rather than
-      // reloading: muting is a per-channel gain decision, so it takes effect
-      // mid-playback without rescheduling a note.
-      if (state.visibleTrackIds !== lastVisibleTrackIds) {
-        lastVisibleTrackIds = state.visibleTrackIds;
-        this.player.setVisibleTracks(selectVisibleTrackIds(state));
-      }
+      There is one position: the engine reports into it and the caret *is* it,
+      so "play from the caret" needs nothing copied from one to the other.
+    */
+    this.binding = bindPlayer(player, store, {
+      // The translation lives here, not in music_editing or music_player: the
+      // message a user sees is localized, and neither of those carries copy.
+      onError: (failure: PlayerFailure, error: unknown) =>
+        this.reportError(libraryMessage(failure), error),
     });
   }
 
-  /**
-   * Loads a score into the player, reporting a failure rather than swallowing
-   * it.
-   *
-   * The translation lives here, not in music_player: the message a user sees is
-   * localized, and that package carries no copy.
-   */
-  private async load(score: Score): Promise<void> {
-    try {
-      await this.player.load(score, {
-        visibleTrackIds: selectVisibleTrackIds(this.store.getState()),
-      });
-    } catch (error) {
-      this.reportError(libraryMessage('scoreLoadFailed'), error);
-    }
-  }
-
   dispose(): void {
-    this.unsubscribe();
-    for (const off of this.unsubscribePlayer) off();
+    this.binding.unbind();
     this.player.dispose();
   }
 
   // ---- transport ---------------------------------------------------------
 
-  async togglePlay(): Promise<void> {
-    const { state, score } = this.store.getState();
-    if (!score) return;
-    if (state === 'playing') {
-      this.player.pause();
-      return;
-    }
-    // Starting playback deselects. Only on the ->playing transition: `pause()`
-    // and `stop()` deliberately leave the selection alone, so pausing to edit
-    // keeps what you had selected.
-    //
-    // "Play from the caret" needs no code here — the player resumes from the
-    // transport position, and a caret seek is exactly what set it.
-    this.store.getState().clearSelection();
-    try {
-      await this.player.play();
-    } catch (error) {
-      this.reportError(libraryMessage('playbackFailed'), error);
-    }
+  /** Plays from the caret, clearing the selection; pauses if already playing. */
+  togglePlay(): Promise<void> {
+    return this.binding.togglePlay();
   }
 
   stop(): void {
-    this.player.stop();
+    this.binding.stop();
   }
 
   /**
    * Seeks to a *written* position.
    *
    * The caret keeps the score tick, because that is where the reader is
-   * looking; the player is given the same tick and translates it to the first
-   * performance of it, which is what "play from here" means to somebody
-   * reading the page — the first time through, not the repeat.
+   * looking; the player follows the one position and translates it to the
+   * first performance of that tick.
    */
   seek(tick: number): void {
-    if (!this.store.getState().score) return;
-    // Moving the position is the whole of it: the player follows moves of its
-    // own accord, so telling it as well would be two writes of one number.
-    getMusicPositionSource().moveTo(Math.max(0, tick));
+    this.binding.seek(tick);
   }
 
   seekToMeasure(measureIndex: number): void {
-    const score = this.store.getState().score;
-    const measure = score?.tracks[0]?.measures.find(
-      m => m.index === measureIndex
-    );
-    if (!measure) return;
-    this.seek(measure.startTick);
+    this.binding.seekToMeasure(measureIndex);
   }
 
   goToStart(): void {
-    this.seek(0);
+    this.binding.goToStart();
   }
 
   previousMeasure(): void {
-    const { score } = this.store.getState();
-    if (!score) return;
-    const current = measureAt(score, getMusicPosition().reportedTick);
-    if (!current) return;
-    this.seekToMeasure(Math.max(0, current.index - 1));
+    this.binding.previousMeasure();
   }
 
   nextMeasure(): void {
-    const { score } = this.store.getState();
-    if (!score) return;
-    const current = measureAt(score, getMusicPosition().reportedTick);
-    if (!current) return;
-    const lastIndex = score.tracks[0].measures.length - 1;
-    this.seekToMeasure(Math.min(lastIndex, current.index + 1));
+    this.binding.nextMeasure();
   }
 
   // ---- loop ---------------------------------------------------------------
 
-  private setLoop(range: ScoreRange | null): void {
-    this.store.getState().setLoopRange(range);
-    this.player.setLoop(range);
-  }
-
   /** Sets the loop range from the current selection; a no-op if the selection has no resolvable tick extent. */
   setLoopFromSelection(): void {
-    const { score, selection } = this.store.getState();
-    if (!score) return;
-    const range = selectionToRange(score, selection);
-    if (!range) return;
-    this.setLoop(range);
+    this.binding.setLoopFromSelection();
   }
 
   clearLoop(): void {
-    this.setLoop(null);
+    this.binding.clearLoop();
   }
 
   /** The transport's single loop toggle: clears an active loop, or sets one (from the selection, falling back to the whole score). */
   toggleLoop(): void {
-    const { score, loopRange, selection } = this.store.getState();
-    if (loopRange) {
-      this.clearLoop();
-      return;
-    }
-    if (!score) return;
-    const range = selectionToRange(score, selection) ?? {
-      startTick: 0,
-      endTick: scoreEndTick(score),
-      trackIds: [],
-    };
-    this.setLoop(range);
+    this.binding.toggleLoop();
   }
 
   // ---- tempo / metronome / volume ------------------------------------------
 
   setTempoMultiplier(multiplier: number): void {
-    this.store.getState().setTempoMultiplier(multiplier);
-    this.player.setTempoMultiplier(multiplier);
+    this.binding.setTempoMultiplier(multiplier);
   }
 
   setMetronome(enabled: boolean): void {
-    this.store.getState().setMetronome(enabled);
-    this.player.setMetronome(enabled);
+    this.binding.setMetronome(enabled);
   }
 
   setMasterVolume(volume: number): void {
-    this.store.getState().setMasterVolume(volume);
-    this.player.setMasterVolume(volume);
+    this.binding.setMasterVolume(volume);
   }
 
   /**
