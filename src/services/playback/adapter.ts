@@ -248,6 +248,15 @@ export class PlaybackAdapter {
   }
 
   /**
+   * How long the host's canvas takes to draw a change of lit notes; the player
+   * publishes them that far ahead. Not stored: it is a measurement of this
+   * machine, not a setting anybody chose.
+   */
+  setSoundingRenderDelay(seconds: number): void {
+    this.player.setSoundingRenderDelay(seconds);
+  }
+
+  /**
    * Sounds a pitch for as long as it is held — auditioning a key while editing.
    *
    * Touches no store state on purpose: this is not transport playback, so it

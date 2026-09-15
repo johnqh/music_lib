@@ -62,6 +62,7 @@ export { PlaybackBus } from '@sudobility/music_player/core';
 export * from './services/errors.js';
 export * from './services/messages.js';
 export * from './services/generation/request.js';
+export * from './services/generation/score-duration.js';
 export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
 
