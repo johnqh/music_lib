@@ -7,7 +7,7 @@
       "dependencies": {
         "@sudobility/music_codecs": "^0.2.26",
         "@sudobility/music_drawing": "^0.0.34",
-        "@sudobility/music_player": "^0.1.0",
+        "@sudobility/music_player": "^0.1.26",
         "immer": "^10.0.0 || ^11.0.0",
         "zod": "^4.0.0",
       },
@@ -15,7 +15,7 @@
         "@eslint/js": "^9.38.0",
         "@sudobility/music_client": "^0.4.62",
         "@sudobility/music_editing": "^0.0.19",
-        "@sudobility/music_player": "^0.1.0",
+        "@sudobility/music_player": "^0.1.26",
         "@sudobility/music_types": "^0.13.25",
         "@tanstack/react-query": "^5.0.0",
         "@types/jsdom": "^30.0.0",
@@ -156,7 +156,7 @@
 
     "@sudobility/music_editing": ["@sudobility/music_editing@0.0.19", "", { "dependencies": { "immer": "^11.1.18" }, "peerDependencies": { "@sudobility/music_types": "^0.13.25", "react": ">=18", "zustand": ">=5" } }, "sha512-R0T1x8tCFcPGOqJlclBiHs+asQN2l1esw3JfZeCYnGBRT68rzecoxUUTaaIVY6T71bc3xxuMhj4/J5u4pP73Pg=="],
 
-    "@sudobility/music_player": ["@sudobility/music_player@0.1.1", "", { "peerDependencies": { "@sudobility/music_types": "^0.13.1", "js-synthesizer": "^1.13.0", "react-native-audio-api": ">=0.13.0" }, "optionalPeers": ["js-synthesizer", "react-native-audio-api"] }, "sha512-TVtC6AWkvYJQk7nM7anXmLInecvKVjttu8QeV9aYlS2GFPxN1zlTmMl7gUOqfDwbHg6IINLYTz9GJ0JADrD7Bg=="],
+    "@sudobility/music_player": ["@sudobility/music_player@0.1.26", "", { "peerDependencies": { "@sudobility/music_types": "^0.13.25", "js-synthesizer": "^1.13.0", "react-native-audio-api": ">=0.13.0" }, "optionalPeers": ["js-synthesizer", "react-native-audio-api"] }, "sha512-nqtqFYmKBvRLxDzEhoIxK47IV/+vZMW+5DmDcJVrdxVHp8ehRH34yzySuVz6Yh0w05hdl4PBeLSkgk9nS3722g=="],
 
     "@sudobility/music_types": ["@sudobility/music_types@0.13.25", "", { "dependencies": { "immer": "^10.0.0 || ^11.0.0", "zod": "^4.0.0" }, "peerDependencies": { "@sudobility/types": "^1.9.67" } }, "sha512-kn4X0m5NVIKqXOY3+t5C3imLRMYl3iBIcAKwGS3dxiPLvEA5Zoe8Non+EwYfHprW0LH8sbMi5CgFnREdNo9j/g=="],
 
