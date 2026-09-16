@@ -5,8 +5,8 @@
     "": {
       "name": "@sudobility/music_lib",
       "dependencies": {
-        "@sudobility/music_codecs": "^0.2.28",
-        "@sudobility/music_drawing": "^0.0.37",
+        "@sudobility/music_codecs": "^0.2.29",
+        "@sudobility/music_drawing": "^0.0.38",
         "@sudobility/music_player": "^0.1.28",
         "immer": "^10.0.0 || ^11.0.0",
         "zod": "^4.0.0",
@@ -149,9 +149,9 @@
 
     "@sudobility/music_client": ["@sudobility/music_client@0.4.64", "", { "dependencies": { "@sudobility/music_types": "^0.13.27" }, "peerDependencies": { "@sudobility/di": "^1.5.65", "@sudobility/types": "^1.9.67", "@tanstack/react-query": ">=5", "react": ">=18" } }, "sha512-zZApBZcwvFqPebTnvRed1gjqGVnB7REwqHbLMFf/KuAcy7Hf4KiPYDOGaKHYVl3xFQLMElO/ju0UV4pmyz1qfw=="],
 
-    "@sudobility/music_codecs": ["@sudobility/music_codecs@0.2.28", "", { "peerDependencies": { "@sudobility/music_types": "^0.13.27" } }, "sha512-fIuXPaR6eLkDqENzO3WNkk0KlhxJmqCPgpAsp1lTpSIUoAo0idufSwWs/x5/B4a18Exwgi+wfeWc1o524SCQDg=="],
+    "@sudobility/music_codecs": ["@sudobility/music_codecs@0.2.29", "", { "peerDependencies": { "@sudobility/music_types": "^0.13.27" } }, "sha512-Mb8zYor1tQo6w2Gb/i+yGS5Q3zgpfOrnNyk0e6EDSr5eKBd6AMWFMP8QwYT2X+SBP74PQthitx+qqGdma/p+Hg=="],
 
-    "@sudobility/music_drawing": ["@sudobility/music_drawing@0.0.37", "", { "dependencies": { "vexflow": "^4.2.5" }, "peerDependencies": { "@sudobility/music_types": "^0.13.27" } }, "sha512-g5zmNnRWH4RWrH0UB8heelSu3/p2in5uABJL7JKuXFN6Jii/uJ/7eteo2FwNieZu0SK9e8PZRwLYJpuzmscDfw=="],
+    "@sudobility/music_drawing": ["@sudobility/music_drawing@0.0.38", "", { "dependencies": { "vexflow": "^4.2.5" }, "peerDependencies": { "@sudobility/music_types": "^0.13.27" } }, "sha512-xWw7wqTZcziF6L/If+sIolAehWIlvIvLHOlWTkzZFf4E+p0wT2Hso1Zrc0ZZOdNhjS+jb+7glWK6QCD7MhG0FA=="],
 
     "@sudobility/music_editing": ["@sudobility/music_editing@0.0.22", "", { "dependencies": { "immer": "^11.1.18" }, "peerDependencies": { "@sudobility/music_types": "^0.13.27", "react": ">=18", "zustand": ">=5" } }, "sha512-SStV0gFmTOJrWqBATtQYHxjQ6leDNiww4HsfpNYvXfSVqB5G9YOSYJbzcIIV8y2tX3NvePpipDlYxX4Q8syY3g=="],
 
