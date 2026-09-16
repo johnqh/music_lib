@@ -22,10 +22,16 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { THEME_MODES } from '@sudobility/music_editing';
-import type { ThemeMode } from '@sudobility/music_editing';
-import type { PitchDisplay } from '@sudobility/music_types';
-import type { PrefsStorage } from '../store/context.js';
+import { FONT_SIZES, THEME_MODES } from '@sudobility/music_types';
+import type {
+  DevSettings,
+  DevicePrefs,
+  FontSize,
+  PitchDisplay,
+  PrefsStorage,
+  ResolvedThemeMode,
+  ThemeMode,
+} from '@sudobility/music_types';
 
 /** Where the prefs object lives. The web app's key from before this module, kept so nothing stored is stranded. */
 export const PREFS_KEY = 'scoresmith.prefs.v1';
@@ -45,25 +51,6 @@ export const LEGACY_FONT_SIZE_KEY = 'moosiac-font-size';
  * chose dark on the Mac is not put back on "system" by the move. Never written.
  */
 export const LEGACY_THEME_MODE_KEY = 'moosiac.themeMode';
-
-export const FONT_SIZES = ['small', 'medium', 'large'] as const;
-export type FontSize = (typeof FONT_SIZES)[number];
-
-export type DevicePrefs = {
-  themeMode: ThemeMode;
-  developerMode: boolean;
-  pitchDisplay: PitchDisplay;
-  /** The piano keyboard panel. Expanded by default on both apps. */
-  keyboardCollapsed: boolean;
-  fontSize: FontSize;
-  /**
-   * The UI language as a BCP 47 tag, or `null` to follow the device.
-   *
-   * `null` rather than the device's language filled in, because "follow the
-   * device" has to survive the device changing language.
-   */
-  language: string | null;
-};
 
 export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
   themeMode: 'system',
@@ -198,33 +185,68 @@ export async function savePrefs(
   }
 }
 
-/** The pref setters the three that are not already editing state need. */
+/**
+ * The developer switches' defaults. Not a persisted pref — developer mode is,
+ * and these are what it reveals — but device state in the same sense: nothing
+ * about a score, so nothing an edit reads.
+ *
+ * **Deliberately not in `DEVICE_PREF_KEYS`**, so nothing here is ever written to
+ * storage. That is what makes removing a setting free: the six overlay toggles
+ * that lived here and were read by nothing left no stored keys behind, and a
+ * stored object that somehow carries one is ignored by `parseDevicePrefs`,
+ * which builds its answer field by field.
+ */
+export const DEFAULT_DEV_SETTINGS: DevSettings = {
+  generationVariant: 'default',
+};
+
+/** The setters for every pref editing does not hold. */
 export type DevicePrefsActions = {
+  setThemeMode: (mode: ThemeMode) => void;
+  setDeveloperMode: (enabled: boolean) => void;
+  /** Merges `patch` into `devSettings`. */
+  setDevSettings: (patch: Partial<DevSettings>) => void;
   setKeyboardCollapsed: (collapsed: boolean) => void;
   setFontSize: (size: FontSize) => void;
   setLanguage: (language: string | null) => void;
 };
 
 /**
- * The three prefs the editing store does not already hold, as a slice.
+ * The five prefs the editing store does not hold, plus the developer settings,
+ * as a slice.
  *
- * Theme, developer mode and pitch display live in music_editing's ui slice,
- * because editing reads them. These three are read by nothing but the UI, and
- * are composed into the web app's store so one binding persists all six.
+ * Pitch display lives in music_editing's ui slice, because note entry reads it.
+ * The theme, developer mode, the keyboard, the font size and the language are
+ * read by nothing but the UI and the canvas host, so they are here — composed
+ * into the web app's store so one binding persists all six, and into
+ * `createDevicePrefsStore` for a host whose editing stores are per document.
  */
-export type DevicePrefsSlice = Pick<
-  DevicePrefs,
-  'keyboardCollapsed' | 'fontSize' | 'language'
-> &
-  DevicePrefsActions;
+export type DevicePrefsSlice = Omit<DevicePrefs, 'pitchDisplay'> & {
+  devSettings: DevSettings;
+} & DevicePrefsActions;
 
 export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
   set: (updater: (draft: T) => void) => void
 ): DevicePrefsSlice {
   return {
+    themeMode: DEFAULT_DEVICE_PREFS.themeMode,
+    developerMode: DEFAULT_DEVICE_PREFS.developerMode,
+    devSettings: { ...DEFAULT_DEV_SETTINGS },
     keyboardCollapsed: DEFAULT_DEVICE_PREFS.keyboardCollapsed,
     fontSize: DEFAULT_DEVICE_PREFS.fontSize,
     language: DEFAULT_DEVICE_PREFS.language,
+    setThemeMode: mode =>
+      set(state => {
+        state.themeMode = mode;
+      }),
+    setDeveloperMode: enabled =>
+      set(state => {
+        state.developerMode = enabled;
+      }),
+    setDevSettings: patch =>
+      set(state => {
+        Object.assign(state.devSettings, patch);
+      }),
     setKeyboardCollapsed: collapsed =>
       set(state => {
         state.keyboardCollapsed = collapsed;
@@ -240,12 +262,10 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
   };
 }
 
-export type DevicePrefsState = DevicePrefs &
-  DevicePrefsActions & {
-    setThemeMode: (mode: ThemeMode) => void;
-    setDeveloperMode: (enabled: boolean) => void;
-    setPitchDisplay: (display: PitchDisplay) => void;
-  };
+export type DevicePrefsState = DevicePrefsSlice & {
+  pitchDisplay: PitchDisplay;
+  setPitchDisplay: (display: PitchDisplay) => void;
+};
 
 /**
  * All six prefs as a store of their own.
@@ -259,14 +279,6 @@ export function createDevicePrefsStore() {
     immer(set => ({
       ...DEFAULT_DEVICE_PREFS,
       ...createDevicePrefsSlice<DevicePrefsState>(set),
-      setThemeMode: mode =>
-        set(state => {
-          state.themeMode = mode;
-        }),
-      setDeveloperMode: enabled =>
-        set(state => {
-          state.developerMode = enabled;
-        }),
       setPitchDisplay: display =>
         set(state => {
           state.pitchDisplay = display;
@@ -338,12 +350,14 @@ export function bindDevicePrefs<T extends DevicePrefs>(
   };
 }
 
-/** The prefs editing itself reads, and so each document store holds. */
-export const EDITING_PREF_KEYS = [
-  'themeMode',
-  'developerMode',
-  'pitchDisplay',
-] as const;
+/**
+ * The prefs editing itself reads, and so each document store holds.
+ *
+ * Only the pitch display: note entry inverts the written-pitch lens. The theme
+ * and developer mode used to be mirrored too, while they lived in the editing
+ * ui slice; no edit reads either, so they are the device-prefs store's alone.
+ */
+export const EDITING_PREF_KEYS = ['pitchDisplay'] as const;
 
 type EditingPrefs = Pick<DevicePrefs, (typeof EDITING_PREF_KEYS)[number]>;
 
@@ -351,10 +365,9 @@ type EditingPrefs = Pick<DevicePrefs, (typeof EDITING_PREF_KEYS)[number]>;
  * Keeps a document store's editing prefs equal to the device's.
  *
  * A host with a store per document keeps device prefs in a store of their own
- * (`createDevicePrefsStore`), because they belong to no one document. But three
- * of them are read by editing — note entry inverts the written-pitch lens, the
- * canvas takes the theme — and editing reads them off the document's own
- * store. Copied on bind and on every change, so a document opened after the
+ * (`createDevicePrefsStore`), because they belong to no one document. But one
+ * of them is read by editing — note entry inverts the written-pitch lens — and
+ * editing reads it off the document's own store. Copied on bind and on every change, so a document opened after the
  * reader switched to written pitch is in written pitch too, and none of the
  * open documents disagree with the setting.
  *
@@ -382,4 +395,22 @@ export function mirrorDevicePrefs<T extends EditingPrefs>(
   };
   copy();
   return prefs.subscribe(copy);
+}
+
+/**
+ * The colour scheme to draw in, from the one a reader asked for.
+ *
+ * Both apps resolve `system` against the device, and both draw the canvas in
+ * a scheme the CSS or native theme cannot tell it — VexFlow paints literal
+ * colours — so the answer has to be one value that every surface reads. The
+ * web resolved it inside `app/theme.ts` with the media query baked in; the
+ * question of *how* to ask the device is the host's, the rule for what the
+ * answer means is this.
+ */
+export function resolveThemeMode(
+  mode: ThemeMode,
+  systemIsDark: boolean
+): ResolvedThemeMode {
+  if (mode === 'system') return systemIsDark ? 'dark' : 'light';
+  return mode;
 }

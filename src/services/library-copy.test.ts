@@ -7,9 +7,8 @@
  * readout in the old one.
  */
 import { describe, expect, it } from 'vitest';
-import { REFUSED_EDITS } from '@sudobility/music_editing';
 import { createLibraryCopy, type Translate } from './library-copy.js';
-import { TEMPLATE_IDS } from '../templates/index.js';
+import { REFUSED_EDITS, TEMPLATE_IDS } from '@sudobility/music_types';
 
 /** A `t` that writes the key, its options and the current language. */
 function fakeT(): { t: Translate; setLanguage: (lang: string) => void } {

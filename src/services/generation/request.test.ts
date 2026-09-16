@@ -7,14 +7,11 @@ import {
 import { createEmptyScore } from '@sudobility/music_types';
 import { DEFAULT_VOCAL_INSTRUMENT_VALUE } from '@sudobility/music_types';
 import {
-  GENERATE_SCORE_STYLE_OPTIONS,
   hasVocalInstrument,
-  GENERATE_SCORE_STYLE_PRESETS,
   STYLE_OPTIONAL_PICKS,
   styleRoster,
   styleKey,
   styleTempo,
-  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   buildGenerateScoreRequest,
   buildGenerateTrackRequest,
   canBuildGenerateScoreRequest,
@@ -25,8 +22,13 @@ import {
   generateScoreTrackForInstrumentValue,
   buildNewProjectScore,
   canBuildNewProjectScore,
-  type GenerateScoreRequestDraft,
 } from './request.js';
+import { GENERATE_SCORE_TIME_SIGNATURE_OPTIONS } from '@sudobility/music_types';
+import type { GenerateScoreRequestDraft } from '@sudobility/music_types';
+import {
+  GENERATE_SCORE_STYLE_OPTIONS,
+  GENERATE_SCORE_STYLE_PRESETS,
+} from '@sudobility/music_types';
 
 const BASE_DRAFT = {
   prompt: 'A calm piano melody',

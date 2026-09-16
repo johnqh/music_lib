@@ -14,33 +14,10 @@
  * outside `generation-slice`'s own `error` field (e.g. a request that
  * throws before `generate()`/`regenerate()` even starts).
  */
+import type { AppErrorCode, AppErrorOptions } from '@sudobility/music_types';
 import { libraryMessage } from './messages.js';
 import { useAppStore } from '../store/useAppStore.js';
 import type { createAppStore } from '../store/useAppStore.js';
-
-/** Stable, machine-readable failure categories (spec §28's list). */
-export type AppErrorCode =
-  | 'midi-import'
-  | 'midi-export'
-  | 'musicxml-import'
-  | 'musicxml-export'
-  | 'project-load'
-  | 'project-save'
-  | 'project-data'
-  | 'audio-init'
-  | 'generation'
-  | 'storage-quota'
-  | 'rendering'
-  | 'unsupported-feature'
-  | 'unknown';
-
-export type AppErrorOptions = {
-  code: AppErrorCode;
-  /** Shown to the user, verbatim, in a toast — never a raw stack trace or exception class name. */
-  userMessage: string;
-  /** Technical detail (the original error, Zod issues, ...), logged via `console.debug` only in development. */
-  detail?: unknown;
-};
 
 /** A taxonomized application error (spec §28). Thrown by call sites that already know *why* an operation failed and want the UI to show something clearer than a raw `Error.message`. */
 export class AppError extends Error {

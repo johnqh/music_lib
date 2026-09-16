@@ -14,21 +14,14 @@ import type {
   RegenerateRegionRequest,
   RegenerateRegionResult,
 } from '@sudobility/music_types';
-import type { Toast, UiSlice } from '@sudobility/music_editing';
+import type { UiSlice } from '@sudobility/music_editing';
+import type { PrefsStorage, ToastSink } from '@sudobility/music_types';
 import {
   createId,
   parseGenerateScoreResult,
   parseRegenerateRegionResult,
 } from '@sudobility/music_types';
 import { libraryMessage } from '../services/messages.js';
-
-/** Structural subset of @sudobility/di's StorageService used for device prefs. */
-export type PrefsStorage = {
-  getItem(
-    key: string
-  ): Promise<string | null | undefined> | string | null | undefined;
-  setItem(key: string, value: string): Promise<void> | void;
-};
 
 export type StoreContext = {
   /**
@@ -60,18 +53,6 @@ export type StoreContext = {
    * and a toast held where nobody dismisses it is one that accumulates forever.
    */
   toasts?: ToastSink;
-};
-
-/**
- * A host's toast renderer.
- *
- * The toast arrives with its id already assigned, because the store's caller
- * is handed that id back — a refused paste's Undo action dismisses its own
- * toast by it.
- */
-export type ToastSink = {
-  push(toast: Toast): void;
-  dismiss(id: string): void;
 };
 
 /**

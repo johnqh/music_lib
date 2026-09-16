@@ -7,7 +7,6 @@ import {
 } from '@sudobility/music_types';
 import {
   DEFAULT_GENERATE_SCORE_MEASURES,
-  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   hasVocalInstrument,
   styleKey,
   styleRoster,
@@ -30,9 +29,12 @@ import {
   showNewProjectDuration,
   showNewProjectLyrics,
   showNewProjectLyricsTheme,
-  type NewProjectDraftAction,
-  type NewProjectFormDraft,
 } from './new-project-draft.js';
+import { GENERATE_SCORE_TIME_SIGNATURE_OPTIONS } from '@sudobility/music_types';
+import type {
+  NewProjectDraftAction,
+  NewProjectFormDraft,
+} from '@sudobility/music_types';
 
 /** A fixed draw, so a style's roster, tempo and key are the same every run. */
 const zero = (): number => 0;

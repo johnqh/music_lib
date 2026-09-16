@@ -25,7 +25,8 @@ import {
   type Score,
 } from '@sudobility/music_types';
 import { createEmptyScore } from '@sudobility/music_types';
-import type { PrefsStorage, StoreContext } from '../store/context.js';
+import type { StoreContext } from '../store/context.js';
+import type { PrefsStorage } from '@sudobility/music_types';
 
 /**
  * What a write returns: the record minus the score the caller already holds.

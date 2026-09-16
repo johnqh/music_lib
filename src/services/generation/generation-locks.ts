@@ -10,27 +10,14 @@
  * carrier is shown and what a lock sends — were all inside the web component.
  * They are here so the two panels cannot lock different things.
  */
+import { LOCKABLE } from '@sudobility/music_types';
 import type {
   GenerateScoreRequest,
   GenerationChoices,
   GenerationRecord,
+  LockableChoice,
 } from '@sudobility/music_types';
 import { estimateGenerateScoreCredits } from './request.js';
-
-/** The choices a reader can lock, in the order they are shown. */
-export const LOCKABLE = [
-  'groove',
-  'cycle',
-  'arcEntry',
-  'arcIntensity',
-  'moment',
-  'carrier',
-  'formShape',
-  'hook',
-  'lyric',
-] as const;
-
-export type LockableChoice = (typeof LOCKABLE)[number];
 
 /**
  * What a choice reads as, or `null` when the server made none.

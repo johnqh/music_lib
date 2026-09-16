@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  REPLACE_PRESET_KEYS,
   buildReplaceSubmission,
   defaultReplaceSubmission,
   replacePresetLabelKey,
 } from './replace-draft.js';
 import { DEFAULT_GENERATION_VARIANT } from './new-project-draft.js';
+import { REPLACE_PRESET_KEYS } from '@sudobility/music_types';
 
 describe('REPLACE_PRESET_KEYS', () => {
   it('is the full list the web dialog offers, in its order, once each', () => {

@@ -33,14 +33,18 @@
 import {
   DEFAULT_INSTRUMENT_VALUE,
   DEFAULT_VOCAL_INSTRUMENT_VALUE,
+  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   GENERATE_SCORE_STYLE_PRESETS,
   withGenerationVariant,
+  type GenerateScoreRequestDraft,
   type GenerationVariant,
-  type KeySignature,
+  type NewProjectDraftAction,
+  type NewProjectEntry,
+  type NewProjectFormDraft,
+  type NewProjectSubmission,
 } from '@sudobility/music_types';
 import {
   DEFAULT_GENERATE_SCORE_MEASURES,
-  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   buildGenerateScoreRequest,
   buildNewProjectScore,
   canBuildGenerateScoreRequest,
@@ -50,11 +54,6 @@ import {
   styleKey,
   styleRoster,
   styleTempo,
-  type GenerateScoreComplexity,
-  type GenerateScoreRequestDraft,
-  type InstrumentValueEntry,
-  type NewProjectSubmission,
-  type StyleTier,
 } from './request.js';
 import {
   barsForSeconds,
@@ -77,88 +76,6 @@ export const DEFAULT_GENERATION_VARIANT: GenerationVariant = 'deepseek';
 
 /** The meter a new project opens in. */
 const DEFAULT_METER = '4/4';
-
-/**
- * One row of the instrumentation, and which of the style's tiers put it there.
- *
- * `id` survives reordering and repeats — two violins is a real ensemble, and
- * "remove the second violin" has to mean that one. A row added or changed by
- * hand carries no tier, so a second kit added on purpose is always the reader's
- * to remove.
- */
-export type NewProjectEntry = InstrumentValueEntry & { tier?: StyleTier };
-
-/**
- * Everything the New Project form holds.
- *
- * Text fields stay text: `measuresText`, `tempoText` and `durationText` are what
- * was typed, so "1:" part way through an edit is not rewritten under the cursor.
- * `style` and `mood` use `''` for "none"; a picker that cannot hold an empty
- * value maps it through `NO_MARK` (see `labelledOptions`).
- */
-export type NewProjectFormDraft = {
-  title: string;
-  /**
-   * Whether a model writes the music. Off by default: this is New Project, and
-   * a blank score with the right instruments is the ordinary way to start one.
-   * Flipping it never clears anything — losing a typed prompt to a toggle is
-   * not worth the tidiness.
-   */
-  generating: boolean;
-  prompt: string;
-  style: string;
-  mood: string;
-  complexity: GenerateScoreComplexity;
-  variant: string;
-  /**
-   * Words under the sung notes. On by default, because somebody who has just
-   * been given a singer is writing a song; a switch rather than an inference,
-   * because a voice held as a wordless pad is a different piece of music.
-   */
-  lyrics: boolean;
-  /** What the words are about, when that is not what the piece is about. Blank is "the same". */
-  lyricsTheme: string;
-  /**
-   * The instrumentation, in order. Ordered because the first track that is not
-   * percussion carries the melody, which makes position a musical decision.
-   */
-  ensemble: readonly NewProjectEntry[];
-  nextEntryId: number;
-  /**
-   * The singer this form added, by entry id — so turning generation back off
-   * removes that one and not whichever voice happens to be first. `null` once
-   * it is gone, replaced by hand, or never added.
-   */
-  autoVocalId: number | null;
-  measuresText: string;
-  tempoText: string;
-  /** A key of `GENERATE_SCORE_TIME_SIGNATURE_OPTIONS`. */
-  meter: string;
-  keySignature: KeySignature;
-  durationText: string;
-};
-
-export type NewProjectDraftAction =
-  | { type: 'setTitle'; title: string }
-  | { type: 'setGenerating'; generating: boolean }
-  | { type: 'setPrompt'; prompt: string }
-  | { type: 'applyStyle'; style: string }
-  | { type: 'setMood'; mood: string }
-  | { type: 'setComplexity'; complexity: GenerateScoreComplexity }
-  | { type: 'setVariant'; variant: string }
-  | { type: 'setLyrics'; lyrics: boolean }
-  | { type: 'setLyricsTheme'; lyricsTheme: string }
-  | { type: 'addInstrument'; value: string }
-  | { type: 'removeInstrument'; id: number }
-  | { type: 'replaceInstrument'; id: number; value: string }
-  | { type: 'setBars'; text: string }
-  | { type: 'setTempo'; text: string }
-  | { type: 'setMeter'; meter: string }
-  | { type: 'setDuration'; text: string }
-  /** Rewrites a typed length ("45") as what the bars now play ("0:45"): the field's blur. */
-  | { type: 'tidyDuration' }
-  | { type: 'setKey'; fifths: number }
-  | { type: 'setMode'; mode: KeySignature['mode'] };
 
 /** A fresh form: a blank project for one piano, eight bars, in C major 4/4. */
 export function initialNewProjectDraft(): NewProjectFormDraft {

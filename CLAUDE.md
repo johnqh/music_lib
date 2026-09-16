@@ -5,31 +5,34 @@
 > explicitly asks in that turn**. Approval for an earlier change does not carry forward, and
 > finishing a task is not permission to commit it.
 
-Frontend logic for Moosiac (the Sudobility music app family): app-side request builders, rendering/audio/file adapters, and the Zustand app store. Shared score/domain/generation contracts live in `@sudobility/music_types`.
+Frontend business logic for Moosiac (the Sudobility music app family), **above editing**: the composed app store and the per-document stores, autosave and project writes, the player binding (`bindPlayer`) and playback adapter, export planning (`planExport`), the unsaved-work guard (`decideClose`/`decideQuit`), the documentation content (`DOCS_TOPICS`, `RESOURCE_GROUPS`), generation request builders and drafts, credits, device prefs (theme, developer mode and settings, keyboard, font size, language; `resolveThemeMode`) and host copy wiring. It re-exports `@sudobility/music_types`, `@sudobility/music_editing`, `@sudobility/music_codecs` and `@sudobility/music_drawing` wholesale, so an app imports one package. Every shared type and closed vocabulary is music_types'; every operation that changes a score is music_editing's.
 
-- **`music-vocabulary.ts` says score values the way a musician says them.** Ticks, fifths and zero-based voice indexes are the right things to compute with and the wrong things to show, so the conversions — note-value names, key names (`D major`, `2 sharps`), bar/beat positions, and the pitch at a staff position — live here rather than in an app. Which tick count is a quarter note and how many sharps D major has are facts about music. No translatable prose: note values and key names are domain terms, fixed across locales the way General MIDI's instrument names are. `pitchAtStavePosition` is measured from each clef's top line, which is what lets an editor turn a click on a stave into a pitch that agrees with what was drawn.
+- **`music-vocabulary.ts` says score values the way a musician says them** — and it is music_types' (`domain/notation/music-vocabulary.ts`), re-exported from here. Ticks, fifths and zero-based voice indexes are the right things to compute with and the wrong things to show, so the conversions — note-value names, key names (`D major`, `2 sharps`), bar/beat positions, and the pitch at a staff position — live in the model rather than in an app. Which tick count is a quarter note and how many sharps D major has are facts about music. No translatable prose: note values and key names are domain terms, fixed across locales the way General MIDI's instrument names are. `pitchAtStavePosition` is measured from each clef's top line, which is what lets an editor turn a click on a stave into a pitch that agrees with what was drawn.
 
 ## Tech Stack
 
 - TypeScript (strict), ESM, built with plain `tsc -p tsconfig.build.json` (relative imports only — no path aliases; dist is bundler-consumed)
 - Types/schemas from `@sudobility/music_types`
-- VexFlow 4 (windowed **canvas** notation — the SVG renderer was deleted; see adapters below), Tone.js 15 (audio), @tonejs/midi, Zustand 5 + Immer, Zod 4, @sudobility/music_client (server persistence + AI via music_api; Dexie and the mock AI stack were removed in Phase 2)
+- Runtime dependencies `@sudobility/music_codecs`, `@sudobility/music_drawing`, `@sudobility/music_player` (through `/core` only), Immer and Zod; peers `@sudobility/music_types`, `@sudobility/music_editing`, `@sudobility/music_client` (server persistence + AI via music_api), React Query, React, Zustand 5
 - Bun for scripts, vitest + jsdom for tests; canvas tests use `createMock2DContext` (`src/test/canvas-stub.ts`, exported from the package root for consuming apps' jsdom suites too)
 - Published to npm as `@sudobility/music_lib` (restricted) via CI on push to main
 
 ## Commands
 
 - `bun install` — install dependencies
-- `bun run verify` — typecheck + lint + test + build (run before any push; ~775 tests)
+- `bun run verify` — typecheck + lint + test + build (run before any push; 336 tests in 35 files as of 2026-09-15)
 - `bun run test` / `bun run test:watch` — vitest
 - `bun run build` — emit `dist/`
 
 ## Structure
 
-- `src/domain/` — framework-free core: `score/` (factories, queries, ties, fragments, ids), `commands/` (ScoreCommand factories, HistoryManager, reflow), `validation/`, `quantization/`, `voicing/`, `selection/`, `time/` (fractions/ticks/tempo/durations), `pitch/`
-- `src/adapters/` — `vexflow/` (`CanvasScoreRenderer` — windowed, viewport-only canvas drawing with O(visible) per-frame cost, coloring each note by state via `note-color.ts`'s role precedence; `layout.ts` binary-search lookups + the measure-number gutter band; `playhead.ts` caret/seek helpers; `measure-content.ts` shared Stave/Voice/tie builders), `tone/` (playback engine + instruments), `midi/`, `musicxml/`
-- `src/services/` — playback controller singleton (lazy Proxy; safe to import before store init), autosave debouncer, device-prefs persistence (`prefs.ts` via injected PrefsStorage), import-export, errors, benchmark
-- `src/store/` — Zustand slices (score/selection/playback/generation/project/ui; `ui-slice.activeTrackId` + `selectActiveTrackId`, `selection-slice.selectionRegenerated`) + memoized selectors; `context.ts` defines `StoreContext { client: MusicClient; getToken; storage?; provider? }` and `ApiGenerationProvider`; `createAppStore({ context })` is the factory, `initializeAppStore(context)` boots the app-wide `useAppStore` hook (lazy delegate)
+The score model, commands and primitives are music_types'; the editing slices (score, selection, track, ui) are music_editing's; the renderer is music_drawing's; the codecs are music_codecs'; the engines and plans are music_player's. What is left here:
+
+- `src/services/playback/` — `adapter.ts` (the playback controller singleton; lazy Proxy, safe to import before store init) and `bind-player.ts` (`bindPlayer`, `TRANSPORT_SETTINGS_DEFAULTS`)
+- `src/services/prefs.ts` — device prefs: `createDevicePrefsSlice`, `createDevicePrefsStore`, `mirrorDevicePrefs`, `resolveThemeMode`, persistence via an injected `PrefsStorage`
+- `src/services/export/export-plan.ts` (`planExport`), `src/services/documents/unsaved-guard.ts` (`decideClose`/`decideQuit`), `src/services/docs/` (`docs-content.ts`: `DOCS_TOPICS`/`docsTopic`/`docsGroupLabelKey`; `resource-links.ts`: `RESOURCE_GROUPS`/`hostOf`/`monogramFor`)
+- `src/services/generation/` (request builders, drafts, locks, credits), `persistence/` (autosave, document saver, project writes), `import/`, `perf/`, `errors.ts`, `messages.ts`, `library-copy.ts`
+- `src/store/` — `slices/` (generation, playback, project), `context.ts` (`StoreContext`), `useAppStore.ts` (`createAppStore({ context })` composes music_editing's slices with these; `initializeAppStore(context)` boots the app-wide `useAppStore` hook), `document-store.ts` (`createDocumentStore`, a store per document)
 - `src/templates/` — deterministic "New from template" starter scores (replaced the Dexie sample installer)
 - `src/test/fixtures.ts` — deterministic score builders (exported for downstream suites)
 
@@ -37,40 +40,28 @@ Everything exports from `src/index.ts` (package root import only).
 
 ## Architectural Rules
 
-- Domain code (`src/domain/**`) must not import React, VexFlow, Tone, Dexie, or browser-only APIs
-- Every score mutation goes through a `ScoreCommand` via the store's `dispatchCommand`; commands are pure (Immer patches for undo)
+- There is no domain code here any more: the model, commands and pure primitives are music_types' and must not import React, VexFlow, a synth or browser-only APIs there. What this package holds is platform-free too (see the `no-platform-imports.test.ts` gotcha below)
+- Every score mutation goes through a `ScoreCommand` (music_types' `domain/commands/`) via the store's `dispatchCommand` (music_editing's `score-slice`); commands are pure
 - Ticks are integers (480 PPQ default); never floating-point seconds in the musical timeline
-- VexFlow/Tone objects never live in Zustand state (renderer in refs, engine in the controller singleton)
+- VexFlow and player objects never live in Zustand state (renderer in refs, player in music_player's singleton)
 - Voices correlate across measures by ordinal index in `measure.voices`, not by voice id
 
 ## Gotchas
 
 - **One fact, one declaration — and `src/__single-source.test.ts` enforces it.** A constant restated in a second package agrees with the first right up until one of them is edited, and nothing fails when they part: the build is clean, the types match, and the only symptom is a wrong sound or a picker quietly missing an entry. Measured across the family, 23 UPPER_CASE constants were declared in more than one repo — `CC_VOLUME` three times, `DYNAMICS` four, `C_MAJOR` five, and `DEFAULT_TIME_SIGNATURE` in four places under two names. The guard reads the list of names **from music_types at runtime** rather than restating it, because a check against duplication that duplicates what it checks would drift like everything else; its `ALLOWED` list is empty on purpose, so an exemption is a decision somebody writes down. Two shapes matter beyond the constants themselves. **A closed vocabulary is declared as an array and the type read off it** (`export const DYNAMICS = [...] as const; export type Dynamic = (typeof DYNAMICS)[number];`) — a TypeScript union has no runtime form, so anything that must *validate* a value has to write the list out again, which is exactly how music_api's decoder came to check generated music against its own private copy. **A label or option list keyed by the vocabulary is a `Record<T, ...>`, never a parallel array** — a record fails to compile when a member is added, an array silently goes on offering the old set; that is why the inspector's picker lists are `ACCIDENTAL_OPTIONS`/`ARTICULATION_OPTIONS` built from the vocabulary rather than `ACCIDENTALS`/`ARTICULATIONS` retyped. Test fixtures follow the same rule: the score fixtures live once, in `@sudobility/music_types/test`, and a package that needs a rendering fixture of its own re-exports them and adds to them.
 
-- **music_lib owns both plans, and hands them to music_io.** `renderEvents(score) → RenderPlan` for offline audio, `playbackPlan(score) → PlaybackPlan` for live playback; `services/playback/plan.ts` also exports `playbackTracks` (mix changes, which must not rebuild notes) and `resolveVoice` (the kit-versus-instrument rule, shared with auditioning and with `renderEvents`). music_io deliberately depends on **nothing** from here — a contract test there enforces it — so anything an engine needs must be resolved into the plan first. The dependency in the other direction is test-only: these tests import `@sudobility/music_io/mocks` for a platform, which is one-way and therefore not a cycle.
-- **Tracker import works on a format-neutral model, and that is the whole point.** `TrackerModule` (music_types) carries MIDI note numbers rather than Amiga periods, per-pattern row counts, an instrument layer, explicit note-off and normalised `speed`/`bpm` — so `trackerToScore` has no format branches and adding S3M/XM/IT/DSM/MPTM is decoder work in music_io only. `periodToMidi` therefore lives *there*, not here: MOD is the only format with periods, so the decoder is the only thing that ever sees one.
-- **`fill.ts` exists because a bar that does not add up renders short.** `trackerToScore` used to place notes and nothing else, which left holes: a real module produced 554 `measure-underfull` warnings and visibly short bars. Every voice is now tiled exactly across its measure, with `decomposeDuration` splitting a gap too long for one drawable value. Any importer that builds voices by hand needs the same treatment.
+- **Both plans are music_player's now, not this package's.** `renderEvents(score) → RenderPlan` for offline audio, `playbackPlan(score) → PlaybackPlan` for live playback, `playbackTracks` (mix changes, which must not rebuild notes) and `resolveVoice` (the kit-versus-instrument rule) live in music_player's `shared/plan.ts`/`shared/render-events.ts` and are exported from its `/core`. Neither music_player nor music_io depends on anything from here — a contract test in each enforces it — so anything an engine needs must be resolved into the plan first.
+- **Tracker import and `fill.ts` are music_codecs'** (`src/mod/import.ts`'s `trackerToScore`, `src/mod/fill.ts`, `src/tracker/period.ts`'s `periodToMidi`); `TrackerModule` is music_types'. Why the model is format-neutral and why every voice is filled with rests is recorded in music_codecs' CLAUDE.md.
+- **The canvas renderer is music_drawing's** (`CanvasScoreRenderer`, `computeLayout`). How it stays affordable during playback — colour-free built drawings reused across repaints, bboxes measured only once a note is drawn, staves culled at draw time rather than build time, the cached layout plan — is recorded in music_drawing's CLAUDE.md.
 
-- **The renderer caches one built frame, and that is what makes playback affordable.** Constructing and formatting VexFlow objects is the expensive half — measured at 45ms for a twelve-track sixteenth-note window, 94ms at zoom 0.5 — and a note starting to sound changes none of it. `buildSystem` produces a `SystemDrawing` with no colour in it; `paintSystem` applies colour and draws. The cache key covers score identity, zoom, layout mode, width, track set and viewport, and deliberately **not** the theme, note colours, active track or selection, which are exactly what a repaint changes. Measured after: 4.2ms and 23.7ms. One frame rather than an LRU, because during playback the viewport is still and consecutive repaints hit it; scrolling misses and rebuilds, which is what it always did.
-- **Event bboxes are recorded after painting, never before.** VexFlow reports a bounding box only once an object has been drawn, so reading them off freshly-built objects yields zeros — which showed up as every note's click target sitting at x=0. They are geometry, so they are computed once per built frame and reused by every repaint of it.
-- **Staves are culled at *draw* time, never at build time.** The formatter always sees every track in a measure column, so geometry cannot depend on what is scrolled into view; `paintSystem` then puts ink only on the staves whose y-band meets the viewport. Building the culled version instead was tried and reverted: a tick context contributed only by an off-screen track disappears and the visible notes slide, and an invisible alignment voice of `GhostNote`s restores the tick *positions* but not the glyph *widths* — residual drift measured **13.5px**, plainly visible while scrolling. Draw-time culling has no such problem and is why the repaint cost tracks the screen rather than the score: at 200 tracks, 159ms to build a window once and **6.4ms** per repaint of it.
-- **`computeLayout` is 28.8ms at 200 tracks x 200 bars and that is left alone deliberately.** It materialises a box per (track, measure) — 40,000 objects — but it is cached by `planFor` and a React memo, so it runs on a score, zoom, width or track-set change and never per frame. Reshaping `LayoutPlan` into derived accessors would break five call sites across music_lib and music_app to save a one-off; measure before deciding it is worth that.
-
-- **`ScoreCommand` declares `kind: 'content' | 'mix'`, and it is required.** Content is immutable while the transport plays: `score-slice`'s `dispatchCommand`/`undo`/`redo` refuse it. Mixing — volume, pan, mute, solo — is exempt and reaches the engine live through `applyMix`. `changeTrackPropsCommand` carries a partial patch and serves both, so it classifies from its own patch (mix only if *every* key is); every other factory inherits `'content'` from `snapshotCommand`. Required rather than optional so a command written later without thinking about the lock is refused rather than admitted — the typecheck caught a hand-rolled literal in `history.test.ts` the moment it landed.
+- **`ScoreCommand` declares `kind: 'content' | 'mix'`, and it is required — none of it lives here, but this package's adapter depends on it.** The type and the factories are music_types' (`domain/commands/`); the lock is music_editing's `score-slice`, whose `dispatchCommand`/`undo`/`redo` refuse a content command while the transport plays (`commandAllowed`). Mixing — volume, pan, mute, solo — is exempt and reaches the engine live through `applyMix`. `changeTrackPropsCommand` (music_types' `structure-commands.ts`) carries a partial patch and serves both, so it classifies from its own patch (mix only if *every* key is); every other factory inherits `'content'` from `snapshotCommand`. Required rather than optional so a command written later without thinking about the lock is refused rather than admitted — the typecheck caught a hand-rolled literal in music_types' `history.test.ts` the moment it landed. It is recorded here because `services/playback/adapter.ts` treats a score change during playback as a mix change and does not reload, which is only sound while that lock holds.
 - **`IMusicPlayer.load` has exactly two branches, and the lock is what allows the first.** Playing → `applyMix(tracks)`, no reload, no reschedule. Otherwise → build a plan and load it. It used to be a stop-reload-seek-resume cycle with `pendingResume` and `scoreChangeGeneration` deciding which of several in-flight calls owned the resume; all of that existed to make a burst of edits during playback safe, and editing during playback is now refused. **If the lock is ever loosened, that code has to come back** — the no-reload branch is only sound because a content change cannot have happened. The branch itself lives in `@sudobility/music_player` now; this package's edit lock is still what makes it sound, which is why it is documented here as well as there.
 
-- **`Track.midiProgram` means two different things, and `track-instrument.ts`
-  is the only place that knows which.** On a percussion-clef track it addresses
-  a General MIDI *drum kit* (`gm-kit.ts`); everywhere else it is an instrument
-  (`gm.ts`). The two never coincide — Brush is kit 40, and program 40 is Violin
-  — so every program-keyed table (`gm-range`, `gm-polyphony`,
-  `gm-transposition`, `gm-icon`) gives a confidently wrong answer for a drum
-  track. Take a `Track` and call `trackKeyboardRange`/`trackMaxPolyphony`/
-  `trackWrittenTransposition`/`trackInstrumentIcon` instead; the program-keyed
-  functions stay exported for callers that genuinely hold only a program.
-  `scoreWithResolvedKits` (run by `setScore`) snaps a percussion track to a real
-  kit and returns the **identical score** when there is nothing to fix, which is
-  what keeps opening a project from marking it dirty.
+- **`Track.midiProgram` means two different things, and music_types'
+  `domain/instruments/track-instrument.ts` is the only place that knows which**
+  — a drum kit on a percussion track, an instrument everywhere else. The rule
+  and `scoreWithResolvedKits` (run by music_editing's `setScore`) are recorded
+  in music_types' CLAUDE.md.
 - **The autosave omits the score when the score has not changed.**
   `project-slice` keeps the last-saved score by *identity* — every mutation
   goes through a command that returns a new object, so an unchanged reference
@@ -90,7 +81,8 @@ Everything exports from `src/index.ts` (package root import only).
   (`src/platform/no-platform-imports.test.ts`): no `tone`/`@tonejs/midi` import,
   no platform runtime dependency, no web-only global outside the canvas
   renderer, no `import.meta`, and no `Worker`. Runtime dependencies are exactly
-  `immer`, `vexflow` and `zod`. Without the guards nothing would notice a
+  music_codecs, music_drawing, music_player, `immer` and `zod` — `vexflow` left
+  with music_drawing. Without the guards nothing would notice a
   regression — every test here runs in jsdom, where the offending import works
   fine, and the breakage only appears in a React Native bundle. The rules grep
   raw source with comments stripped, so reword a doc comment rather than
@@ -122,9 +114,10 @@ Everything exports from `src/index.ts` (package root import only).
 - **Everything stateless is still a parameter.** `XmlParser` and the codecs are
   function or constructor arguments rather than registry entries, so those stay
   testable with no global setup.
-- **`vexflow` stays here** because it is not actually platform-bound: the canvas
-  renderer draws into a 2D context the caller supplies, and was verified to
-  render a full score with no DOM present at all.
+- **`vexflow` is music_drawing's**, which this package re-exports. It was never
+  platform-bound — the canvas renderer draws into a 2D context the caller
+  supplies, and was verified to render a full score with no DOM present at all —
+  but drawing is not business logic.
 - **There are no workers, deliberately.** `src/workers/` held two — thin
   wrappers moving `quantizeEvents` and `importMidiFile` off the main thread —
   plus `MidiService`/`QuantizeService` to drive them and a requestId/postMessage
@@ -150,7 +143,10 @@ Everything exports from `src/index.ts` (package root import only).
 
 - `dist/` emits proper ESM with explicit `.js` relative extensions (source imports use `.js` specifiers, mapped to `.ts` by bundler moduleResolution); raw Node still can't import it because some deps (@tonejs/midi) are CJS — consume via a bundler, vitest, or Bun
 - The playback controller is a module-level singleton that constructs Tone objects at import — component tests in consuming apps must mock it
-- Two `safeFilename` helpers existed (midi/musicxml); the package root re-exports the midi one only
+- Export filenames come from music_codecs' `exportFilename` (keep the title, replace only what a filesystem refuses); the old `safeFilename` helpers are gone.
+- **Modules that came here from music_editing, because they are not editing:** `services/playback/bind-player.ts` (`bindPlayer`, typed on music_player's `IMusicPlayer` — the structural `BindablePlayer` and the adapter's compile-time check against it are deleted; `TRANSPORT_SETTINGS_DEFAULTS` is beside it, `TransportSettings`/`PlayerFailure` are music_types'), `services/export/export-plan.ts` (`planExport`), `services/docs/` (`DOCS_TOPICS`, `RESOURCE_GROUPS`), `services/documents/unsaved-guard.ts` (`decideClose`/`decideQuit`) and `resolveThemeMode` (in `prefs.ts`). music_editing's guard keeps them from going back.
+- **The theme, developer mode and developer settings are device prefs, and the editing ui slice no longer holds them.** `createDevicePrefsSlice` carries `themeMode`, `developerMode`, `devSettings` and their setters alongside the keyboard, font size and language, so the web app's composed store gets them from here; `createDevicePrefsStore` adds `pitchDisplay`, which stays in editing because note entry reads it. `EDITING_PREF_KEYS` is `['pitchDisplay']` — a document store no longer has a theme.
+- **Vocabulary and types are music_types', not declared here** (`src/__moved-to-types.test.ts`, which also covers what arrived from music_editing typed there — `TransportSettings`/`PlayerFailure`, `WRITABLE_EXPORT_FORMATS`/`ExportPlan`, the docs and resource vocabularies, `THEME_MODES`): the generation option lists and draft types, `NewProjectSubmission` (music_client's `GeneratedProjectSubmission` was the same type and is gone), `LOCKABLE`, `REPLACE_PRESET_KEYS`/`ReplaceDraft`, `LabelledOption`, `TEMPLATE_IDS`/`TemplateCopy` (`ProjectTemplate` stays, it carries `build`), `FONT_SIZES`/`DevicePrefs`, `SaveState`, `DocumentOrigin`, `DocumentFileStorage`/`PrefsStorage`, `ToastSink`, `AppErrorCode`, `LibraryMessages`/`LibraryCopy` and `MidiImportPatch`. This package re-exports music_types, music_editing, music_codecs and music_drawing wholesale, so declaring or re-exporting one again reaches every consumer by two routes: a TS2308 in this build and a "Cannot redefine property" crash in a CommonJS consumer.
 
 - **`hasVocalInstrument` is shared because both apps ask it twice** — once to decide whether to offer a lyrics control, once to decide whether adding a voice for the reader would be adding a second one. The *decision* is here; the list splice stays in each app, because the two hold their roster in different shapes (`{id, value}[]` on web, so the same instrument can appear twice and survive reordering; `string[]` on native). `GenerateScoreRequestDraft.lyrics` is dropped by `buildGenerateScoreRequest` unless the roster can actually sing — the server writes a lyric onto sung tracks and nothing else, so gating it only in the dialogs would leave a roster edited down to instruments still asking for words.
 

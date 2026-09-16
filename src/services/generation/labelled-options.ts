@@ -15,9 +15,7 @@
  * labels are not locale entries at all can use it too.
  */
 import { NO_MARK, sortOptionsByLabel } from '@sudobility/music_types';
-
-/** One entry of a picker: the value it sets and the text it shows. */
-export type LabelledOption<T extends string> = { value: T; label: string };
+import type { LabelledOption } from '@sudobility/music_types';
 
 /**
  * The vocabulary as picker options, sorted on the label under `locale`.

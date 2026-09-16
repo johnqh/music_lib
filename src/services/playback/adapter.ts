@@ -10,7 +10,7 @@
  * So the split is: the player exposes primitives (`play`, `seek`, `setLoop`),
  * and the score- and selection-aware operations are composed out of them.
  *
- * **That composition is music_editing's `bindPlayer` now**, and this class is
+ * **That composition is `bindPlayer` now**, beside this, and this class is
  * a thin shell over it. The native app has a store per document and had
  * written a smaller binder of its own, which mirrored the transport and loaded
  * scores and did nothing else — no loop, no bar stepping, no clearing the
@@ -27,28 +27,15 @@ import type {
 } from '@sudobility/music_types';
 import type { IMusicPlayer } from '@sudobility/music_player/core';
 import { getMusicPlayer } from '@sudobility/music_player/core';
-import { bindPlayer } from '@sudobility/music_editing';
-import type {
-  BindablePlayer,
-  PlayerBinding,
-  PlayerFailure,
-} from '@sudobility/music_editing';
+import type { PlayerFailure } from '@sudobility/music_types';
+import { bindPlayer } from './bind-player.js';
+import type { PlayerBinding } from './bind-player.js';
 import { libraryMessage } from '../messages.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import type { createAppStore } from '../../store/useAppStore.js';
 
 /** The store shape this module operates on: the same type `useAppStore`/`createAppStore()` produce. */
 export type PlaybackStoreApi = ReturnType<typeof createAppStore>;
-
-/*
-  Compile-time proof that music_player's interface is what the binder binds.
-  music_editing may not import music_player, so it declares the methods it
-  uses structurally; if either side moves, this stops compiling here rather
-  than a host finding out at runtime.
-*/
-const playerIsBindable: IMusicPlayer extends BindablePlayer ? true : false =
-  true;
-void playerIsBindable;
 
 export class PlaybackAdapter {
   private readonly binding: PlayerBinding;
@@ -64,7 +51,7 @@ export class PlaybackAdapter {
       so "play from the caret" needs nothing copied from one to the other.
     */
     this.binding = bindPlayer(player, store, {
-      // The translation lives here, not in music_editing or music_player: the
+      // The translation lives here, not in the binder or music_player: the
       // message a user sees is localized, and neither of those carries copy.
       onError: (failure: PlayerFailure, error: unknown) =>
         this.reportError(libraryMessage(failure), error),

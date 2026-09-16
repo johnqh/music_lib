@@ -2,8 +2,9 @@
  * Editing the MIDI import options a wizard shows, with the field rules in one
  * place.
  *
- * `MidiImportOptions` and `defaultMidiImportOptions` live in music_codecs, which
- * decodes MIDI on both sides of the network. What a *form* may write into them
+ * `MidiImportOptions` and `MidiImportPatch` are vocabulary, in music_types;
+ * `defaultMidiImportOptions` lives in music_codecs, which decodes MIDI on both
+ * sides of the network. What a *form* may write into them
  * is a frontend question, and both apps answered it inline — differently. The
  * web wizard floored the minimum duration at 0 and the native sheet at 1 with a
  * ceiling of 480; the native sheet refused an import with no tracks and the web
@@ -14,38 +15,12 @@
  */
 import type {
   MidiImportOptions,
-  MidiTrackSelection,
-} from '@sudobility/music_codecs';
+  MidiImportPatch,
+} from '@sudobility/music_types';
 
 /** The lowest and highest MIDI note numbers a split point can name. */
 const MIDI_NOTE_MIN = 0;
 const MIDI_NOTE_MAX = 127;
-
-/**
- * A change to the options: any plain field, and optionally one track's row,
- * addressed by its `sourceIndex` — the track's index in the file, which is
- * what the wizard's rows are keyed by. Position in `trackSelections` is not
- * the same thing once a file has empty tracks.
- */
-export type MidiImportPatch = Partial<
-  Omit<
-    MidiImportOptions,
-    'trackSelections' | 'splitPointMidi' | 'minDurationTicks'
-  >
-> & {
-  /**
-   * The two number fields take `null` for a **cleared** field, which is what
-   * `parseNumericDraft(text)` answers for empty text.
-   *
-   * Not `Number(text)`: that reads an emptied field as 0, so clearing the split
-   * point to type a new one moved the split to the lowest note there is — the
-   * same class of bug as the `|| 60` this replaces, from the other direction.
-   */
-  splitPointMidi?: number | null;
-  minDurationTicks?: number | null;
-  track?: Pick<MidiTrackSelection, 'sourceIndex'> &
-    Partial<Pick<MidiTrackSelection, 'include' | 'clef'>>;
-};
 
 /**
  * The options with a patch applied, and the numeric fields made valid.

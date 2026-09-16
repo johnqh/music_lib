@@ -57,6 +57,7 @@ export * from './test/canvas-stub.js';
 
 // services
 export * from './services/playback/adapter.js';
+export * from './services/playback/bind-player.js';
 /** Re-exported so the app's React bindings and their tests reach one bus type. */
 export { PlaybackBus } from '@sudobility/music_player/core';
 export * from './services/errors.js';
@@ -89,3 +90,10 @@ export * from './store/document-store.js';
 
 // host copy: the libraries' copy tables, built from the host's `t`
 export * from './services/library-copy.js';
+
+// Moved here from music_editing, which is editing only: closing a document
+// with unwritten work, planning an export, and the documentation's content.
+export * from './services/documents/unsaved-guard.js';
+export * from './services/export/export-plan.js';
+export * from './services/docs/docs-content.js';
+export * from './services/docs/resource-links.js';

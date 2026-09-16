@@ -14,7 +14,12 @@
  * taken from the same catalogue rather than typed out, so the two cannot drift
  * — the same rule the track editor follows.
  */
-import type { Score, Track } from '@sudobility/music_types';
+import type {
+  Score,
+  TemplateCopy,
+  TemplateId,
+  Track,
+} from '@sudobility/music_types';
 import { createEmptyScore } from '@sudobility/music_types';
 import { gmInstrument } from '@sudobility/music_types';
 import { gmKitAt } from '@sudobility/music_types';
@@ -26,36 +31,6 @@ export type ProjectTemplate = {
   description: string;
   build: () => Score;
 };
-
-/** Every template this module can build. Stable — it is persisted in nothing, but hosts key their copy off it. */
-export const TEMPLATE_IDS = [
-  'lead-sheet',
-  'piano-grand-staff',
-  'string-quartet',
-  'jazz-combo',
-  'rock-band',
-  'satb-choir',
-  'drum-kit',
-  'waltz',
-  'jig',
-  'gentle-piano-melody',
-  'pop-arrangement',
-  'orchestral-passage',
-] as const;
-
-export type TemplateId = (typeof TEMPLATE_IDS)[number];
-
-/**
- * The name and description shown for each template, supplied by the host.
- *
- * This module owns the *music* — which instruments, clefs, keys and bar counts
- * a starter score has — and nothing else. The words describing them are the
- * host's, because only the host knows what language it is speaking.
- */
-export type TemplateCopy = Record<
-  TemplateId,
-  { name: string; description: string }
->;
 
 /** One track of a template: a GM program, plus how it should be written. */
 type TemplateTrack = Partial<Track> & { name: string };

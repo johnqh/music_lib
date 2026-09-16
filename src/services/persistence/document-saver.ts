@@ -19,12 +19,10 @@
  * such as hiding a track). Either moving means the store stays `unsaved`, and
  * the autosaver — which saw the same change arrive — saves again.
  */
-import type { Score } from '@sudobility/music_types';
+import type { SaveState, Score } from '@sudobility/music_types';
 import type { UiSlice } from '@sudobility/music_editing';
 import { createAutosaver } from './autosave.js';
 import { libraryMessage } from '../messages.js';
-
-export type SaveState = 'saved' | 'saving' | 'unsaved';
 
 /** The part of a store the saver reads and writes. */
 export type PersistedState = {

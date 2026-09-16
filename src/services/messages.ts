@@ -22,30 +22,10 @@
  * compile when a member is added and a resolver silently goes on answering for
  * the old set.
  */
-
-export type LibraryMessages = {
-  /** Action label on a retryable error toast. */
-  retry: () => string;
-  /** Autosave to the server failed; the change is still held locally. */
-  saveFailed: () => string;
-  /** The transport could not start. */
-  playbackFailed: () => string;
-  /** The score could not be handed to the playback engine. */
-  scoreLoadFailed: () => string;
-  /** An authenticated call was attempted while signed out. */
-  authRequired: () => string;
-  /**
-   * A server-backed feature was reached on a host that has no server.
-   *
-   * Distinct from `authRequired`, which means "sign in and this works". This
-   * one means the feature is not on offer here at all — a native app editing a
-   * local file. A host whose UI asks `serverAvailable` first should never show
-   * it; it is the backstop for the paths that do not.
-   */
-  serverUnavailable: () => string;
-};
-
-export type LibraryMessageKey = keyof LibraryMessages;
+import type {
+  LibraryMessageKey,
+  LibraryMessages,
+} from '@sudobility/music_types';
 
 /**
  * Empty until the host says otherwise.

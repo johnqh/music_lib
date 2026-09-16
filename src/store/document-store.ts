@@ -32,22 +32,25 @@ import {
   createSelectionSlice,
   createTrackSlice,
   createUiSlice,
-  TRANSPORT_SETTINGS_DEFAULTS,
 } from '@sudobility/music_editing';
 import type {
   EditingState,
   EditingStoreApi,
   SetScoreOptions,
-  TransportSettings,
 } from '@sudobility/music_editing';
+import { TRANSPORT_SETTINGS_DEFAULTS } from '../services/playback/bind-player.js';
 import {
   parseProjectFile,
   serializeProjectFile,
 } from '@sudobility/music_codecs';
 import type {
+  DocumentFileStorage,
+  DocumentOrigin,
   GenerationRecord,
   ProjectUiPrefs,
+  SaveState,
   Score,
+  TransportSettings,
 } from '@sudobility/music_types';
 import {
   authorizedServer,
@@ -56,29 +59,8 @@ import {
   type StoreContext,
 } from './context.js';
 import { createDocumentSaver } from '../services/persistence/document-saver.js';
-import type {
-  SaveState,
-  SaveWrite,
-} from '../services/persistence/document-saver.js';
+import type { SaveWrite } from '../services/persistence/document-saver.js';
 import { projectWrite } from '../services/persistence/project-write.js';
-
-/** Where a document's bytes live, and therefore what saving it means. */
-export type DocumentOrigin =
-  | { kind: 'unsaved' }
-  | { kind: 'file'; uri: string }
-  | { kind: 'project'; projectId: string };
-
-/**
- * The filesystem, as far as a document needs one.
- *
- * Structural, so a test passes a map and each platform passes its own —
- * a sandboxed macOS build reaches a file through a security-scoped bookmark,
- * which is a different storage and not a different document.
- */
-export type DocumentFileStorage = {
-  readText(uri: string): Promise<string>;
-  writeText(uri: string, text: string): Promise<void>;
-};
 
 /** Anything that can stop the transport: a player, a binding, the adapter. */
 export type TransportStopper = { stop(): void };

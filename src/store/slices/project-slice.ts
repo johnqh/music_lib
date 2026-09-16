@@ -21,16 +21,11 @@ import type {
   Score,
 } from '@sudobility/music_types';
 import { createDocumentSaver } from '../../services/persistence/document-saver.js';
-import type {
-  DocumentSaver,
-  SaveState,
-} from '../../services/persistence/document-saver.js';
+import type { DocumentSaver } from '../../services/persistence/document-saver.js';
 import { projectWrite } from '../../services/persistence/project-write.js';
 import { authorizedServer, hasServer, type StoreContext } from '../context.js';
 import type { AppState } from '../useAppStore.js';
-
-/** Re-exported from where the saver declares it, so existing imports resolve. */
-export type { SaveState };
+import type { SaveState } from '@sudobility/music_types';
 
 export type NewProjectInput = { name: string; score?: Score };
 

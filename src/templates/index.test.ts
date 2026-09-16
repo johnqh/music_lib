@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  TEMPLATE_IDS,
-  type TemplateCopy,
   buildTemplate,
   newProjectScore,
   projectTemplates,
@@ -21,6 +19,8 @@ const COPY = Object.fromEntries(
 import { validateScore } from '@sudobility/music_types';
 import { gmKit } from '@sudobility/music_types';
 import { gmInstrument } from '@sudobility/music_types';
+import { TEMPLATE_IDS } from '@sudobility/music_types';
+import type { TemplateCopy } from '@sudobility/music_types';
 
 describe('projectTemplates', () => {
   it('has unique ids, since the picker builds by id', () => {

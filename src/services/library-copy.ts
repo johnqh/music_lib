@@ -23,12 +23,14 @@
  * still resolved on each read — the type stays as the owning package declared
  * it, and nothing a host holds goes stale.
  */
-import type { EditingCopy } from '@sudobility/music_editing';
-import type { SelectionSummaryCopy } from '@sudobility/music_types';
-import type { MusicXmlWarnings } from '@sudobility/music_codecs';
+import { TEMPLATE_IDS } from '@sudobility/music_types';
+import type {
+  EditingCopy,
+  LibraryCopy,
+  TemplateCopy,
+} from '@sudobility/music_types';
 import { setEditingCopy } from '@sudobility/music_editing';
-import { setLibraryMessages, type LibraryMessages } from './messages.js';
-import { TEMPLATE_IDS, type TemplateCopy } from '../templates/index.js';
+import { setLibraryMessages } from './messages.js';
 
 /**
  * A host's translate function, structurally.
@@ -41,19 +43,6 @@ export type Translate = (
   key: string,
   options?: Record<string, unknown>
 ) => string;
-
-export type LibraryCopy = {
-  /** For `setEditingCopy`: undo labels, validation, refusals. */
-  editing: () => EditingCopy;
-  /** For `selectionSummaryLabel`. */
-  selection: () => SelectionSummaryCopy;
-  /** For `openMusicXml`: one sentence per case the importer warns about. */
-  musicXmlWarnings: () => MusicXmlWarnings;
-  /** For `setLibraryMessages`: the messages raised from long-lived internals. */
-  library: () => LibraryMessages;
-  /** For `projectTemplates`: each template's name and description. */
-  templates: () => TemplateCopy;
-};
 
 export function createLibraryCopy(t: Translate): LibraryCopy {
   const commandLabel: EditingCopy['commandLabel'] = key => t(`command.${key}`);

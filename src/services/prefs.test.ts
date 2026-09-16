@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bindDevicePrefs,
   createDevicePrefsStore,
+  DEFAULT_DEV_SETTINGS,
   DEFAULT_DEVICE_PREFS,
   LEGACY_FONT_SIZE_KEY,
   LEGACY_THEME_MODE_KEY,
@@ -50,6 +51,31 @@ describe('parseDevicePrefs', () => {
       keyboardCollapsed: true,
       language: 'zh-Hans',
     });
+  });
+
+  it('ignores keys nothing reads any more, including a stale devSettings', () => {
+    /*
+      A stored object was written by whatever build wrote it. Six developer
+      toggles were removed once nothing was found to read them, and a build
+      that persisted a `devSettings` block (or any other field since dropped)
+      must not make this throw, and must not resurrect the setting. The answer
+      is built field by field, which is what makes that true by construction.
+    */
+    expect(
+      parseDevicePrefs({
+        themeMode: 'dark',
+        devSettings: {
+          showIds: true,
+          showTicks: true,
+          showMeasureBoundaries: true,
+          showPlaybackScheduling: true,
+          enableDiagnostics: true,
+          enableValidationWarnings: false,
+        },
+        view: 'piano-roll',
+        zoom: 3,
+      })
+    ).toEqual({ ...DEFAULT_DEVICE_PREFS, themeMode: 'dark' });
   });
 
   it('refuses a language that is not a language tag', () => {
@@ -174,6 +200,24 @@ describe('bindDevicePrefs', () => {
     binding.unbind();
   });
 
+  it('leaves the developer settings alone, whatever storage holds', async () => {
+    /*
+      `devSettings` is not a persisted pref and must not become one by accident:
+      a stored block naming settings that no longer exist has to reach the store
+      as nothing at all, or a removed toggle comes back as a key on the object.
+    */
+    const storage = new MemoryPrefsStorage();
+    storage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ devSettings: { showIds: true, generationVariant: 'x' } })
+    );
+    const store = createDevicePrefsStore();
+    const binding = bindDevicePrefs(store, storage);
+    await binding.ready;
+    expect(store.getState().devSettings).toEqual(DEFAULT_DEV_SETTINGS);
+    binding.unbind();
+  });
+
   it('does not write the defaults over stored prefs before they have loaded', async () => {
     const storage = new MemoryPrefsStorage();
     storage.setItem(PREFS_KEY, JSON.stringify({ themeMode: 'dark' }));
@@ -228,6 +272,65 @@ describe('bindDevicePrefs', () => {
   });
 });
 
+/*
+  The theme, developer mode and developer settings moved here from music_editing's
+  ui slice; these are the assertions that slice's tests used to make, against
+  both stores that compose the prefs slice.
+*/
+describe('the device prefs slice', () => {
+  const stores = {
+    'the app store': () => createAppStore({ context: testStoreContext() }),
+    'the device prefs store': () => createDevicePrefsStore(),
+  };
+
+  for (const [name, make] of Object.entries(stores)) {
+    describe(name, () => {
+      it('defaults to the system theme with developer mode off', () => {
+        const state = make().getState();
+        expect(state.themeMode).toBe('system');
+        expect(state.developerMode).toBe(false);
+        expect(state.devSettings).toEqual(DEFAULT_DEV_SETTINGS);
+      });
+
+      it('keeps only settings something reads', () => {
+        /*
+          Six overlay toggles lived here and were read by nothing in any
+          package, while both apps drew a switch for each. A setting nobody
+          reads is a control that appears broken, so the rule is now that a
+          field has to have a reader — and this fails if one is added back
+          without the rest of this test being thought about.
+        */
+        const state = make().getState();
+        expect(Object.keys(state.devSettings)).toEqual(['generationVariant']);
+      });
+
+      it('sets the theme and developer mode', () => {
+        const store = make();
+        store.getState().setThemeMode('dark');
+        store.getState().setDeveloperMode(true);
+        expect(store.getState().themeMode).toBe('dark');
+        expect(store.getState().developerMode).toBe(true);
+      });
+
+      it('merges a patch into devSettings', () => {
+        const store = make();
+        store.getState().setDevSettings({ generationVariant: 'local' });
+        expect(store.getState().devSettings.generationVariant).toBe('local');
+      });
+    });
+  }
+
+  it('gives each store its own developer settings', () => {
+    // Spread from the defaults, not shared: a patch in one store must not
+    // reach another, nor the defaults every later store starts from.
+    const first = createDevicePrefsStore();
+    first.getState().setDevSettings({ generationVariant: 'local' });
+    expect(
+      createDevicePrefsStore().getState().devSettings.generationVariant
+    ).toBe(DEFAULT_DEV_SETTINGS.generationVariant);
+  });
+});
+
 describe('mirrorDevicePrefs', () => {
   it('copies the editing prefs into a document store, now and on every change', () => {
     const prefs = createDevicePrefsStore();
@@ -237,13 +340,13 @@ describe('mirrorDevicePrefs', () => {
     const stop = mirrorDevicePrefs(prefs, doc);
     expect(doc.getState().pitchDisplay).toBe('written');
 
+    // Prefs editing does not read stay on the prefs store: the theme and
+    // developer mode left the editing state along with the keyboard's.
     prefs.getState().setThemeMode('dark');
     prefs.getState().setDeveloperMode(true);
-    expect(doc.getState().themeMode).toBe('dark');
-    expect(doc.getState().developerMode).toBe(true);
-    // A pref editing does not read stays on the prefs store.
     prefs.getState().setKeyboardCollapsed(true);
-    expect('keyboardCollapsed' in doc.getState()).toBe(false);
+    for (const key of ['themeMode', 'developerMode', 'keyboardCollapsed'])
+      expect(key in doc.getState(), key).toBe(false);
 
     stop();
     prefs.getState().setPitchDisplay('concert');

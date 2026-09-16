@@ -4,13 +4,13 @@ import type {
   GenerationRecord,
 } from '@sudobility/music_types';
 import {
-  LOCKABLE,
   generationChoiceLabelKey,
   lockableChoiceRows,
   lockableChoiceValue,
   regenerateCreditEstimate,
   regenerateWithLocks,
 } from './generation-locks.js';
+import { LOCKABLE } from '@sudobility/music_types';
 
 const choices: GenerationChoices = {
   formShape: 'AABA',
