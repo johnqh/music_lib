@@ -100,13 +100,7 @@ describe('music_lib is platform-free', () => {
       resolve to the web entry and make this assertion false. That is asserted
       directly below.
     */
-    expect(Object.keys(dependencies).sort()).toEqual([
-      '@sudobility/music_codecs',
-      '@sudobility/music_drawing',
-      '@sudobility/music_player',
-      'immer',
-      'zod',
-    ]);
+    expect(Object.keys(dependencies).sort()).toEqual(['immer', 'zod']);
   });
 
   /**

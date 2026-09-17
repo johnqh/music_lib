@@ -1,8 +1,8 @@
 /**
  * The frontend vocabulary this package used to declare lives in music_types.
  *
- * This package re-exports music_types, music_editing, music_codecs and
- * music_drawing wholesale. A name that one of them owns and this package also
+ * This package re-exports music_types, music_codecs and music_drawing
+ * wholesale. A name that one of them owns and this package also
  * declares — or re-exports from a module of its own — reaches every consumer
  * by two routes: a TS2308 in this build and a "Cannot redefine property" crash
  * in a CommonJS consumer. So the moved names stay moved, and the modules that

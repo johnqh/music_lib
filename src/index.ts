@@ -21,17 +21,6 @@ export * from '@sudobility/music_types';
   drift.
 */
 /*
-  The editing engine, re-exported whole.
-
-  music_app imports `insertNoteAtCaret` and `EditorStoreApi` from
-  `@sudobility/music_lib` in fifty files, and none of them should have had to
-  change because the engine moved house. The same reasoning as the
-  music_types/music_codecs/music_drawing re-exports above: one home for the
-  code, every existing import still resolving.
-*/
-export * from '@sudobility/music_editing';
-export * from '@sudobility/music_codecs';
-/*
   The renderer lives in `@sudobility/music_drawing` and is re-exported here.
 
   It was `src/adapters/vexflow/` — 8,400 lines that depended on nothing in this
@@ -40,27 +29,19 @@ export * from '@sudobility/music_codecs';
   a network client and an audio engine, and it keeps this package from having
   to carry a rendering engine in order to offer business logic.
 */
-export * from '@sudobility/music_drawing';
 
 /**
  * @sudobility/music_lib — Moosiac business logic.
  *
- * Domain primitives, codecs and drawing are re-exported above so existing app
- * imports keep working. The exports below are the library-owned services,
- * store helpers and app-independent editing facades.
+ * The exports below are the library-owned services and platform-free
+ * application rules. Hosts compose this package with codecs and drawing.
  */
 
 // test fixtures (deterministic score builders — used by downstream test suites)
 export * from './test/fixtures.js';
-export * from './test/store-context.js';
 export * from './test/canvas-stub.js';
 
-// services
-export * from './services/playback/adapter.js';
-export * from './services/playback/bind-player.js';
-/** Re-exported so the app's React bindings and their tests reach one bus type. */
-export { PlaybackBus } from '@sudobility/music_player/core';
-export * from './services/errors.js';
+// business services
 export * from './services/messages.js';
 export * from './services/generation/request.js';
 export * from './services/generation/score-duration.js';
@@ -70,30 +51,9 @@ export * from './services/generation/labelled-options.js';
 export * from './services/generation/replace-draft.js';
 export * from './services/generation/generation-locks.js';
 export * from './services/import/midi-import-options.js';
-export * from './services/perf/benchmark.js';
 export * from './services/persistence/autosave.js';
-
-// store
-export * from './store/context.js';
 export * from './services/prefs.js';
 export * from './templates/index.js';
-export * from './store/useAppStore.js';
-
-// platform
-
-// Pure editing logic, moved out of music_app: none of it touches React, the
-// DOM or layout geometry, so it belongs with the model rather than the UI.
-// documents: a store per document, and the saving rules both origins share
-export * from './services/persistence/document-saver.js';
-export * from './services/persistence/project-write.js';
-export * from './store/document-store.js';
-
-// host copy: the libraries' copy tables, built from the host's `t`
-export * from './services/library-copy.js';
-
-// Moved here from music_editing, which is editing only: closing a document
-// with unwritten work, planning an export, and the documentation's content.
 export * from './services/documents/unsaved-guard.js';
-export * from './services/export/export-plan.js';
 export * from './services/docs/docs-content.js';
 export * from './services/docs/resource-links.js';

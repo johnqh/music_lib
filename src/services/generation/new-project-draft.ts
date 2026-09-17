@@ -94,6 +94,7 @@ export function initialNewProjectDraft(): NewProjectFormDraft {
     autoVocalId: null,
     measuresText: String(DEFAULT_GENERATE_SCORE_MEASURES),
     tempoText: '',
+    lengthSource: 'bars',
     meter: DEFAULT_METER,
     keySignature: { fifths: 0, mode: 'major' },
     durationText: formatDuration(
@@ -204,6 +205,7 @@ export function reduceNewProjectDraft(
     case 'setBars':
       return {
         ...draft,
+        lengthSource: 'bars',
         measuresText: action.text,
         durationText: durationFor(
           draft,
@@ -212,27 +214,56 @@ export function reduceNewProjectDraft(
           draft.meter
         ),
       };
-    case 'setTempo':
+    case 'setTempo': {
+      const seconds = parseDuration(draft.durationText);
+      const durationIsPrimary =
+        draft.lengthSource === 'duration' && seconds !== null;
       return {
         ...draft,
         tempoText: action.text,
-        durationText: durationFor(
-          draft,
-          draft.measuresText,
-          action.text,
-          draft.meter
-        ),
+        ...(durationIsPrimary
+          ? {
+              measuresText: String(
+                barsForSeconds(
+                  seconds,
+                  action.text,
+                  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS[draft.meter]
+                )
+              ),
+            }
+          : {
+              durationText: durationFor(
+                draft,
+                draft.measuresText,
+                action.text,
+                draft.meter
+              ),
+            }),
       };
+    }
     case 'setMeter':
       return {
         ...draft,
         meter: action.meter,
-        durationText: durationFor(
-          draft,
-          draft.measuresText,
-          draft.tempoText,
-          action.meter
-        ),
+        ...(draft.lengthSource === 'duration' &&
+        parseDuration(draft.durationText) !== null
+          ? {
+              measuresText: String(
+                barsForSeconds(
+                  parseDuration(draft.durationText)!,
+                  draft.tempoText,
+                  GENERATE_SCORE_TIME_SIGNATURE_OPTIONS[action.meter]
+                )
+              ),
+            }
+          : {
+              durationText: durationFor(
+                draft,
+                draft.measuresText,
+                draft.tempoText,
+                action.meter
+              ),
+            }),
       };
     case 'setDuration': {
       /*
@@ -244,6 +275,7 @@ export function reduceNewProjectDraft(
       return {
         ...draft,
         durationText: action.text,
+        lengthSource: 'duration',
         ...(seconds === null
           ? {}
           : {
@@ -317,6 +349,7 @@ function applyStyle(
       ensemble.find(entry => hasVocalInstrument([entry.value]))?.id ?? null,
     tempoText,
     measuresText,
+    lengthSource: 'bars',
     meter: preset.timeSignature,
     keySignature: key ?? {
       ...draft.keySignature,
@@ -452,8 +485,8 @@ export function showNewProjectLyricsTheme(draft: NewProjectFormDraft): boolean {
  * lyric follows verses and choruses rather than a clock. A voice in a blank
  * project writes no words, so the clock stays there.
  */
-export function showNewProjectDuration(draft: NewProjectFormDraft): boolean {
-  return !(draft.generating && showNewProjectLyricsTheme(draft));
+export function showNewProjectDuration(_draft: NewProjectFormDraft): boolean {
+  return true;
 }
 
 /**

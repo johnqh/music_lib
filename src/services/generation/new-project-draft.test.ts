@@ -350,10 +350,10 @@ describe('what the form shows', () => {
     ).toBe('newProject.defaultTitleGenerated');
   });
 
-  it('hides the duration only while words are being written', () => {
+  it('keeps duration available while words are being written', () => {
     expect(showNewProjectDuration(initialNewProjectDraft())).toBe(true);
     const song = run([{ type: 'setGenerating', generating: true }]);
-    expect(showNewProjectDuration(song)).toBe(false);
+    expect(showNewProjectDuration(song)).toBe(true);
     expect(
       showNewProjectDuration(run([{ type: 'setLyrics', lyrics: false }], song))
     ).toBe(true);
@@ -367,6 +367,17 @@ describe('what the form shows', () => {
       { type: 'addInstrument', value: DEFAULT_VOCAL_INSTRUMENT_VALUE },
     ]);
     expect(showNewProjectDuration(blankWithVoice)).toBe(true);
+  });
+
+  it('keeps the selected duration stable when tempo changes', () => {
+    const draft = run([
+      { type: 'setTempo', text: '120' },
+      { type: 'setDuration', text: '0:30' },
+      { type: 'setTempo', text: '60' },
+    ]);
+    expect(draft.durationText).toBe('0:30');
+    expect(draft.measuresText).toBe('8');
+    expect(draft.lengthSource).toBe('duration');
   });
 
   it('offers the lyrics switch only over a singer, and the theme only with it on', () => {
