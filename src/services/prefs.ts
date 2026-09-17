@@ -20,7 +20,7 @@
  * a save merges into the stored object, so a field an older build kept (`zoom`,
  * `view`) or a newer build added survives a save from this one.
  */
-import { create } from 'zustand';
+import { createStore } from 'zustand/vanilla';
 import { immer } from 'zustand/middleware/immer';
 import { FONT_SIZES, THEME_MODES } from '@sudobility/music_types';
 import type {
@@ -275,7 +275,7 @@ export type DevicePrefsState = DevicePrefsSlice & {
  * carries them already and binds that instead.
  */
 export function createDevicePrefsStore() {
-  return create<DevicePrefsState>()(
+  return createStore<DevicePrefsState>()(
     immer(set => ({
       ...DEFAULT_DEVICE_PREFS,
       ...createDevicePrefsSlice<DevicePrefsState>(set),

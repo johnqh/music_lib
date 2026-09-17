@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "1.9.56",
+  "version": "1.9.57",
   "description": "Platform-free business logic for ScoreSmith: domain services, generation, persistence rules, and preferences",
   "type": "module",
   "main": "./dist/index.js",
