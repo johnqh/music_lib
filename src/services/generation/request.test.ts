@@ -149,14 +149,14 @@ describe('generate score request helpers', () => {
     expect(
       buildGenerateScoreRequest({
         ...BASE_DRAFT,
-        style: 'heavyMetal',
+        style: 'electroSwing',
         keySignature: { fifths: 1, mode: 'major' },
       })
     ).toBeNull();
     expect(
       buildGenerateScoreRequest({
         ...BASE_DRAFT,
-        style: 'heavyMetal',
+        style: 'electroSwing',
         keySignature: { fifths: 1, mode: 'minor' },
       })
     ).not.toBeNull();
