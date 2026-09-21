@@ -1,5 +1,6 @@
 import {
   createEmptyScore,
+  generateScoreStyleSettings,
   generateScoreRequestSchema,
   GENERATE_SCORE_STYLE_PRESETS,
   instrumentChoiceFor,
@@ -10,6 +11,7 @@ import {
   type GenerateScoreRequest,
   type GenerateScoreRequestDraft,
   type GenerateScoreRequestTrack,
+  type GenerateScoreStyleSetting,
   type GenerateTrackRequest,
   type InstrumentValueEntry,
   type InstrumentChoice,
@@ -183,6 +185,68 @@ export function styleTempo(
   };
 }
 
+/** The backend-owned tempo limits for a known style, or no limits for custom styles. */
+export function styleTempoBounds(
+  style: string | undefined
+): readonly [number, number] | null {
+  return style ? styleTempoRange(style) : null;
+}
+
+const STYLE_SETTINGS = generateScoreStyleSettings();
+
+/** Shared style controls for a known style, or null for a custom style. */
+export function styleGenerationSettings(
+  style: string | undefined
+): GenerateScoreStyleSetting | null {
+  return style && Object.prototype.hasOwnProperty.call(STYLE_SETTINGS, style)
+    ? (STYLE_SETTINGS[style] ?? null)
+    : null;
+}
+
+/** Whether a manually supplied tempo is valid for the selected style. */
+export function tempoAllowedForStyle(
+  style: string | undefined,
+  tempo: number | undefined
+): boolean {
+  if (tempo === undefined) return true;
+  const range = styleTempoBounds(style);
+  return !range || (tempo >= range[0] && tempo <= range[1]);
+}
+
+function timeSignatureMatches(
+  timeSignature: GenerateScoreRequestDraft['timeSignature'],
+  expected: string
+): boolean {
+  if (!timeSignature) return true;
+  const [numerator, denominator] = expected.split('/').map(Number);
+  return (
+    timeSignature.numerator === numerator &&
+    timeSignature.denominator === denominator
+  );
+}
+
+/** Whether a request draft respects all documented controls for its style. */
+export function styleSettingsAllowDraft(
+  draft: Pick<
+    GenerateScoreRequestDraft,
+    'style' | 'tempoText' | 'timeSignature' | 'keySignature'
+  >
+): boolean {
+  const settings = styleGenerationSettings(draft.style);
+  if (!settings) return true;
+  const tempo = parseOptionalPositiveTempo(draft.tempoText);
+  if (
+    !tempoAllowedForStyle(draft.style, tempo ?? undefined) ||
+    (draft.keySignature &&
+      (!settings.keys.includes(draft.keySignature.fifths) ||
+        (settings.mode && draft.keySignature.mode !== settings.mode))) ||
+    !timeSignatureMatches(draft.timeSignature, settings.timeSignature)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export const DEFAULT_GENERATE_SCORE_MEASURES = 8;
 
 /**
@@ -271,7 +335,9 @@ export function buildGenerateScoreRequest(
     !Number.isInteger(draft.durationMeasures) ||
     draft.durationMeasures <= 0 ||
     draft.instrumentValues.length === 0 ||
-    tempo === null
+    tempo === null ||
+    !tempoAllowedForStyle(draft.style, tempo ?? undefined) ||
+    !styleSettingsAllowDraft(draft)
   ) {
     return null;
   }
@@ -348,7 +414,8 @@ export function buildNewProjectScore(draft: NewProjectDraft): Score | null {
     !Number.isInteger(draft.durationMeasures) ||
     draft.durationMeasures <= 0 ||
     draft.instrumentValues.length === 0 ||
-    tempo === null
+    tempo === null ||
+    !styleSettingsAllowDraft(draft)
   ) {
     return null;
   }

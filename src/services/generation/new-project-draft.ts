@@ -35,6 +35,7 @@ import {
   DEFAULT_VOCAL_INSTRUMENT_VALUE,
   GENERATE_SCORE_TIME_SIGNATURE_OPTIONS,
   GENERATE_SCORE_STYLE_PRESETS,
+  styleTempoRange,
   withGenerationVariant,
   type GenerateScoreRequestDraft,
   type GenerationVariant,
@@ -447,12 +448,23 @@ export function newProjectDefaultTitleKey(draft: NewProjectFormDraft): string {
 
 /**
  * Whether the typed tempo is refused. Blank is fine — no tempo is sent — and
- * anything else that is not a positive number is what stops Create, so the
+ * anything else that is not a positive whole number is what stops Create, so the
  * form says so rather than just greying the button out.
  */
 export function newProjectTempoRefused(draft: NewProjectFormDraft): boolean {
   const text = draft.tempoText.trim();
-  return text !== '' && !(Number(text) > 0);
+  if (text === '') return false;
+  const tempo = Number(text);
+  if (!(Number.isInteger(tempo) && tempo > 0)) return true;
+  const range = styleTempoRange(draft.style);
+  return Boolean(range && (tempo < range[0] || tempo > range[1]));
+}
+
+/** The current style's inclusive tempo range for form controls. */
+export function newProjectTempoRange(
+  draft: NewProjectFormDraft
+): readonly [number, number] | null {
+  return styleTempoRange(draft.style);
 }
 
 /** Whether the Duration field holds something that is not a length. */

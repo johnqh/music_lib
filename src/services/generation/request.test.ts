@@ -57,7 +57,7 @@ describe('generate score request helpers', () => {
         // The picker's value goes in…
         style: 'ambient',
         mood: 'calm',
-        tempoText: ' 84 ',
+        tempoText: ' 70 ',
       })
     ).toEqual({
       prompt: 'A calm piano melody',
@@ -81,7 +81,7 @@ describe('generate score request helpers', () => {
       */
       style: GENERATE_SCORE_STYLE_PRESETS.ambient!.prompt,
       mood: 'calm',
-      tempo: 84,
+      tempo: 70,
     });
   });
 
@@ -98,6 +98,79 @@ describe('generate score request helpers', () => {
     expect(
       canBuildGenerateScoreRequest({ ...BASE_DRAFT, tempoText: '0' })
     ).toBe(false);
+  });
+
+  it('rejects a tempo outside the selected style range', () => {
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        tempoText: '65',
+      })
+    ).toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        tempoText: '66',
+      })
+    ).not.toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        tempoText: '74',
+      })
+    ).not.toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        tempoText: '75',
+      })
+    ).toBeNull();
+  });
+
+  it('rejects keys, modes, and meters outside the selected style settings', () => {
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        keySignature: { fifths: 4, mode: 'major' },
+      })
+    ).toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        timeSignature: { numerator: 3, denominator: 4 },
+      })
+    ).toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'heavyMetal',
+        keySignature: { fifths: 1, mode: 'major' },
+      })
+    ).toBeNull();
+    expect(
+      buildGenerateScoreRequest({
+        ...BASE_DRAFT,
+        style: 'heavyMetal',
+        keySignature: { fifths: 1, mode: 'minor' },
+      })
+    ).not.toBeNull();
+  });
+
+  it('applies style settings to blank project scores too', () => {
+    expect(
+      buildNewProjectScore({
+        ...BASE_DRAFT,
+        style: 'ambient',
+        tempoText: '70',
+        timeSignature: { numerator: 3, denominator: 4 },
+      })
+    ).toBeNull();
   });
 
   it('refuses what only the shared schema can catch', () => {

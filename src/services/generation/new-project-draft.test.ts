@@ -336,6 +336,15 @@ describe('length, tempo and meter', () => {
       newProjectTempoRefused(run([{ type: 'setTempo', text: '90' }]))
     ).toBe(false);
   });
+
+  it('refuses a tempo outside the selected style range', () => {
+    const ambient = run([{ type: 'applyStyle', style: 'ambient' }]);
+    expect(ambient.tempoText).toMatch(/^(66|67|68|69|70|71|72|73|74)$/);
+    expect(newProjectTempoRefused({ ...ambient, tempoText: '65' })).toBe(true);
+    expect(newProjectTempoRefused({ ...ambient, tempoText: '66' })).toBe(false);
+    expect(newProjectTempoRefused({ ...ambient, tempoText: '74' })).toBe(false);
+    expect(newProjectTempoRefused({ ...ambient, tempoText: '75' })).toBe(true);
+  });
 });
 
 describe('what the form shows', () => {
