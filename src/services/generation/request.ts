@@ -48,12 +48,25 @@ function alsoTaken(taken: ReadonlySet<string>): Set<string> {
   return out;
 }
 
-/** How many of a style's optional instruments each roster draws. */
-export const STYLE_OPTIONAL_PICKS = 2;
+/**
+ * How many of a style's optional instruments each roster draws by default.
+ *
+ * None. It was 2, which took the average default ensemble from 4.6 parts to
+ * 6.5, and every part is written in its own calls, so the two colour
+ * instruments were ~29% of what a generation spent — on parts nobody asked
+ * for, some of them unusual for the style. A roster is now exactly what the
+ * style needs (`essential`) and what it is usually played with (`preferred`).
+ *
+ * The `optional` pools stay in the presets and `styleRoster` still draws from
+ * them when a caller passes `optionalPicks`, so bringing colour back is a
+ * decision at the call site or a one-line change here, not a rebuild.
+ */
+export const STYLE_OPTIONAL_PICKS = 0;
 
 /**
  * The ensemble a style starts from: its essential instruments, its preferred
- * ones, and a couple of its optional ones chosen at random.
+ * ones, and `optionalPicks` of its optional ones chosen at random (none by
+ * default; see `STYLE_OPTIONAL_PICKS`).
  *
  * It used to be the preset's one list plus a single "guest" drawn from a pool
  * shared by every genre, and every entry was removable — so a reggae roster
@@ -74,7 +87,7 @@ export const STYLE_OPTIONAL_PICKS = 2;
  */
 export function styleRoster(
   style: string,
-  options: { voice: boolean },
+  options: { voice: boolean; optionalPicks?: number },
   rng: () => number = Math.random
 ): StyleRosterEntry[] {
   const preset = GENERATE_SCORE_STYLE_PRESETS[style];
@@ -88,11 +101,8 @@ export function styleRoster(
       .map(value => ({ value, tier: 'preferred' as const })),
   ];
   const pool = [...preset.optional].filter(allowed);
-  for (
-    let pick = 0;
-    pick < STYLE_OPTIONAL_PICKS && pool.length > 0;
-    pick += 1
-  ) {
+  const picks = options.optionalPicks ?? STYLE_OPTIONAL_PICKS;
+  for (let pick = 0; pick < picks && pool.length > 0; pick += 1) {
     const taken = alsoTaken(new Set(chosen.map(entry => entry.value)));
     const available = pool.filter(value => !taken.has(value));
     if (available.length === 0) break;

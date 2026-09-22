@@ -427,8 +427,8 @@ describe('the style that reaches the model', () => {
 
 /*
  * A style's roster is its essential instruments, its preferred ones, and a
- * couple of optional ones drawn at random. The essential tier is what the
- * dialogs refuse to remove: a reggae without its kit is not reggae.
+ * `optionalPicks` of its optional ones drawn at random (none by default). The
+ * essential tier is what the dialogs refuse to remove: a reggae without its kit is not reggae.
  */
 describe('styleRoster', () => {
   const values = (entries: readonly { value: string }[]) =>
@@ -447,28 +447,46 @@ describe('styleRoster', () => {
     }
   });
 
-  it(`draws ${STYLE_OPTIONAL_PICKS} optional instruments, different ones as the roll changes`, () => {
+  it('adds no random colour instruments by default', () => {
+    expect(STYLE_OPTIONAL_PICKS).toBe(0);
+    for (const style of Object.keys(GENERATE_SCORE_STYLE_PRESETS)) {
+      const preset = GENERATE_SCORE_STYLE_PRESETS[style];
+      for (const roll of [0, 0.5, 0.99]) {
+        const roster = styleRoster(style, { voice: true }, () => roll);
+        expect(
+          roster.filter(e => e.tier === 'optional'),
+          style
+        ).toEqual([]);
+        // Exactly the essential and preferred tiers, nothing else.
+        expect(values(roster).sort(), style).toEqual(
+          [...preset.essential, ...preset.preferred].sort()
+        );
+      }
+    }
+  });
+
+  it('still draws optional instruments when a caller asks for them', () => {
     const preset = GENERATE_SCORE_STYLE_PRESETS.reggae;
     const drawn = new Set<string>();
     for (const roll of [0, 0.3, 0.6, 0.99]) {
       const optional = styleRoster(
         'reggae',
-        { voice: true },
+        { voice: true, optionalPicks: 2 },
         () => roll
       ).filter(e => e.tier === 'optional');
-      expect(optional).toHaveLength(STYLE_OPTIONAL_PICKS);
-      expect(new Set(values(optional)).size).toBe(STYLE_OPTIONAL_PICKS);
+      expect(optional).toHaveLength(2);
+      expect(new Set(values(optional)).size).toBe(2);
       for (const e of optional) {
         expect(preset.optional).toContain(e.value);
         drawn.add(e.value);
       }
     }
-    expect(drawn.size).toBeGreaterThan(STYLE_OPTIONAL_PICKS);
+    expect(drawn.size).toBeGreaterThan(2);
   });
 
   it('draws fewer when the pool is smaller', () => {
     expect(
-      styleRoster('punk', { voice: true }, () => 0).filter(
+      styleRoster('punk', { voice: true, optionalPicks: 2 }, () => 0).filter(
         e => e.tier === 'optional'
       )
     ).toHaveLength(1);
