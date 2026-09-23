@@ -23,7 +23,7 @@ import type {
 import { createEmptyScore } from '@sudobility/music_types';
 import { gmInstrument } from '@sudobility/music_types';
 import { gmKitAt } from '@sudobility/music_types';
-import { chordScore, twinkleScore, twoTrackScore } from '../test/fixtures.js';
+import { chordScore, twinkleScore, twoTrackScore } from '../test/fixtures';
 
 export type ProjectTemplate = {
   id: TemplateId;

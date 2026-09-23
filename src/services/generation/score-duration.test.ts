@@ -4,7 +4,7 @@ import {
   formatDuration,
   parseDuration,
   secondsForBars,
-} from './score-duration.js';
+} from './score-duration';
 
 describe('score duration', () => {
   it('reads bars as seconds at the tempo and meter', () => {

@@ -4,7 +4,7 @@ import {
   stressScore,
   twinkleScore,
   twoTrackScore,
-} from './fixtures.js';
+} from './fixtures';
 import { parseScore } from '@sudobility/music_types';
 import { isNoteEvent } from '@sudobility/music_types';
 import { allNotes } from '@sudobility/music_types';

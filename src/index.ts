@@ -38,22 +38,22 @@ export * from '@sudobility/music_types';
  */
 
 // test fixtures (deterministic score builders — used by downstream test suites)
-export * from './test/fixtures.js';
-export * from './test/canvas-stub.js';
+export * from './test/fixtures';
+export * from './test/canvas-stub';
 
 // business services
-export * from './services/messages.js';
-export * from './services/generation/request.js';
-export * from './services/generation/score-duration.js';
-export * from './services/generation/credits.js';
-export * from './services/generation/new-project-draft.js';
-export * from './services/generation/labelled-options.js';
-export * from './services/generation/replace-draft.js';
-export * from './services/generation/generation-locks.js';
-export * from './services/import/midi-import-options.js';
-export * from './services/persistence/autosave.js';
-export * from './services/prefs.js';
-export * from './templates/index.js';
-export * from './services/documents/unsaved-guard.js';
-export * from './services/docs/docs-content.js';
-export * from './services/docs/resource-links.js';
+export * from './services/messages';
+export * from './services/generation/request';
+export * from './services/generation/score-duration';
+export * from './services/generation/credits';
+export * from './services/generation/new-project-draft';
+export * from './services/generation/labelled-options';
+export * from './services/generation/replace-draft';
+export * from './services/generation/generation-locks';
+export * from './services/import/midi-import-options';
+export * from './services/persistence/autosave';
+export * from './services/prefs';
+export * from './templates/index';
+export * from './services/documents/unsaved-guard';
+export * from './services/docs/docs-content';
+export * from './services/docs/resource-links';

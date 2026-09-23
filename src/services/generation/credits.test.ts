@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOutOfCredits } from './credits.js';
+import { isOutOfCredits } from './credits';
 
 describe('isOutOfCredits', () => {
   it('gates at a balance of zero or below', () => {

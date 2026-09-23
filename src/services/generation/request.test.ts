@@ -22,7 +22,7 @@ import {
   generateScoreTrackForInstrumentValue,
   buildNewProjectScore,
   canBuildNewProjectScore,
-} from './request.js';
+} from './request';
 import { GENERATE_SCORE_TIME_SIGNATURE_OPTIONS } from '@sudobility/music_types';
 import type { GenerateScoreRequestDraft } from '@sudobility/music_types';
 import {

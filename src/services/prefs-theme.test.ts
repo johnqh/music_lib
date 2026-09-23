@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveThemeMode } from './prefs.js';
+import { resolveThemeMode } from './prefs';
 import { THEME_MODES } from '@sudobility/music_types';
 
 describe('resolveThemeMode', () => {

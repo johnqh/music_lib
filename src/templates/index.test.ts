@@ -4,7 +4,7 @@ import {
   newProjectScore,
   projectTemplates,
   templateSummaries,
-} from './index.js';
+} from './index';
 
 /**
  * Stand-in copy: this module owns the music, not the words, so the tests

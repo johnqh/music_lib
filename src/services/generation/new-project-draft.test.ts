@@ -11,8 +11,8 @@ import {
   styleKey,
   styleRoster,
   styleTempo,
-} from './request.js';
-import { formatDuration, secondsForBars } from './score-duration.js';
+} from './request';
+import { formatDuration, secondsForBars } from './score-duration';
 import {
   DEFAULT_GENERATION_VARIANT,
   canCreateNewProject,
@@ -29,7 +29,7 @@ import {
   showNewProjectDuration,
   showNewProjectLyrics,
   showNewProjectLyricsTheme,
-} from './new-project-draft.js';
+} from './new-project-draft';
 import { GENERATE_SCORE_TIME_SIGNATURE_OPTIONS } from '@sudobility/music_types';
 import type {
   NewProjectDraftAction,

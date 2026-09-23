@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createAutosaver } from './autosave.js';
+import { createAutosaver } from './autosave';
 
 /** A controllable async op: `resolve()`/`reject()` settle the promise returned by the most recent call. */
 function deferred<T>(): {

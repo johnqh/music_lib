@@ -9,7 +9,7 @@ import {
   lockableChoiceValue,
   regenerateCreditEstimate,
   regenerateWithLocks,
-} from './generation-locks.js';
+} from './generation-locks';
 import { LOCKABLE } from '@sudobility/music_types';
 
 const choices: GenerationChoices = {

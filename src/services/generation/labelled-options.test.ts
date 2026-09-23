@@ -7,7 +7,7 @@ import {
   optionalFromPicker,
   optionalToPicker,
   styleLabelKey,
-} from './labelled-options.js';
+} from './labelled-options';
 
 const LABELS: Record<string, string> = {
   pop: 'Pop',

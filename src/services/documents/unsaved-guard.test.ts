@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideClose, decideQuit, hasUnwrittenWork } from './unsaved-guard.js';
+import { decideClose, decideQuit, hasUnwrittenWork } from './unsaved-guard';
 
 const doc = (id: string, dirty: boolean) => ({ id, dirty });
 

@@ -11,7 +11,7 @@ Frontend business logic for Moosiac (the Sudobility music app family), **above e
 
 ## Tech Stack
 
-- TypeScript (strict), ESM, built with plain `tsc -p tsconfig.build.json` (relative imports only — no path aliases; dist is bundler-consumed)
+- TypeScript (strict), ESM. Source imports are extensionless (`entity_pages`' convention, not the `.js`-suffixed one most of the rest of this family uses — see that family's own CLAUDE.md). `tsc` (plain `tsconfig.json`, `noEmit: true`) is the type-check gate; `vite build` is what actually emits the single bundled `dist/index.js`
 - Types/schemas from `@sudobility/music_types`
 - Runtime dependencies `@sudobility/music_codecs`, `@sudobility/music_drawing`, `@sudobility/music_player` (through `/core` only), Immer and Zod; peers `@sudobility/music_types`, `@sudobility/music_editing`, `@sudobility/music_client` (server persistence + AI via music_api), React Query, React, Zustand 5
 - Bun for scripts, vitest + jsdom for tests; canvas tests use `createMock2DContext` (`src/test/canvas-stub.ts`, exported from the package root for consuming apps' jsdom suites too)
@@ -141,7 +141,7 @@ Everything exports from `src/index.ts` (package root import only).
 - There is no highlight overlay. Note state is the notehead's own color: callers pass `noteColors` (an `eventId -> NoteColorRole` map) and `activeTrackId` into `CanvasScoreRenderer.render`, and `RenderTheme` carries one color per state. `paintHighlights`/`overlay.ts` were deleted — don't reintroduce a second canvas.
 - VexFlow's `Stave.draw` restores its style *before* drawing clef/key/time modifiers, and `StaveNote.draw` applies its own style across its modifiers — so one `setStyle` per element is enough, and an inactive track's clef never inherits the dimmed stave color.
 
-- `dist/` emits proper ESM with explicit `.js` relative extensions (source imports use `.js` specifiers, mapped to `.ts` by bundler moduleResolution); raw Node still can't import it because some deps (@tonejs/midi) are CJS — consume via a bundler, vitest, or Bun
+- `dist/` is a single bundled ESM file (`vite build`, extensionless source imports — see Tech Stack). The `@tonejs/midi`/CJS constraint this line used to warn about is gone along with that dependency; nothing here is known to block a raw Node import any more, though it has not been re-verified as a supported consumption path.
 - The playback controller is a module-level singleton that constructs Tone objects at import — component tests in consuming apps must mock it
 - Export filenames come from music_codecs' `exportFilename` (keep the title, replace only what a filesystem refuses); the old `safeFilename` helpers are gone.
 - **Modules that came here from music_editing, because they are not editing:** `services/playback/bind-player.ts` (`bindPlayer`, typed on music_player's `IMusicPlayer` — the structural `BindablePlayer` and the adapter's compile-time check against it are deleted; `TRANSPORT_SETTINGS_DEFAULTS` is beside it, `TransportSettings`/`PlayerFailure` are music_types'), `services/export/export-plan.ts` (`planExport`), `services/docs/` (`DOCS_TOPICS`, `RESOURCE_GROUPS`), `services/documents/unsaved-guard.ts` (`decideClose`/`decideQuit`) and `resolveThemeMode` (in `prefs.ts`). music_editing's guard keeps them from going back.

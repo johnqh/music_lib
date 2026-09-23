@@ -55,13 +55,13 @@ import {
   styleKey,
   styleRoster,
   styleTempo,
-} from './request.js';
+} from './request';
 import {
   barsForSeconds,
   formatDuration,
   parseDuration,
   secondsForBars,
-} from './score-duration.js';
+} from './score-duration';
 
 /**
  * Which backend writes the music when nobody chose.

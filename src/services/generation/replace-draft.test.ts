@@ -3,8 +3,8 @@ import {
   buildReplaceSubmission,
   defaultReplaceSubmission,
   replacePresetLabelKey,
-} from './replace-draft.js';
-import { DEFAULT_GENERATION_VARIANT } from './new-project-draft.js';
+} from './replace-draft';
+import { DEFAULT_GENERATION_VARIANT } from './new-project-draft';
 import { REPLACE_PRESET_KEYS } from '@sudobility/music_types';
 
 describe('REPLACE_PRESET_KEYS', () => {

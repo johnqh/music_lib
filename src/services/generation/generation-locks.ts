@@ -17,7 +17,7 @@ import type {
   GenerationRecord,
   LockableChoice,
 } from '@sudobility/music_types';
-import { estimateGenerateScoreCredits } from './request.js';
+import { estimateGenerateScoreCredits } from './request';
 
 /**
  * What a choice reads as, or `null` when the server made none.

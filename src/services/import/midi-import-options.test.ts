@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseNumericDraft } from '@sudobility/music_types';
-import {
-  canImportMidi,
-  patchMidiImportOptions,
-} from './midi-import-options.js';
+import { canImportMidi, patchMidiImportOptions } from './midi-import-options';
 import type { MidiImportOptions } from '@sudobility/music_types';
 
 function options(): MidiImportOptions {

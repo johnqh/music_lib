@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMock2DContext } from './canvas-stub.js';
+import { createMock2DContext } from './canvas-stub';
 
 describe('createMock2DContext', () => {
   it('records draw calls with arguments', () => {

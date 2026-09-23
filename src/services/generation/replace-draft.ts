@@ -17,7 +17,7 @@ import type {
   ReplacePresetKey,
   ReplaceSubmission,
 } from '@sudobility/music_types';
-import { DEFAULT_GENERATION_VARIANT } from './new-project-draft.js';
+import { DEFAULT_GENERATION_VARIANT } from './new-project-draft';
 
 /** The locale key holding a preset instruction's text. */
 export function replacePresetLabelKey(key: ReplacePresetKey): string {

@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "1.9.61",
+  "version": "1.9.62",
   "description": "Platform-free business logic for ScoreSmith: domain services, generation, persistence rules, and preferences",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc && vite build",
     "clean": "rimraf dist",
     "test:unit": "vitest run",
     "test:watch": "vitest",
@@ -44,16 +44,17 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@sudobility/music_types": "^0.13.33",
+    "@sudobility/music_types": "^0.13.34",
     "zustand": ">=5"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
-    "@sudobility/music_types": "^0.13.33",
+    "@sudobility/music_types": "^0.13.34",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.1.2",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
+    "ajv": "^8",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -63,6 +64,8 @@
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.15",
     "zustand": "^5.0.0"
   },
