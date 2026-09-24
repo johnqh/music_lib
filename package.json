@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/music_lib",
-  "version": "1.9.62",
+  "version": "1.9.63",
   "description": "Platform-free business logic for ScoreSmith: domain services, generation, persistence rules, and preferences",
   "type": "module",
   "main": "./dist/index.js",
@@ -44,12 +44,12 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@sudobility/music_types": "^0.13.34",
+    "@sudobility/music_types": "^0.13.36",
     "zustand": ">=5"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
-    "@sudobility/music_types": "^0.13.34",
+    "@sudobility/music_types": "^0.13.36",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.1.2",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
