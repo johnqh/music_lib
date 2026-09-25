@@ -4,13 +4,9 @@
   "workspaces": {
     "": {
       "name": "@sudobility/music_lib",
-      "dependencies": {
-        "immer": "^10.0.0 || ^11.0.0",
-        "zod": "^4.0.0",
-      },
       "devDependencies": {
         "@eslint/js": "^9.38.0",
-        "@sudobility/music_types": "^0.13.39",
+        "@sudobility/music_types": "^0.13.40",
         "@types/jsdom": "^30.0.0",
         "@types/node": "^26.1.2",
         "@typescript-eslint/eslint-plugin": "^8.46.2",
@@ -21,6 +17,7 @@
         "eslint-plugin-prettier": "^5.5.4",
         "fake-indexeddb": "^6.0.0",
         "globals": "^16.4.0",
+        "immer": "^10.0.0 || ^11.0.0",
         "jsdom": "^29.0.0",
         "prettier": "^3.6.2",
         "rimraf": "^6.0.1",
@@ -31,7 +28,8 @@
         "zustand": "^5.0.0",
       },
       "peerDependencies": {
-        "@sudobility/music_types": "^0.13.39",
+        "@sudobility/music_types": "^0.13.40",
+        "immer": "^10.0.0 || ^11.0.0",
         "zustand": ">=5",
       },
     },
@@ -269,7 +267,7 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@sudobility/music_types": ["@sudobility/music_types@0.13.39", "", { "dependencies": { "immer": "^10.0.0 || ^11.0.0", "zod": "^4.0.0" }, "peerDependencies": { "@sudobility/types": "^1.9.67" } }, "sha512-G0OH3kx7vQFq6n0AWCFO8LlxTkkRLBniymYkPb8hxaT+bPxTndt+utIqzoX0iHwhQ9M1z8n+QTHD3zG27md5XA=="],
+    "@sudobility/music_types": ["@sudobility/music_types@0.13.40", "", { "dependencies": { "immer": "^10.0.0 || ^11.0.0", "zod": "^4.0.0" }, "peerDependencies": { "@sudobility/types": "^1.9.67" } }, "sha512-m+3uPgKnYfi8dvNIUcETSo1ShMi7Ngf4LTrCr5G1/tExrq3D2B7Lk2c6dASUcQSUx4BwLFO0F13S7a3LNoabVg=="],
 
     "@sudobility/types": ["@sudobility/types@1.9.62", "", {}, "sha512-GOkz5oE7Fmlolba2aemBF2fKPtH4I2lHAjVta+fqZAoAV72DQaWYzVEjTwKZs/ACY/g9Z262IDa7lEh+IOrn7w=="],
 
@@ -483,7 +481,7 @@
 
     "ignore": ["ignore@7.0.6", "", {}, "sha512-BAg6QkE8W+TuQLrrw0Ugr7HegXduRuuj8/ti2kSOc+jz1dmx8/WNcjr6XGnq5YpDWxFwwaavqD0+jIUOKelTsw=="],
 
-    "immer": ["immer@11.1.15", "", {}, "sha512-VrNANlmnWQnh5COXIIOQXM9oOJw7naGKlBT74ZOOR6lpVXc3gFEu9FJLDFcpCJ2j+NWr8TIwtWD//T6ZX6TKiQ=="],
+    "immer": ["immer@11.1.18", "", {}, "sha512-EQyQtLiYW029lyoczMl/Hh4Xu7cDecSc58JRYpHyL4tIAu3eqd1yJzQX04d2BZHDkzFFvm6qJEJWOtfDSWAXbQ=="],
 
     "import-fresh": ["import-fresh@3.3.1", "", { "dependencies": { "parent-module": "^1.0.0", "resolve-from": "^4.0.0" } }, "sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ=="],
 
@@ -744,8 +742,6 @@
     "@rushstack/terminal/supports-color": ["supports-color@8.1.1", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-MpUEN2OodtUzxvKQl72cUF7RQ5EiHsGvSsVG0ia9c5RbWGL2CI4C7EpPS8UTBIplnlzZiNuV56w+FuNxy3ty2Q=="],
 
     "@rushstack/ts-command-line/argparse": ["argparse@1.0.10", "", { "dependencies": { "sprintf-js": "~1.0.2" } }, "sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg=="],
-
-    "@sudobility/music_types/immer": ["immer@11.1.18", "", {}, "sha512-EQyQtLiYW029lyoczMl/Hh4Xu7cDecSc58JRYpHyL4tIAu3eqd1yJzQX04d2BZHDkzFFvm6qJEJWOtfDSWAXbQ=="],
 
     "@types/node/undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
 

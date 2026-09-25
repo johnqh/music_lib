@@ -77,13 +77,16 @@ describe('music_lib is platform-free', () => {
   });
 
   it('declares no platform runtime dependency', () => {
-    const { dependencies } = JSON.parse(
+    const { dependencies, peerDependencies } = JSON.parse(
       readFileSync('package.json', 'utf8')
     ) as {
-      dependencies: Record<string, string>;
+      dependencies?: Record<string, string>;
+      peerDependencies: Record<string, string>;
     };
     /*
-      Pinned exactly, so a platform package cannot arrive unnoticed.
+      Pinned exactly, so a platform package cannot arrive unnoticed. A library
+      declares what it needs as peers — the app installs one copy of each —
+      so there is no `dependencies` block at all.
 
       `music_codecs` and `music_drawing` are siblings, not platforms: the
       note-file codecs and the canvas renderer, both of which this package used
@@ -100,7 +103,12 @@ describe('music_lib is platform-free', () => {
       resolve to the web entry and make this assertion false. That is asserted
       directly below.
     */
-    expect(Object.keys(dependencies).sort()).toEqual(['immer', 'zod']);
+    expect(dependencies).toBeUndefined();
+    expect(Object.keys(peerDependencies).sort()).toEqual([
+      '@sudobility/music_types',
+      'immer',
+      'zustand',
+    ]);
   });
 
   /**
