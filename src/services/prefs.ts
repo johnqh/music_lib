@@ -2,7 +2,8 @@
  * Device prefs: how this person likes to work, on this device.
  *
  * Theme, developer mode, the pitch notation is shown in, whether the piano
- * keyboard is collapsed, the font size and the language. Device-scoped rather
+ * keyboard is collapsed, how much of the track-info column the score shows,
+ * the font size and the language. Device-scoped rather
  * than per project — they mean the same thing in every score — and persisted
  * through the injected `PrefsStorage` (structurally @sudobility/di's
  * StorageService), so each platform brings its own storage and a test brings a
@@ -22,7 +23,11 @@
  */
 import { createStore } from 'zustand/vanilla';
 import { immer } from 'zustand/middleware/immer';
-import { FONT_SIZES, THEME_MODES } from '@sudobility/music_types';
+import {
+  FONT_SIZES,
+  THEME_MODES,
+  TRACK_INFO_MODES,
+} from '@sudobility/music_types';
 import type {
   DevSettings,
   DevicePrefs,
@@ -31,6 +36,7 @@ import type {
   PrefsStorage,
   ResolvedThemeMode,
   ThemeMode,
+  TrackInfoMode,
 } from '@sudobility/music_types';
 
 /** Where the prefs object lives. The web app's key from before this module, kept so nothing stored is stranded. */
@@ -57,6 +63,7 @@ export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
   developerMode: false,
   pitchDisplay: 'concert',
   keyboardCollapsed: false,
+  trackInfo: 'full',
   fontSize: 'medium',
   language: null,
 };
@@ -72,6 +79,7 @@ const PREF_FIELDS: Record<keyof DevicePrefs, true> = {
   developerMode: true,
   pitchDisplay: true,
   keyboardCollapsed: true,
+  trackInfo: true,
   fontSize: true,
   language: true,
 };
@@ -122,6 +130,9 @@ export function parseDevicePrefs(raw: unknown): DevicePrefs {
       typeof record.keyboardCollapsed === 'boolean'
         ? record.keyboardCollapsed
         : d.keyboardCollapsed,
+    trackInfo: oneOf(TRACK_INFO_MODES, record.trackInfo)
+      ? record.trackInfo
+      : d.trackInfo,
     fontSize: oneOf(FONT_SIZES, record.fontSize) ? record.fontSize : d.fontSize,
     language:
       typeof record.language === 'string' && LANGUAGE_TAG.test(record.language)
@@ -207,6 +218,7 @@ export type DevicePrefsActions = {
   /** Merges `patch` into `devSettings`. */
   setDevSettings: (patch: Partial<DevSettings>) => void;
   setKeyboardCollapsed: (collapsed: boolean) => void;
+  setTrackInfo: (mode: TrackInfoMode) => void;
   setFontSize: (size: FontSize) => void;
   setLanguage: (language: string | null) => void;
 };
@@ -233,6 +245,7 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     developerMode: DEFAULT_DEVICE_PREFS.developerMode,
     devSettings: { ...DEFAULT_DEV_SETTINGS },
     keyboardCollapsed: DEFAULT_DEVICE_PREFS.keyboardCollapsed,
+    trackInfo: DEFAULT_DEVICE_PREFS.trackInfo,
     fontSize: DEFAULT_DEVICE_PREFS.fontSize,
     language: DEFAULT_DEVICE_PREFS.language,
     setThemeMode: mode =>
@@ -250,6 +263,10 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     setKeyboardCollapsed: collapsed =>
       set(state => {
         state.keyboardCollapsed = collapsed;
+      }),
+    setTrackInfo: mode =>
+      set(state => {
+        state.trackInfo = mode;
       }),
     setFontSize: size =>
       set(state => {
