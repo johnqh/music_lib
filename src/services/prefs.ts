@@ -25,6 +25,7 @@ import { createStore } from 'zustand/vanilla';
 import { immer } from 'zustand/middleware/immer';
 import {
   FONT_SIZES,
+  PAPER_SIZES,
   THEME_MODES,
   TRACK_INFO_MODES,
 } from '@sudobility/music_types';
@@ -32,6 +33,7 @@ import type {
   DevSettings,
   DevicePrefs,
   FontSize,
+  PaperSize,
   PitchDisplay,
   PrefsStorage,
   ResolvedThemeMode,
@@ -66,6 +68,7 @@ export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
   trackInfo: 'full',
   fontSize: 'medium',
   language: null,
+  paperSize: null,
 };
 
 /**
@@ -82,6 +85,7 @@ const PREF_FIELDS: Record<keyof DevicePrefs, true> = {
   trackInfo: true,
   fontSize: true,
   language: true,
+  paperSize: true,
 };
 export const DEVICE_PREF_KEYS = Object.keys(PREF_FIELDS) as ReadonlyArray<
   keyof DevicePrefs
@@ -138,6 +142,9 @@ export function parseDevicePrefs(raw: unknown): DevicePrefs {
       typeof record.language === 'string' && LANGUAGE_TAG.test(record.language)
         ? record.language
         : d.language,
+    paperSize: oneOf(PAPER_SIZES, record.paperSize)
+      ? record.paperSize
+      : d.paperSize,
   };
 }
 
@@ -221,6 +228,7 @@ export type DevicePrefsActions = {
   setTrackInfo: (mode: TrackInfoMode) => void;
   setFontSize: (size: FontSize) => void;
   setLanguage: (language: string | null) => void;
+  setPaperSize: (paper: PaperSize | null) => void;
 };
 
 /**
@@ -248,6 +256,7 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     trackInfo: DEFAULT_DEVICE_PREFS.trackInfo,
     fontSize: DEFAULT_DEVICE_PREFS.fontSize,
     language: DEFAULT_DEVICE_PREFS.language,
+    paperSize: DEFAULT_DEVICE_PREFS.paperSize,
     setThemeMode: mode =>
       set(state => {
         state.themeMode = mode;
@@ -275,6 +284,10 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     setLanguage: language =>
       set(state => {
         state.language = language;
+      }),
+    setPaperSize: paper =>
+      set(state => {
+        state.paperSize = paper;
       }),
   };
 }

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { NO_MARK } from '@sudobility/music_types';
+import { GENERATE_SCORE_STYLE_OPTIONS, NO_MARK } from '@sudobility/music_types';
 import {
   complexityLabelKey,
+  flatStyleOptions,
+  groupedStyleOptions,
   labelledOptions,
   moodLabelKey,
   optionalFromPicker,
   optionalToPicker,
+  styleFamilyLabelKey,
   styleLabelKey,
 } from './labelled-options';
 
@@ -77,5 +80,40 @@ describe('optional picker values', () => {
     expect(optionalToPicker('pop')).toBe('pop');
     expect(optionalFromPicker(NO_MARK)).toBe('');
     expect(optionalFromPicker('pop')).toBe('pop');
+  });
+});
+
+describe('style families in the picker', () => {
+  const styleLabel = (style: string): string => `s:${style}`;
+  const familyLabel = (family: string): string => `f:${family}`;
+
+  it('files every style under exactly one heading', () => {
+    const groups = groupedStyleOptions(styleLabel, familyLabel, 'en');
+    const values = groups.flatMap(group => group.options.map(o => o.value));
+    expect([...values].sort()).toEqual(
+      [...GENERATE_SCORE_STYLE_OPTIONS].sort()
+    );
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('sorts the headings and the styles under them on their labels', () => {
+    const groups = groupedStyleOptions(styleLabel, familyLabel, 'en');
+    const headings = groups.map(group => group.label);
+    expect(headings).toEqual([...headings].sort((a, b) => a.localeCompare(b)));
+    for (const group of groups) {
+      const labels = group.options.map(o => o.label);
+      expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
+    }
+  });
+
+  it('names the family in each flat entry and pins "none" on top', () => {
+    const flat = flatStyleOptions(styleLabel, familyLabel, 'en', 'No style');
+    expect(flat[0]).toEqual({ value: NO_MARK, label: 'No style' });
+    expect(flat.find(o => o.value === 'swing')?.label).toBe('f:jazz · s:swing');
+    expect(flat).toHaveLength(GENERATE_SCORE_STYLE_OPTIONS.length + 1);
+  });
+
+  it('keys the heading words like the style names', () => {
+    expect(styleFamilyLabelKey('jazz')).toBe('generateScore.styleFamily.jazz');
   });
 });

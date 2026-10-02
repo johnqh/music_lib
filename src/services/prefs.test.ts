@@ -64,3 +64,28 @@ describe('the track info pref', () => {
     binding.unbind();
   });
 });
+
+describe('the paper size pref', () => {
+  it('follows the device until somebody chooses', () => {
+    expect(DEFAULT_DEVICE_PREFS.paperSize).toBeNull();
+    expect(parseDevicePrefs({}).paperSize).toBeNull();
+  });
+
+  it('reads a stored paper back, and drops one it does not know', () => {
+    expect(parseDevicePrefs({ paperSize: 'letter' }).paperSize).toBe('letter');
+    expect(parseDevicePrefs({ paperSize: 'A3' }).paperSize).toBeNull();
+  });
+
+  it('is written back when it changes', async () => {
+    const { items, storage } = memory();
+    const store = createDevicePrefsStore();
+    const binding = bindDevicePrefs(store, storage);
+    await binding.ready;
+
+    store.getState().setPaperSize('legal');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(JSON.parse(items.get(PREFS_KEY) ?? '{}').paperSize).toBe('legal');
+    binding.unbind();
+  });
+});
