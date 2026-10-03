@@ -15,7 +15,6 @@ import {
 import { formatDuration, secondsForBars } from './score-duration';
 import {
   DEFAULT_GENERATION_VARIANT,
-  canCreateNewProject,
   canRemoveNewProjectEntry,
   initialNewProjectDraft,
   isNewProjectEntryLocked,
@@ -410,48 +409,6 @@ describe('what the form shows', () => {
     expect(
       newProjectCreditEstimate(run([{ type: 'setBars', text: 'x' }]))
     ).toBe(0);
-  });
-});
-
-describe('canCreateNewProject', () => {
-  const ready = { submitting: false, outOfCredits: false };
-
-  it('a blank project needs only a usable length, roster and tempo', () => {
-    expect(canCreateNewProject(initialNewProjectDraft(), ready)).toBe(true);
-    expect(
-      canCreateNewProject(run([{ type: 'setBars', text: '0' }]), ready)
-    ).toBe(false);
-    expect(
-      canCreateNewProject(run([{ type: 'setTempo', text: '-1' }]), ready)
-    ).toBe(false);
-  });
-
-  it('a blank project is never gated on credits', () => {
-    expect(
-      canCreateNewProject(initialNewProjectDraft(), {
-        submitting: false,
-        outOfCredits: true,
-      })
-    ).toBe(true);
-  });
-
-  it('generation needs a prompt and credits', () => {
-    const on = run([{ type: 'setGenerating', generating: true }]);
-    expect(canCreateNewProject(on, ready)).toBe(false);
-    const prompted = run([{ type: 'setPrompt', prompt: 'a song' }], on);
-    expect(canCreateNewProject(prompted, ready)).toBe(true);
-    expect(
-      canCreateNewProject(prompted, { submitting: false, outOfCredits: true })
-    ).toBe(false);
-  });
-
-  it('nothing is created twice while submitting', () => {
-    expect(
-      canCreateNewProject(initialNewProjectDraft(), {
-        submitting: true,
-        outOfCredits: false,
-      })
-    ).toBe(false);
   });
 });
 

@@ -48,8 +48,6 @@ import {
   DEFAULT_GENERATE_SCORE_MEASURES,
   buildGenerateScoreRequest,
   buildNewProjectScore,
-  canBuildGenerateScoreRequest,
-  canBuildNewProjectScore,
   estimateGenerateScoreCredits,
   hasVocalInstrument,
   styleKey,
@@ -538,25 +536,6 @@ export function newProjectCreditEstimate(draft: NewProjectFormDraft): number {
     Number(draft.measuresText),
     draft.ensemble.length
   );
-}
-
-/**
- * Whether Create is offered.
- *
- * One rule per mode, both from the builders, so the form cannot offer a Create
- * the builder then refuses. `outOfCredits` (see `isOutOfCredits`) gates
- * generation only — a blank project costs nothing, and refusing one would
- * refuse work the server never charges for.
- */
-export function canCreateNewProject(
-  draft: NewProjectFormDraft,
-  state: { submitting: boolean; outOfCredits: boolean }
-): boolean {
-  if (state.submitting) return false;
-  const request = newProjectRequestDraft(draft);
-  return draft.generating
-    ? !state.outOfCredits && canBuildGenerateScoreRequest(request)
-    : canBuildNewProjectScore(request);
 }
 
 /**

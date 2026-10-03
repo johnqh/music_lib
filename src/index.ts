@@ -47,6 +47,7 @@ export * from './services/generation/request';
 export * from './services/generation/score-duration';
 export * from './services/generation/credits';
 export * from './services/generation/new-project-draft';
+export * from './services/generation/new-project-credits';
 export * from './services/generation/labelled-options';
 export * from './services/generation/replace-draft';
 export * from './services/generation/generation-locks';
