@@ -48,6 +48,17 @@ describe('the track info pref', () => {
     expect(DEVICE_PREF_KEYS).toContain('trackInfo');
   });
 
+  it('remembers the generation provider in device preferences', () => {
+    expect(DEFAULT_DEVICE_PREFS.generationVariant).toBe('deepseek');
+    expect(
+      parseDevicePrefs({ generationVariant: 'claude' }).generationVariant
+    ).toBe('claude');
+    expect(
+      parseDevicePrefs({ generationVariant: 'unknown' }).generationVariant
+    ).toBe('deepseek');
+    expect(DEVICE_PREF_KEYS).toContain('generationVariant');
+  });
+
   it('is loaded into the store and written back when it changes', async () => {
     const { items, storage } = memory({
       [PREFS_KEY]: JSON.stringify({ trackInfo: 'icon' }),
@@ -58,10 +69,20 @@ describe('the track info pref', () => {
     expect(store.getState().trackInfo).toBe('icon');
 
     store.getState().setTrackInfo('hidden');
+    store.getState().setGenerationVariant('claude');
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(JSON.parse(items.get(PREFS_KEY) ?? '{}').trackInfo).toBe('hidden');
+    expect(JSON.parse(items.get(PREFS_KEY) ?? '{}').generationVariant).toBe(
+      'claude'
+    );
     binding.unbind();
+
+    const restoredStore = createDevicePrefsStore();
+    const restoredBinding = bindDevicePrefs(restoredStore, storage);
+    await restoredBinding.ready;
+    expect(restoredStore.getState().generationVariant).toBe('claude');
+    restoredBinding.unbind();
   });
 });
 

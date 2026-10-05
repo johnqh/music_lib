@@ -59,3 +59,5 @@ export * from './services/documents/unsaved-guard';
 export * from './services/docs/docs-content';
 export * from './services/docs/resource-links';
 export * from './services/playback/unplugged';
+
+export * from './services/generation/use-generation-providers';

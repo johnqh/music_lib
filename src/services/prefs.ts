@@ -25,6 +25,7 @@ import { createStore } from 'zustand/vanilla';
 import { immer } from 'zustand/middleware/immer';
 import {
   FONT_SIZES,
+  GENERATION_VARIANTS,
   PAPER_SIZES,
   THEME_MODES,
   TRACK_INFO_MODES,
@@ -68,6 +69,7 @@ export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
   trackInfo: 'full',
   fontSize: 'medium',
   language: null,
+  generationVariant: 'deepseek',
   paperSize: null,
 };
 
@@ -85,6 +87,7 @@ const PREF_FIELDS: Record<keyof DevicePrefs, true> = {
   trackInfo: true,
   fontSize: true,
   language: true,
+  generationVariant: true,
   paperSize: true,
 };
 export const DEVICE_PREF_KEYS = Object.keys(PREF_FIELDS) as ReadonlyArray<
@@ -142,6 +145,9 @@ export function parseDevicePrefs(raw: unknown): DevicePrefs {
       typeof record.language === 'string' && LANGUAGE_TAG.test(record.language)
         ? record.language
         : d.language,
+    generationVariant: oneOf(GENERATION_VARIANTS, record.generationVariant)
+      ? record.generationVariant
+      : d.generationVariant,
     paperSize: oneOf(PAPER_SIZES, record.paperSize)
       ? record.paperSize
       : d.paperSize,
@@ -204,18 +210,13 @@ export async function savePrefs(
 }
 
 /**
- * The developer switches' defaults. Not a persisted pref — developer mode is,
- * and these are what it reveals — but device state in the same sense: nothing
- * about a score, so nothing an edit reads.
- *
- * **Deliberately not in `DEVICE_PREF_KEYS`**, so nothing here is ever written to
- * storage. That is what makes removing a setting free: the six overlay toggles
- * that lived here and were read by nothing left no stored keys behind, and a
- * stored object that somehow carries one is ignored by `parseDevicePrefs`,
- * which builds its answer field by field.
+ * In-memory developer settings. The generation variant is mirrored for
+ * existing diagnostics; its canonical value lives in `DevicePrefs` and is
+ * persisted by `bindDevicePrefs`. This object itself stays out of the stored
+ * shape.
  */
 export const DEFAULT_DEV_SETTINGS: DevSettings = {
-  generationVariant: 'default',
+  generationVariant: DEFAULT_DEVICE_PREFS.generationVariant,
 };
 
 /** The setters for every pref editing does not hold. */
@@ -228,6 +229,7 @@ export type DevicePrefsActions = {
   setTrackInfo: (mode: TrackInfoMode) => void;
   setFontSize: (size: FontSize) => void;
   setLanguage: (language: string | null) => void;
+  setGenerationVariant: (variant: string) => void;
   setPaperSize: (paper: PaperSize | null) => void;
 };
 
@@ -256,6 +258,7 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     trackInfo: DEFAULT_DEVICE_PREFS.trackInfo,
     fontSize: DEFAULT_DEVICE_PREFS.fontSize,
     language: DEFAULT_DEVICE_PREFS.language,
+    generationVariant: DEFAULT_DEVICE_PREFS.generationVariant,
     paperSize: DEFAULT_DEVICE_PREFS.paperSize,
     setThemeMode: mode =>
       set(state => {
@@ -268,6 +271,8 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     setDevSettings: patch =>
       set(state => {
         Object.assign(state.devSettings, patch);
+        if (patch.generationVariant !== undefined)
+          state.generationVariant = patch.generationVariant;
       }),
     setKeyboardCollapsed: collapsed =>
       set(state => {
@@ -284,6 +289,11 @@ export function createDevicePrefsSlice<T extends DevicePrefsSlice>(
     setLanguage: language =>
       set(state => {
         state.language = language;
+      }),
+    setGenerationVariant: variant =>
+      set(state => {
+        state.generationVariant = variant;
+        state.devSettings.generationVariant = variant;
       }),
     setPaperSize: paper =>
       set(state => {
@@ -363,6 +373,11 @@ export function bindDevicePrefs<T extends DevicePrefs>(
     if (unbound) return;
     store.setState(draft => {
       Object.assign(draft, prefs);
+      const stateWithDevSettings = draft as T & { devSettings?: DevSettings };
+      if (stateWithDevSettings.devSettings) {
+        stateWithDevSettings.devSettings.generationVariant =
+          prefs.generationVariant;
+      }
     });
     unsubscribe = store.subscribe((state, previous) => {
       if (DEVICE_PREF_KEYS.every(key => state[key] === previous[key])) return;
